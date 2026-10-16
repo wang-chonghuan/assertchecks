@@ -10,7 +10,7 @@ const config = defineConfig({
   // The pre-rendered Ant stylesheet contains a rule lightningcss rejects; esbuild minifies it as browsers parse it.
   build: { cssMinify: 'esbuild' },
   plugins: [
-    nitro(),
+    nitro({ compressPublicAssets: { gzip: true, brotli: true } }),
 
     tanstackStart(),
     viteReact(),
