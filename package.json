@@ -1,0 +1,43 @@
+{
+  "name": "assertchecks",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "antd-css": "tsx scripts/gen-antd-css.tsx",
+    "dev": "pnpm antd-css && node --env-file-if-exists=.env node_modules/vite/bin/vite.js dev --port 3000",
+    "build": "NODE_ENV=production pnpm antd-css && vite build",
+    "start": "node .output/server/index.mjs",
+    "generate-routes": "tsr generate",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
+    "admin": "tsx --env-file-if-exists=.env scripts/admin.ts"
+  },
+  "dependencies": {
+    "@ant-design/cssinjs": "2.1.2",
+    "@ant-design/icons": "6.3.4",
+    "@tanstack/react-router": "1.170.44",
+    "@tanstack/react-start": "1.169.2",
+    "antd": "6.6.6",
+    "nitro": "3.0.260610-beta",
+    "postgres": "3.4.9",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@ant-design/cli": "6.6.6",
+    "@ant-design/static-style-extract": "2.1.0",
+    "@tanstack/router-cli": "^1.132.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "tsx": "4.23.15",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.0"
+  },
+  "packageManager": "pnpm@11.21.0"
+}

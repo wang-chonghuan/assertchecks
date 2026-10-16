@@ -147,3 +147,18 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# TanStack Start / Nitro
+.DS_Store
+dist
+dist-ssr
+*.local
+.env
+.env.*
+.nitro
+.tanstack
+.output
+.vinxi
+artifacts/
+
+src/generated/
