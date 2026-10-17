@@ -1,11 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Breadcrumb, Card, Descriptions, Empty, Flex, Table, Tooltip, Typography } from 'antd'
+import { Alert, Breadcrumb, Card, Descriptions, Empty, Flex, Table, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
+import { ExportOutlined } from '@ant-design/icons'
 import {
-  Cell, CheckStatusTag, OutcomeTag, Sha, caseTone, duration, outcomeTone, utc,
+  ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, Sha, ThenTag, duration, utc,
 } from '../../../../../../components/status'
 import { getCheck } from '../../../../../../server/fns'
-import type { MatrixRun, RunRow } from '../../../../../../lib/types'
+import type { CaseResult } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
@@ -15,53 +16,31 @@ export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
 })
 
 function CheckPage() {
-  const { project, check, runs, matrix } = Route.useLoaderData()
+  const { project, check, latest } = Route.useLoaderData()
+  const { token } = theme.useToken()
 
-  const runColumns: TableColumnsType<RunRow> = [
-    {
-      title: 'Run',
-      dataIndex: 'id',
-      render: (id: string) => <Link to="/p/$project/runs/$run" params={{ project: project.slug, run: id }}>#{id}</Link>,
-    },
-    { title: 'Outcome', key: 'outcome', render: (_, run) => <OutcomeTag run={run} /> },
-    { title: 'Started', dataIndex: 'startedAt', render: utc },
-    { title: 'Test SHA', dataIndex: 'testSha', render: (sha: string | null) => <Sha value={sha} /> },
-    {
-      title: 'Reason',
-      dataIndex: 'reason',
-      render: (reason: string | null) => reason ? <Typography.Text ellipsis={{ tooltip: reason }}>{reason}</Typography.Text> : '—',
-      width: '40%',
-    },
-  ]
-
-  const matrixColumns: TableColumnsType<{ id: string; title: string }> = [
+  const columns: TableColumnsType<CaseResult> = [
     {
       title: 'Case',
-      dataIndex: 'id',
-      fixed: 'left',
+      dataIndex: 'case',
       render: (id: string, item) => (
-        <Tooltip title={item.title}>
+        <Flex vertical>
           <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: id }}>
             {id}
           </Link>
-        </Tooltip>
+          <Typography.Text type="secondary">{item.title.replace(/^[A-Z0-9-]+:\s*/, '')}</Typography.Text>
+        </Flex>
       ),
     },
-    ...matrix.runs.map((run: MatrixRun) => ({
-      title: (
-        <Tooltip title={`Run ${run.id} · ${run.outcome} · ${utc(run.startedAt)}`}>
-          <Link to="/p/$project/runs/$run" params={{ project: project.slug, run: run.id }}>
-            <Cell tone={outcomeTone({ outcome: run.outcome, timedOut: false })} label={`Run ${run.id} ${run.outcome}`} />
-          </Link>
-        </Tooltip>
+    { title: 'Status', dataIndex: 'status', render: (status: CaseResult['status']) => <CaseStatusTag status={status} /> },
+    {
+      title: 'Then',
+      dataIndex: 'thens',
+      render: (thens: CaseResult['thens']) => (
+        <Flex gap="small" wrap>{thens.map((then) => <ThenTag key={then.id} id={then.id} status={then.status} />)}</Flex>
       ),
-      key: run.id,
-      align: 'center' as const,
-      render: (_: unknown, item: { id: string }) => {
-        const status = run.cases[item.id]
-        return <Cell tone={caseTone(status)} label={`${item.id} in run ${run.id}: ${status ?? 'not in run'}`} />
-      },
-    })),
+    },
+    { title: 'Duration', dataIndex: 'ms', render: (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1)}s`) },
   ]
 
   return (
@@ -73,40 +52,74 @@ function CheckPage() {
         ]}
       />
       <Card title={check.name} extra={<CheckStatusTag status={check.status} />}>
+        <ActiveRunNotice active={check.active} />
+        {latest?.reason && (
+          <Alert
+            type={latest.outcome === 'failed' ? 'error' : 'warning'}
+            showIcon
+            title={latest.reason}
+            style={{ marginBottom: token.margin }}
+          />
+        )}
         <Descriptions
           size="small"
-          column={{ xs: 1, sm: 1, md: 2, lg: 4, xl: 4, xxl: 4 }}
+          column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
           items={[
             { key: 'env', label: 'Environment', children: check.environment },
-            { key: 'schedule', label: 'Schedule', children: `every ${duration(check.periodSeconds)}` },
-            { key: 'grace', label: 'Grace', children: duration(check.graceSeconds) },
+            {
+              key: 'schedule',
+              label: 'Schedule',
+              children: `every ${duration(check.periodSeconds)}, grace ${duration(check.graceSeconds)}`,
+            },
             { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
+            ...(latest
+              ? [
+                  { key: 'outcome', label: 'Latest run', children: <OutcomeTag run={latest} /> },
+                  { key: 'started', label: 'Started', children: utc(latest.startedAt) },
+                  { key: 'finished', label: 'Finished', children: utc(latest.finishedAt) },
+                  { key: 'exit', label: 'Exit code', children: latest.exitCode ?? '—' },
+                  { key: 'test', label: 'Test SHA', children: <Sha value={latest.testSha} /> },
+                  {
+                    key: 'runner',
+                    label: 'Runner',
+                    children: latest.runUrl ? (
+                      <Typography.Link href={latest.runUrl} target="_blank" rel="noreferrer">
+                        {latest.runnerKind ?? 'Open run'} <ExportOutlined />
+                      </Typography.Link>
+                    ) : (latest.runnerKind ?? '—'),
+                  },
+                  { key: 'webStart', label: 'Web SHA at start', children: <Sha value={latest.deployedStart?.web} /> },
+                  { key: 'webEnd', label: 'Web SHA at end', children: <Sha value={latest.deployedEnd?.web} /> },
+                  { key: 'apiStart', label: 'API SHA at start', children: <Sha value={latest.deployedStart?.api} /> },
+                  { key: 'apiEnd', label: 'API SHA at end', children: <Sha value={latest.deployedEnd?.api} /> },
+                ]
+              : []),
           ]}
         />
       </Card>
-      <Card title={`Cases × last ${matrix.runs.length} finished runs`}>
-        {matrix.cases.length === 0 ? (
-          <Empty description="No case results yet." />
+      <Card title="Cases in the latest run">
+        {!latest ? (
+          <Empty description="No finished runs yet." />
+        ) : latest.summary === null ? (
+          <Empty description="No case results were stored for this run." />
         ) : (
           <Table
-            rowKey="id"
+            rowKey="case"
             size="small"
             pagination={false}
             scroll={{ x: 'max-content' }}
-            columns={matrixColumns}
-            dataSource={matrix.cases}
+            columns={columns}
+            dataSource={latest.summary}
+            expandable={{
+              rowExpandable: (item) => Boolean(item.error),
+              expandedRowRender: (item) => (
+                <Typography.Paragraph>
+                  <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{item.error}</pre>
+                </Typography.Paragraph>
+              ),
+            }}
           />
         )}
-      </Card>
-      <Card title="Run history">
-        <Table
-          rowKey="id"
-          size="small"
-          scroll={{ x: 'max-content' }}
-          columns={runColumns}
-          dataSource={runs}
-          locale={{ emptyText: <Empty description="No runs yet." /> }}
-        />
       </Card>
     </Flex>
   )

@@ -29,8 +29,9 @@ export interface CheckCard {
   graceSeconds: number
   status: CheckStatus
   nextExpectedAt: string | null
-  lastRun: RunRow | null
-  recent: RunRow[]
+  // The latest finished run, and a newer run that has started but not reported.
+  latest: RunRow | null
+  active: RunRow | null
 }
 
 export interface Overview {
@@ -38,35 +39,23 @@ export interface Overview {
   checks: CheckCard[]
 }
 
-export interface MatrixRun {
-  id: string
-  startedAt: string
-  outcome: Outcome
-  cases: Record<string, CaseResult['status']>
-}
-
-export interface CheckDetail {
-  project: { slug: string; name: string }
-  check: CheckCard
-  runs: RunRow[]
-  matrix: { cases: { id: string; title: string }[]; runs: MatrixRun[] }
-}
-
 export interface Deployed {
   web: string | null
   api: string | null
 }
 
-export interface RunDetail {
+export interface LatestRun extends RunRow {
+  runnerKind: string | null
+  runUrl: string | null
+  deployedStart: Deployed | null
+  deployedEnd: Deployed | null
+  summary: CaseResult[] | null
+}
+
+export interface CheckDetail {
   project: { slug: string; name: string }
-  check: { slug: string; name: string; environment: string }
-  run: RunRow & {
-    runnerKind: string | null
-    runUrl: string | null
-    deployedStart: Deployed | null
-    deployedEnd: Deployed | null
-    summary: CaseResult[] | null
-  }
+  check: CheckCard
+  latest: LatestRun | null
 }
 
 export interface CaseSpec {
@@ -83,7 +72,7 @@ export interface CaseSpec {
 export interface CaseDetail {
   project: { slug: string; name: string }
   check: { slug: string; name: string }
-  spec: CaseSpec | null
-  catalogRunId: string | null
-  history: { run: RunRow; result: CaseResult | null }[]
+  spec: CaseSpec
+  run: RunRow
+  result: CaseResult | null
 }

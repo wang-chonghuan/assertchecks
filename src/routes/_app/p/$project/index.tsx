@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Card, Col, Descriptions, Empty, Flex, Row, Typography, theme } from 'antd'
-import { CheckStatusTag, OutcomeTag, RunStrip, duration, utc } from '../../../../components/status'
+import { ActiveRunNotice, CheckStatusTag, OutcomeTag, duration, utc } from '../../../../components/status'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -31,6 +31,7 @@ function OverviewPage() {
                 }
                 extra={<CheckStatusTag status={check.status} />}
               >
+                <ActiveRunNotice active={check.active} />
                 <Descriptions
                   column={1}
                   size="small"
@@ -38,16 +39,14 @@ function OverviewPage() {
                     { key: 'env', label: 'Environment', children: check.environment },
                     {
                       key: 'last',
-                      label: 'Last run',
-                      children: check.lastRun ? (
+                      label: 'Latest run',
+                      children: check.latest ? (
                         <Flex gap="small" align="center" wrap>
-                          <OutcomeTag run={check.lastRun} />
-                          <Link to="/p/$project/runs/$run" params={{ project: project.slug, run: check.lastRun.id }}>
-                            {utc(check.lastRun.startedAt)}
-                          </Link>
+                          <OutcomeTag run={check.latest} />
+                          <Typography.Text>{utc(check.latest.startedAt)}</Typography.Text>
                         </Flex>
                       ) : (
-                        <Typography.Text type="secondary">No runs yet</Typography.Text>
+                        <Typography.Text type="secondary">No finished runs yet</Typography.Text>
                       ),
                     },
                     { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
@@ -55,11 +54,6 @@ function OverviewPage() {
                       key: 'schedule',
                       label: 'Schedule',
                       children: `every ${duration(check.periodSeconds)}, grace ${duration(check.graceSeconds)}`,
-                    },
-                    {
-                      key: 'recent',
-                      label: `Last ${check.recent.length} runs`,
-                      children: <RunStrip project={project.slug} runs={check.recent} />,
                     },
                   ]}
                 />
