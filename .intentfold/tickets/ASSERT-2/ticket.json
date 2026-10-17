@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-2",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-merge",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-2",
+  "branch": "ASSERT-2-generic-client",
+  "base": "48be2561794c15bef996a5b7354ae5ed25617762",
+  "ports": {
+    "web": 63002
+  }
+}

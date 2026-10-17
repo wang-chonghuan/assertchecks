@@ -10,8 +10,12 @@ const USAGE = `usage: pnpm admin <command>
   project:add <slug> <name>             create a project
   member:add <email> <project-slug>     grant a user access to a project
   member:remove <email> <project-slug>  revoke a user's access to a project
-  check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds> --grace <seconds>
-  check:update <project-slug> <check-slug> [--name] [--env] [--period] [--grace]
+  check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds>
+            [--select-status active] [--select-run nightly]
+  check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace]
+               [--select-status <a,b>] [--select-run <a,b>]
+  A check without a period is run on demand and is never late. A full run must execute every catalog
+  case whose status and run are in the selection (default: status active, run nightly).
   check:token <project-slug> <check-slug>  replace a check's ping token
   list                                  show users, projects, memberships and checks`
 
@@ -22,6 +26,9 @@ const { positionals, values } = parseArgs({
     env: { type: 'string' },
     period: { type: 'string' },
     grace: { type: 'string' },
+    slug: { type: 'string' },
+    'select-status': { type: 'string' },
+    'select-run': { type: 'string' },
   },
 })
 const [command, ...args] = positionals
@@ -37,6 +44,22 @@ function seconds(value: string | undefined, field: string): number | null {
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed < 0) throw new Error(`--${field} must be a non-negative integer`)
   return parsed
+}
+
+// --period none clears the period; undefined leaves it unchanged.
+function period(value: string | undefined): number | null | undefined {
+  if (value === undefined) return undefined
+  if (value === 'none') return null
+  const parsed = seconds(value, 'period')
+  if (!parsed) throw new Error('--period must be a positive number of seconds or none')
+  return parsed
+}
+
+function list(value: string | undefined): string[] | undefined {
+  if (value === undefined) return undefined
+  const items = value.split(',').map((item) => item.trim()).filter(Boolean)
+  if (!items.length) throw new Error('selection lists cannot be empty')
+  return items
 }
 
 async function one<T>(rows: Promise<T[]>, missing: string): Promise<T> {
@@ -90,13 +113,17 @@ async function main(): Promise<void> {
     }
     case 'check:add': {
       const [project, slug] = need(2)
-      const period = seconds(values.period, 'period')
+      const periodSeconds = period(values.period)
       const grace = seconds(values.grace, 'grace')
-      if (!values.name || !values.env || !period || grace === null) throw new Error(USAGE)
+      if (!values.name || !values.env || periodSeconds === undefined || grace === null) throw new Error(USAGE)
+      const selection = {
+        status: list(values['select-status']) ?? ['active'],
+        run: list(values['select-run']) ?? ['nightly'],
+      }
       const token = randomToken()
       await one(db`
-        INSERT INTO checks (project_id, slug, name, environment, period_seconds, grace_seconds, ping_token_hash)
-        SELECT id, ${slug}, ${values.name}, ${values.env}, ${period}, ${grace}, ${hashToken(token)}
+        INSERT INTO checks (project_id, slug, name, environment, period_seconds, grace_seconds, selection, ping_token_hash)
+        SELECT id, ${slug}, ${values.name}, ${values.env}, ${periodSeconds}, ${grace}, ${db.json(selection)}, ${hashToken(token)}
         FROM projects WHERE slug = ${project}
         RETURNING id
       `, 'unknown project')
@@ -105,19 +132,24 @@ async function main(): Promise<void> {
     }
     case 'check:update': {
       const [project, slug] = need(2)
-      const period = seconds(values.period, 'period')
+      const periodSeconds = period(values.period)
       const grace = seconds(values.grace, 'grace')
-      if (period === 0) throw new Error('--period must be positive')
+      const status = list(values['select-status'])
+      const run = list(values['select-run'])
       await one(db`
         UPDATE checks c SET
+          slug = coalesce(${values.slug ?? null}, c.slug),
           name = coalesce(${values.name ?? null}, c.name),
           environment = coalesce(${values.env ?? null}, c.environment),
-          period_seconds = coalesce(${period}, c.period_seconds),
-          grace_seconds = coalesce(${grace}, c.grace_seconds)
+          period_seconds = ${periodSeconds === undefined ? db`c.period_seconds` : periodSeconds},
+          grace_seconds = coalesce(${grace}, c.grace_seconds),
+          selection = jsonb_build_object(
+            'status', coalesce(${status ? db.json(status) : null}::jsonb, c.selection -> 'status'),
+            'run', coalesce(${run ? db.json(run) : null}::jsonb, c.selection -> 'run'))
         FROM projects p WHERE c.project_id = p.id AND p.slug = ${project} AND c.slug = ${slug}
         RETURNING c.id
       `, 'unknown check')
-      console.log(`updated check ${project}/${slug}`)
+      console.log(`updated check ${project}/${values.slug ?? slug}`)
       return
     }
     case 'check:token': {
@@ -140,7 +172,7 @@ async function main(): Promise<void> {
         JOIN users u ON u.id = m.user_id JOIN projects p ON p.id = m.project_id ORDER BY 1, 2
       `)
       console.table(await db`
-        SELECT p.slug AS project, c.slug, c.name, c.environment, c.period_seconds, c.grace_seconds
+        SELECT p.slug AS project, c.slug, c.name, c.environment, c.period_seconds, c.grace_seconds, c.selection::text
         FROM checks c JOIN projects p ON p.id = c.project_id ORDER BY 1, 2
       `)
       return

@@ -1,8 +1,10 @@
-// Pure parsing and judgement of an IntentGuard run. No I/O, so it is testable with real reports.
+// Pure parsing and judgement of a run. No I/O, so it is testable with real reports.
+// Every accepted result format is parsed into the same per-case shape and judged by one set of rules.
 
 export type Outcome = 'running' | 'passed' | 'failed' | 'incomplete'
 export type ThenStatus = 'passed' | 'failed' | 'not_run'
 export type CaseStatus = 'passed' | 'failed' | 'skipped' | 'flaky' | 'missing'
+export type Trigger = 'schedule' | 'manual'
 
 export interface ThenResult {
   id: string
@@ -18,10 +20,16 @@ export interface CaseResult {
   error: string | null
 }
 
-export interface Deployed {
-  web: string | null
-  api: string | null
+// Tested component name → deployed SHA, for example { web, api }.
+export type Versions = Record<string, string | null>
+
+// Catalog filter a full run must cover.
+export interface Selection {
+  status: string[]
+  run: string[]
 }
+
+export const DEFAULT_SELECTION: Selection = { status: ['active'], run: ['nightly'] }
 
 export interface Judgement {
   outcome: Exclude<Outcome, 'running'>
@@ -37,37 +45,21 @@ interface CatalogCase {
   then: { id: string }[]
 }
 
-interface PwStep {
+// One case as reported by the runner, before it is compared with the catalog.
+interface ReportedCase {
   title: string
-  error?: unknown
-  steps?: PwStep[]
+  status: Exclude<CaseStatus, 'missing'>
+  ms: number | null
+  thens: Map<string, 'passed' | 'failed'>
+  error: string | null
 }
 
-interface PwResult {
-  status: string
-  duration: number
-  error?: { message?: string }
-  errors?: { message?: string }[]
-  steps?: PwStep[]
+interface ParsedResult {
+  cases: Map<string, ReportedCase>
+  runErrors: number
 }
 
-interface PwTest {
-  status: string
-  results: PwResult[]
-}
-
-interface PwSpec {
-  title: string
-  tests: PwTest[]
-}
-
-interface PwSuite {
-  specs?: PwSpec[]
-  suites?: PwSuite[]
-}
-
-const CASE_TITLE = /^([A-Z0-9]+(?:-[A-Z0-9]+)*):/
-const THEN_TITLE = /^Then ([A-Za-z0-9]+):/
+const CASE_ID = /^[A-Z0-9]+(?:-[A-Z0-9]+)*$/
 const SENSITIVE = [/\bAuthorization\b/, /Bearer\s/, /eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}/]
 const ERROR_LIMIT = 600
 
@@ -75,75 +67,157 @@ export function containsSensitive(text: string): boolean {
   return SENSITIVE.some((pattern) => pattern.test(text))
 }
 
-export function expectedCases(catalog: unknown): CatalogCase[] {
-  const cases = (catalog as { cases?: unknown })?.cases
-  if (!Array.isArray(cases)) throw new Error('catalog has no cases array')
-  return (cases as CatalogCase[]).filter((item) => item.status === 'active' && item.run === 'nightly')
-}
-
-function cleanError(message: string | undefined): string | null {
-  if (!message) return null
-  // Strip ANSI colour codes emitted by Playwright.
+function cleanError(message: unknown): string | null {
+  if (typeof message !== 'string' || !message) return null
+  // Strip ANSI colour codes emitted by test runners.
   const text = message.replace(/\u001b\[[0-9;]*m/g, '').trim()
   return text.length > ERROR_LIMIT ? `${text.slice(0, ERROR_LIMIT)}…` : text
 }
 
-function collectThens(steps: PwStep[] | undefined, found: Map<string, ThenStatus>): void {
+// ---- format: playwright (Playwright's native JSON report, uploaded unchanged) ----
+
+interface PwStep { title: string; error?: unknown; steps?: PwStep[] }
+interface PwResult {
+  status: string
+  duration: number
+  error?: { message?: string }
+  errors?: { message?: string }[]
+  steps?: PwStep[]
+}
+interface PwSpec { title: string; tests: { status: string; results: PwResult[] }[] }
+interface PwSuite { specs?: PwSpec[]; suites?: PwSuite[] }
+
+const PW_CASE_TITLE = /^([A-Z0-9]+(?:-[A-Z0-9]+)*):/
+const PW_THEN_TITLE = /^Then ([A-Za-z0-9]+):/
+
+function collectThens(steps: PwStep[] | undefined, found: Map<string, 'passed' | 'failed'>): void {
   for (const step of steps ?? []) {
-    const match = THEN_TITLE.exec(step.title)
+    const match = PW_THEN_TITLE.exec(step.title)
     if (match) found.set(match[1], step.error ? 'failed' : 'passed')
     collectThens(step.steps, found)
   }
 }
 
-interface ParsedCase {
-  title: string
-  testStatus: string
-  result: PwResult | undefined
-  thens: Map<string, ThenStatus>
+function pwStatus(status: string): ReportedCase['status'] {
+  if (status === 'expected') return 'passed'
+  if (status === 'skipped') return 'skipped'
+  if (status === 'flaky') return 'flaky'
+  return 'failed'
 }
 
-function parseReport(report: unknown): Map<string, ParsedCase> {
+function parsePlaywright(report: unknown): ParsedResult {
   const suites = (report as { suites?: unknown })?.suites
-  if (!Array.isArray(suites)) throw new Error('report has no suites array')
-  const parsed = new Map<string, ParsedCase>()
+  if (!Array.isArray(suites)) throw new Error('playwright report has no suites array')
+  const cases = new Map<string, ReportedCase>()
   const walk = (suite: PwSuite) => {
     for (const spec of suite.specs ?? []) {
       for (const test of spec.tests ?? []) {
-        const match = CASE_TITLE.exec(spec.title)
+        const match = PW_CASE_TITLE.exec(spec.title)
         if (!match) throw new Error(`test title without case ID: ${spec.title}`)
-        if (parsed.has(match[1])) throw new Error(`case ${match[1]} appears more than once`)
+        if (cases.has(match[1])) throw new Error(`case ${match[1]} appears more than once`)
         const result = test.results.at(-1)
-        const thens = new Map<string, ThenStatus>()
+        const thens = new Map<string, 'passed' | 'failed'>()
         collectThens(result?.steps, thens)
-        parsed.set(match[1], { title: spec.title, testStatus: test.status, result, thens })
+        cases.set(match[1], {
+          title: spec.title.slice(match[0].length).trim(),
+          status: pwStatus(test.status),
+          ms: result ? Math.round(result.duration) : null,
+          thens,
+          error: cleanError(result?.error?.message ?? result?.errors?.[0]?.message),
+        })
       }
     }
     for (const child of suite.suites ?? []) walk(child)
   }
   for (const suite of suites as PwSuite[]) walk(suite)
-  return parsed
+  const errors = (report as { errors?: unknown }).errors
+  return { cases, runErrors: Array.isArray(errors) ? errors.length : 0 }
 }
 
-function caseStatus(item: ParsedCase): CaseStatus {
-  if (item.testStatus === 'skipped') return 'skipped'
-  if (item.testStatus === 'flaky') return 'flaky'
-  if (item.testStatus === 'expected') return 'passed'
-  return 'failed'
+// ---- format: cases (written directly by producers that are not test runners) ----
+
+const CASE_STATUSES = ['passed', 'failed', 'skipped', 'flaky']
+
+function parseCases(value: unknown, errors: unknown): ParsedResult {
+  if (!Array.isArray(value)) throw new Error('cases must be an array')
+  const cases = new Map<string, ReportedCase>()
+  for (const item of value as Record<string, unknown>[]) {
+    const id = item?.id
+    if (typeof id !== 'string' || !CASE_ID.test(id)) throw new Error('every case needs an ID such as E2E-001')
+    if (cases.has(id)) throw new Error(`case ${id} appears more than once`)
+    if (!CASE_STATUSES.includes(item.status as string)) throw new Error(`case ${id} has an invalid status`)
+    if (!Array.isArray(item.thens)) throw new Error(`case ${id} needs a thens array`)
+    const thens = new Map<string, 'passed' | 'failed'>()
+    for (const then of item.thens as Record<string, unknown>[]) {
+      if (typeof then?.id !== 'string' || !['passed', 'failed'].includes(then.status as string)) {
+        throw new Error(`case ${id} has an invalid Then`)
+      }
+      thens.set(then.id, then.status as 'passed' | 'failed')
+    }
+    cases.set(id, {
+      title: typeof item.title === 'string' ? item.title : '',
+      status: item.status as ReportedCase['status'],
+      ms: typeof item.ms === 'number' ? Math.round(item.ms) : null,
+      thens,
+      error: cleanError(item.error),
+    })
+  }
+  return { cases, runErrors: Array.isArray(errors) ? errors.length : 0 }
+}
+
+export function parseResult(result: unknown): ParsedResult {
+  const envelope = result as { format?: unknown; report?: unknown; cases?: unknown; errors?: unknown }
+  if (envelope?.format === 'playwright') return parsePlaywright(envelope.report)
+  if (envelope?.format === 'cases') return parseCases(envelope.cases, envelope.errors)
+  throw new Error('result.format must be "playwright" or "cases"')
+}
+
+// ---- judgement ----
+
+function catalogCases(catalog: unknown): CatalogCase[] {
+  const cases = (catalog as { cases?: unknown })?.cases
+  if (!Array.isArray(cases)) throw new Error('catalog has no cases array')
+  return cases as CatalogCase[]
+}
+
+export function expectedCases(catalog: unknown, selection: Selection, named: string[] | null): CatalogCase[] {
+  const all = catalogCases(catalog)
+  if (named) {
+    return named.map((id) => {
+      const found = all.find((item) => item.id === id)
+      if (!found) throw new Error(`named case ${id} is not in the catalog`)
+      return found
+    })
+  }
+  return all.filter((item) => selection.status.includes(item.status) && selection.run.includes(item.run))
+}
+
+function versionsMatch(start: Versions | null, end: Versions | null): string | null {
+  const startKeys = Object.keys(start ?? {}).sort()
+  const endKeys = Object.keys(end ?? {}).sort()
+  const recorded = (versions: Versions | null, keys: string[]) =>
+    keys.length > 0 && keys.every((key) => typeof versions?.[key] === 'string')
+  if (!recorded(start, startKeys) || !recorded(end, endKeys) || startKeys.join() !== endKeys.join()) {
+    return 'deployed versions not recorded at start and end'
+  }
+  if (startKeys.some((key) => start![key] !== end![key])) return 'deployment changed during the run'
+  return null
 }
 
 export function judge(input: {
-  report: unknown
+  result: unknown
   catalog: unknown
   exitCode: number
-  deployedStart: Deployed | null
-  deployedEnd: Deployed | null
+  deployedStart: Versions | null
+  deployedEnd: Versions | null
+  selection: Selection
+  cases: string[] | null
 }): Judgement {
   let expected: CatalogCase[]
-  let parsed: Map<string, ParsedCase>
+  let parsed: ParsedResult
   try {
-    expected = expectedCases(input.catalog)
-    parsed = parseReport(input.report)
+    expected = expectedCases(input.catalog, input.selection, input.cases)
+    parsed = parseResult(input.result)
   } catch (error) {
     return { outcome: 'incomplete', reason: `Unparseable run: ${(error as Error).message}`, summary: [] }
   }
@@ -153,7 +227,7 @@ export function judge(input: {
   const summary: CaseResult[] = []
 
   for (const spec of expected) {
-    const item = parsed.get(spec.id)
+    const item = parsed.cases.get(spec.id)
     if (!item) {
       gaps.push(`${spec.id} missing from report`)
       summary.push({
@@ -166,44 +240,30 @@ export function judge(input: {
       })
       continue
     }
-    const status = caseStatus(item)
     const thens: ThenResult[] = spec.then.map((then) => ({ id: then.id, status: item.thens.get(then.id) ?? 'not_run' }))
     for (const id of item.thens.keys()) {
       if (!spec.then.some((then) => then.id === id)) gaps.push(`${spec.id} reports undeclared Then ${id}`)
     }
-    if (status === 'failed' || thens.some((then) => then.status === 'failed')) {
+    if (item.status === 'failed' || thens.some((then) => then.status === 'failed')) {
       failures.push(`${spec.id} failed`)
-    } else if (status === 'skipped') {
+    } else if (item.status === 'skipped') {
       gaps.push(`${spec.id} skipped`)
-    } else if (status === 'flaky') {
+    } else if (item.status === 'flaky') {
       gaps.push(`${spec.id} flaky`)
     } else if (thens.some((then) => then.status === 'not_run')) {
       gaps.push(`${spec.id} has Then steps that did not run`)
     }
-    const result = item.result
-    summary.push({
-      case: spec.id,
-      title: spec.title,
-      status,
-      ms: result ? Math.round(result.duration) : null,
-      thens,
-      error: cleanError(result?.error?.message ?? result?.errors?.[0]?.message),
-    })
+    summary.push({ case: spec.id, title: spec.title, status: item.status, ms: item.ms, thens, error: item.error })
   }
 
-  for (const id of parsed.keys()) {
-    if (!expected.some((spec) => spec.id === id)) gaps.push(`${id} is not in the active nightly set`)
+  const scope = input.cases ? 'the named cases' : "the check's selection"
+  for (const id of parsed.cases.keys()) {
+    if (!expected.some((spec) => spec.id === id)) gaps.push(`${id} is not in ${scope}`)
   }
-  const globalErrors = (input.report as { errors?: unknown[] }).errors ?? []
-  if (globalErrors.length) gaps.push(`${globalErrors.length} run-level error(s)`)
-  if (expected.length === 0) gaps.push('active nightly set is empty')
-
-  const { deployedStart: start, deployedEnd: end } = input
-  if (!start?.web || !start.api || !end?.web || !end.api) {
-    gaps.push('deployed SHA not recorded at start and end')
-  } else if (start.web !== end.web || start.api !== end.api) {
-    gaps.push('deployment changed during the run')
-  }
+  if (parsed.runErrors) gaps.push(`${parsed.runErrors} run-level error(s)`)
+  if (expected.length === 0) gaps.push(`${scope} is empty`)
+  const versionGap = versionsMatch(input.deployedStart, input.deployedEnd)
+  if (versionGap) gaps.push(versionGap)
 
   if (failures.length) return { outcome: 'failed', reason: [...failures, ...gaps].join('; '), summary }
   if (input.exitCode !== 0) gaps.push(`exit code ${input.exitCode}`)

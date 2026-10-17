@@ -1,6 +1,6 @@
 import { sql } from './db'
 import { hashToken } from './crypto'
-import { containsSensitive, judge, type Deployed } from './judge'
+import { containsSensitive, judge, type Selection, type Trigger, type Versions } from './judge'
 
 export const MAX_BODY_BYTES = 5 * 1024 * 1024
 
@@ -8,22 +8,42 @@ type Reply = { status: number; body: Record<string, unknown> }
 
 const fail = (status: number, error: string): Reply => ({ status, body: { error } })
 
-function optionalString(value: unknown, field: string): string | null {
+function optionalString(value: unknown, field: string, max = 2048): string | null {
   if (value === undefined || value === null) return null
-  if (typeof value !== 'string' || value.length > 2048) throw new Error(`${field} must be a string`)
+  if (typeof value !== 'string' || value.length > max) throw new Error(`${field} must be a string`)
   return value
 }
 
-function deployed(value: unknown, field: string): Deployed | null {
+function versions(value: unknown, field: string): Versions | null {
   if (value === undefined || value === null) return null
-  if (typeof value !== 'object') throw new Error(`${field} must be an object`)
-  const record = value as Record<string, unknown>
-  return { web: optionalString(record.web, `${field}.web`), api: optionalString(record.api, `${field}.api`) }
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error(`${field} must be an object`)
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > 20) throw new Error(`${field} has too many components`)
+  return Object.fromEntries(entries.map(([name, sha]) => {
+    if (!/^[A-Za-z0-9_.-]{1,40}$/.test(name)) throw new Error(`${field} has an invalid component name`)
+    return [name, optionalString(sha, `${field}.${name}`, 200)]
+  }))
 }
 
-async function findCheck(token: string): Promise<{ id: string } | null> {
-  const [check] = await sql()<{ id: string }[]>`
-    SELECT id FROM checks WHERE ping_token_hash = ${hashToken(token)}
+function trigger(value: unknown): Trigger | null {
+  if (value === undefined || value === null) return null
+  if (value !== 'schedule' && value !== 'manual') throw new Error('trigger must be "schedule" or "manual"')
+  return value
+}
+
+function namedCases(value: unknown): string[] | null {
+  if (value === undefined || value === null) return null
+  if (!Array.isArray(value) || value.length === 0 || value.length > 1000 ||
+      value.some((id) => typeof id !== 'string' || !/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/.test(id)) ||
+      new Set(value).size !== value.length) {
+    throw new Error('cases must be a non-empty list of unique case IDs')
+  }
+  return value as string[]
+}
+
+async function findCheck(token: string): Promise<{ id: string; selection: Selection } | null> {
+  const [check] = await sql()<{ id: string; selection: Selection }[]>`
+    SELECT id, selection FROM checks WHERE ping_token_hash = ${hashToken(token)}
   `
   return check ?? null
 }
@@ -45,24 +65,30 @@ function parseJson(text: string): Record<string, unknown> {
 export async function startRun(token: string, text: string): Promise<Reply> {
   const check = await findCheck(token)
   if (!check) return fail(404, 'unknown token')
-  let body: Record<string, unknown>
-  let fields: { testSha: string | null; runnerKind: string | null; runUrl: string | null; start: Deployed | null }
+  let fields: {
+    testSha: string | null; runnerKind: string | null; runUrl: string | null
+    start: Versions | null; trigger: Trigger; cases: string[] | null
+  }
   try {
-    body = parseJson(text)
+    const body = parseJson(text)
     const runner = (body.runner ?? {}) as Record<string, unknown>
     fields = {
       testSha: optionalString(body.testSha, 'testSha'),
       runnerKind: optionalString(runner.kind, 'runner.kind'),
       runUrl: optionalString(runner.runUrl, 'runner.runUrl'),
-      start: deployed(body.deployed, 'deployed'),
+      start: versions(body.deployed, 'deployed'),
+      trigger: trigger(body.trigger) ?? 'manual',
+      cases: namedCases(body.cases),
     }
   } catch (error) {
     return fail(400, (error as Error).message)
   }
-  const [run] = await sql()<{ id: string }[]>`
-    INSERT INTO runs (check_id, started_at, outcome, test_sha, runner_kind, run_url, deployed_start)
-    VALUES (${check.id}, now(), 'running', ${fields.testSha}, ${fields.runnerKind}, ${fields.runUrl},
-            ${fields.start ? sql().json(fields.start as never) : null})
+  const db = sql()
+  const [run] = await db<{ id: string }[]>`
+    INSERT INTO runs (check_id, started_at, outcome, trigger, cases, test_sha, runner_kind, run_url, deployed_start)
+    VALUES (${check.id}, now(), 'running', ${fields.trigger}, ${fields.cases ? db.json(fields.cases) : null},
+            ${fields.testSha}, ${fields.runnerKind}, ${fields.runUrl},
+            ${fields.start ? db.json(fields.start as never) : null})
     RETURNING id
   `
   return { status: 201, body: { runId: run.id } }
@@ -76,7 +102,8 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
   let runId: string | null
   let exitCode: number
   let testSha: string | null
-  let end: Deployed | null
+  let end: Versions | null
+  let producerError: string | null
   try {
     body = parseJson(text)
     runId = body.runId === undefined || body.runId === null ? null : String(body.runId)
@@ -84,29 +111,55 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
     if (!Number.isInteger(body.exitCode)) throw new Error('exitCode must be an integer')
     exitCode = body.exitCode as number
     testSha = optionalString(body.testSha, 'testSha')
-    end = deployed(body.deployedEnd, 'deployedEnd')
-    if (typeof body.report !== 'object' || body.report === null) throw new Error('report must be an object')
-    if (typeof body.catalog !== 'object' || body.catalog === null) throw new Error('catalog must be an object')
+    end = versions(body.deployedEnd, 'deployedEnd')
+    // A runner that produced no result reports why instead; the run is recorded as incomplete.
+    producerError = optionalString(body.error, 'error', 500)
+    if (!producerError && (typeof body.result !== 'object' || body.result === null)) {
+      throw new Error('result must be an object, or error must explain why there is none')
+    }
+    if (!producerError && (typeof body.catalog !== 'object' || body.catalog === null)) {
+      throw new Error('catalog must be an object')
+    }
   } catch (error) {
     return fail(400, (error as Error).message)
   }
 
   const db = sql()
-  let start: Deployed | null = null
+  let start: Versions | null = null
+  let runTrigger = trigger(body.trigger) ?? 'manual'
+  let runCases: string[] | null = null
+  try {
+    runCases = namedCases(body.cases)
+  } catch (error) {
+    return fail(400, (error as Error).message)
+  }
   if (runId !== null) {
-    const [existing] = await db<{ outcome: string; deployed_start: Deployed | null }[]>`
-      SELECT outcome, deployed_start FROM runs WHERE id = ${runId} AND check_id = ${check.id}
+    const [existing] = await db<{ outcome: string; deployed_start: Versions | null; trigger: string; cases: string[] | null }[]>`
+      SELECT outcome, deployed_start, trigger, cases FROM runs WHERE id = ${runId} AND check_id = ${check.id}
     `
     if (!existing) return fail(404, 'unknown run')
     if (existing.outcome !== 'running') return fail(409, 'run already finished')
     start = existing.deployed_start
+    // The run's identity was fixed at start.
+    runTrigger = existing.trigger as typeof runTrigger
+    runCases = existing.cases
   }
 
-  // Reject the whole report rather than store a partially cleaned copy.
-  const sensitive = containsSensitive(JSON.stringify(body.report))
-  const verdict = sensitive
-    ? { outcome: 'incomplete' as const, reason: 'Report rejected: it contains a suspected credential', summary: null }
-    : judge({ report: body.report, catalog: body.catalog, exitCode, deployedStart: start, deployedEnd: end })
+  // Reject the whole result rather than store a partially cleaned copy.
+  const sensitive = !producerError && containsSensitive(JSON.stringify(body.result))
+  const verdict = producerError
+    ? { outcome: 'incomplete' as const, reason: `Runner reported no result: ${producerError}`, summary: null }
+    : sensitive
+      ? { outcome: 'incomplete' as const, reason: 'Report rejected: it contains a suspected credential', summary: null }
+      : judge({
+          result: body.result,
+          catalog: body.catalog,
+          exitCode,
+          deployedStart: start,
+          deployedEnd: end,
+          selection: check.selection,
+          cases: runCases,
+        })
 
   const values = {
     outcome: verdict.outcome,
@@ -114,9 +167,10 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
     exitCode,
     testSha,
     end: end ? db.json(end as never) : null,
-    report: sensitive ? null : db.json(body.report as never),
-    catalog: db.json(body.catalog as never),
+    report: sensitive || producerError ? null : db.json(body.result as never),
+    catalog: body.catalog ? db.json(body.catalog as never) : null,
     summary: verdict.summary ? db.json(verdict.summary as never) : null,
+    cases: runCases ? db.json(runCases) : null,
   }
   const [run] = runId !== null
     ? await db<{ id: string }[]>`
@@ -127,10 +181,10 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
         RETURNING id
       `
     : await db<{ id: string }[]>`
-        INSERT INTO runs (check_id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha,
+        INSERT INTO runs (check_id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, cases,
                           deployed_end, report, catalog, summary)
         VALUES (${check.id}, now(), now(), ${values.outcome}, ${values.reason}, ${values.exitCode}, ${values.testSha},
-                ${values.end}, ${values.report}, ${values.catalog}, ${values.summary})
+                ${runTrigger}, ${values.cases}, ${values.end}, ${values.report}, ${values.catalog}, ${values.summary})
         RETURNING id
       `
   if (!run) return fail(409, 'run already finished')

@@ -2,20 +2,21 @@
 // Only each check's latest finished run is shown; older runs stay stored but are never read here.
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
-import type { CaseResult, Outcome } from './judge'
-import type { CaseDetail, CaseSpec, CheckCard, CheckDetail, Deployed, LatestRun, Me, Overview, RunRow } from '../lib/types'
+import type { CaseResult, Outcome, Trigger, Versions } from './judge'
+import type { CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, Overview, PartialRun, RunRow } from '../lib/types'
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
-  id: string; slug: string; name: string; environment: string; period_seconds: number; grace_seconds: number
+  id: string; slug: string; name: string; environment: string; period_seconds: number | null; grace_seconds: number
+  created_at: Date
 }
 interface RunDbRow {
   id: string; started_at: Date; finished_at: Date | null; outcome: Outcome; outcome_reason: string | null
-  exit_code: number | null; test_sha: string | null
+  exit_code: number | null; test_sha: string | null; trigger: Trigger
 }
 interface LatestDbRow extends RunDbRow {
-  runner_kind: string | null; run_url: string | null; deployed_start: Deployed | null
-  deployed_end: Deployed | null; summary: CaseResult[] | null; catalog: { cases?: CaseSpec[] } | null
+  runner_kind: string | null; run_url: string | null; deployed_start: Versions | null
+  deployed_end: Versions | null; summary: CaseResult[] | null; catalog: { cases?: CaseSpec[] } | null
 }
 
 function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
@@ -28,6 +29,7 @@ function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
     reason: row.outcome_reason,
     exitCode: row.exit_code,
     testSha: row.test_sha,
+    trigger: row.trigger,
   }
 }
 
@@ -41,7 +43,7 @@ async function project(userId: string, slug: string): Promise<ProjectRow | null>
 
 async function findCheck(projectId: string, slug: string): Promise<CheckRow | null> {
   const [row] = await sql()<CheckRow[]>`
-    SELECT id, slug, name, environment, period_seconds, grace_seconds FROM checks
+    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at FROM checks
     WHERE project_id = ${projectId} AND slug = ${slug}
   `
   return row ?? null
@@ -49,8 +51,31 @@ async function findCheck(projectId: string, slug: string): Promise<CheckRow | nu
 
 async function latestFinished(checkId: string): Promise<LatestDbRow | null> {
   const [row] = await sql()<LatestDbRow[]>`
-    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, runner_kind, run_url, deployed_start, deployed_end, summary, catalog
-    FROM runs WHERE check_id = ${checkId} AND finished_at IS NOT NULL
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, catalog
+    FROM runs WHERE check_id = ${checkId} AND finished_at IS NOT NULL AND cases IS NULL
+    ORDER BY finished_at DESC, id DESC LIMIT 1
+  `
+  return row ?? null
+}
+
+// Lateness is measured only from scheduled full runs.
+async function latestScheduled(checkId: string): Promise<Date | null> {
+  const [row] = await sql()<{ finished_at: Date }[]>`
+    SELECT finished_at FROM runs
+    WHERE check_id = ${checkId} AND finished_at IS NOT NULL AND cases IS NULL AND trigger = 'schedule'
+    ORDER BY finished_at DESC, id DESC LIMIT 1
+  `
+  return row?.finished_at ?? null
+}
+
+// A named-case run that finished after the displayed full run.
+async function latestPartial(checkId: string, after: Date | null): Promise<(RunDbRow & { count: number }) | null> {
+  const [row] = await sql()<(RunDbRow & { count: number })[]>`
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger,
+           jsonb_array_length(cases) AS count
+    FROM runs
+    WHERE check_id = ${checkId} AND finished_at IS NOT NULL AND cases IS NOT NULL
+      AND (${after}::timestamptz IS NULL OR finished_at > ${after})
     ORDER BY finished_at DESC, id DESC LIMIT 1
   `
   return row ?? null
@@ -59,7 +84,7 @@ async function latestFinished(checkId: string): Promise<LatestDbRow | null> {
 // A run that started after the latest finished one and has not reported yet.
 async function activeRun(checkId: string, after: Date | null): Promise<RunDbRow | null> {
   const [row] = await sql()<RunDbRow[]>`
-    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha FROM runs
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger FROM runs
     WHERE check_id = ${checkId} AND outcome = 'running'
       AND (${after}::timestamptz IS NULL OR started_at > ${after})
     ORDER BY started_at DESC, id DESC LIMIT 1
@@ -75,12 +100,19 @@ function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
 async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; latest: LatestDbRow | null }> {
   const latest = await latestFinished(check.id)
   const active = await activeRun(check.id, latest?.started_at ?? null)
+  const partial = await latestPartial(check.id, latest?.finished_at ?? null)
+  const scheduled = await latestScheduled(check.id)
   const derived = checkStatus({
     now,
+    createdAt: check.created_at,
     periodSeconds: check.period_seconds,
     graceSeconds: check.grace_seconds,
-    lastFinished: latest?.finished_at ? { outcome: latest.outcome, finishedAt: latest.finished_at } : null,
+    latestFull: latest ? { outcome: latest.outcome } : null,
+    latestScheduled: scheduled ? { finishedAt: scheduled } : null,
   })
+  const partialRun: PartialRun | null = partial
+    ? { ...toRun(partial, check.grace_seconds, now), caseCount: partial.count }
+    : null
   return {
     latest,
     card: {
@@ -93,6 +125,7 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
       nextExpectedAt: derived.nextExpectedAt?.toISOString() ?? null,
       latest: latest ? toRun(latest, check.grace_seconds, now) : null,
       active: active ? toRun(active, check.grace_seconds, now) : null,
+      partial: partialRun,
     },
   }
 }
@@ -110,7 +143,7 @@ export async function overview(userId: string, projectSlug: string): Promise<Ove
   if (!found) return null
   const now = new Date()
   const checks = await sql()<CheckRow[]>`
-    SELECT id, slug, name, environment, period_seconds, grace_seconds FROM checks
+    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at FROM checks
     WHERE project_id = ${found.id} ORDER BY name
   `
   const cards = await Promise.all(checks.map((check) => card(check, now)))

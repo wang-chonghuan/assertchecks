@@ -1,0 +1,161 @@
+#!/usr/bin/env node
+// AssertChecks client: report one test run to AssertChecks. Zero dependencies, Node 20+.
+// Served by AssertChecks at /client/assertchecks.mjs so it always matches the server.
+//
+//   node assertchecks.mjs start  [--trigger schedule|manual] [--cases ID,ID] [--version NAME=URL]...
+//   node assertchecks.mjs report --run-id ID --exit-code N --playwright results.json --catalog e2e.json
+//                                [--version NAME=URL]...
+//   node assertchecks.mjs report --run-id ID --exit-code N --error "why there is no report"
+//
+// Environment: ASSERTCHECKS_PING_TOKEN (required, never printed), ASSERTCHECKS_ORIGIN (optional).
+// `start` prints only the run ID. A version URL must return JSON with a 40-character `sha`.
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
+import { parseArgs } from 'node:util'
+
+export const DEFAULT_ORIGIN = 'https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io'
+const TIMEOUT_MS = 30_000
+const SENSITIVE = [/\bAuthorization\b/, /Bearer\s/, /eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}/]
+
+export function containsSensitive(text) {
+  return SENSITIVE.some((pattern) => pattern.test(text))
+}
+
+// GitHub Actions identifies itself; anything else is a local run unless told otherwise.
+export function runnerFromEnv(env) {
+  if (env.GITHUB_ACTIONS === 'true') {
+    return {
+      kind: 'github-actions',
+      runUrl: `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`,
+      trigger: env.GITHUB_EVENT_NAME === 'schedule' ? 'schedule' : 'manual',
+    }
+  }
+  return { kind: 'local', runUrl: null, trigger: 'manual' }
+}
+
+function testSha(given, env) {
+  if (given) return given
+  if (env.GITHUB_SHA) return env.GITHUB_SHA
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  } catch {
+    return null
+  }
+}
+
+async function readVersions(specs, fetchImpl, log) {
+  const versions = {}
+  for (const spec of specs) {
+    const at = spec.indexOf('=')
+    if (at < 1) throw new Error(`--version must look like NAME=URL: ${spec}`)
+    const name = spec.slice(0, at)
+    const url = spec.slice(at + 1)
+    try {
+      const response = await fetchImpl(url, { headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(TIMEOUT_MS) })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const body = await response.json()
+      versions[name] = typeof body.sha === 'string' && /^[0-9a-f]{40}$/.test(body.sha) ? body.sha : null
+    } catch (error) {
+      // An unreadable version is sent as null; AssertChecks then refuses to call the run passed.
+      log(`warning: could not read ${name} version: ${error.message}`)
+      versions[name] = null
+    }
+  }
+  return Object.keys(versions).length ? versions : null
+}
+
+async function post(origin, token, step, body, fetchImpl) {
+  const response = await fetchImpl(`${origin}/api/ping/${encodeURIComponent(token)}/${step}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  const reply = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(`AssertChecks ${step} failed: HTTP ${response.status} ${reply.error ?? ''}`.trim())
+  return reply
+}
+
+export async function run(argv, { env = process.env, fetchImpl = fetch, out = console.log, log = console.error } = {}) {
+  const { positionals, values } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      trigger: { type: 'string' },
+      cases: { type: 'string' },
+      version: { type: 'string', multiple: true },
+      'test-sha': { type: 'string' },
+      'run-id': { type: 'string' },
+      'exit-code': { type: 'string' },
+      playwright: { type: 'string' },
+      catalog: { type: 'string' },
+      error: { type: 'string' },
+    },
+  })
+  const token = env.ASSERTCHECKS_PING_TOKEN
+  if (!token) throw new Error('ASSERTCHECKS_PING_TOKEN is required')
+  const origin = new URL(env.ASSERTCHECKS_ORIGIN ?? DEFAULT_ORIGIN).origin
+  const runner = runnerFromEnv(env)
+  const trigger = values.trigger ?? runner.trigger
+  if (!['schedule', 'manual'].includes(trigger)) throw new Error('--trigger must be schedule or manual')
+  const cases = values.cases ? values.cases.split(',').map((id) => id.trim()).filter(Boolean) : null
+  const versions = () => readVersions(values.version ?? [], fetchImpl, log)
+  const [command] = positionals
+
+  if (command === 'start') {
+    const reply = await post(origin, token, 'start', {
+      testSha: testSha(values['test-sha'], env),
+      runner: { kind: runner.kind, runUrl: runner.runUrl },
+      trigger,
+      cases,
+      deployed: await versions(),
+    }, fetchImpl)
+    out(reply.runId)
+    return 0
+  }
+
+  if (command === 'report') {
+    const exitCode = Number(values['exit-code'])
+    if (!Number.isInteger(exitCode)) throw new Error('--exit-code must be an integer')
+    const base = {
+      runId: values['run-id'] || null,
+      exitCode,
+      testSha: testSha(values['test-sha'], env),
+      trigger,
+      cases,
+      deployedEnd: await versions(),
+    }
+    let error = values.error ?? null
+    let result = null
+    let catalog = null
+    if (!error) {
+      if (!values.playwright || !values.catalog) throw new Error('report needs --playwright and --catalog, or --error')
+      if (!existsSync(values.playwright)) {
+        error = `no Playwright report at ${values.playwright}`
+      } else {
+        const report = JSON.parse(readFileSync(values.playwright, 'utf8'))
+        // The report is uploaded unchanged; AssertChecks parses it.
+        result = { format: 'playwright', report }
+        catalog = JSON.parse(readFileSync(values.catalog, 'utf8'))
+        if (containsSensitive(JSON.stringify(report))) {
+          error = 'credential-like content found in the report; it was not uploaded'
+          result = null
+        }
+      }
+    }
+    const reply = await post(origin, token, 'report', error ? { ...base, error } : { ...base, result, catalog }, fetchImpl)
+    out(`AssertChecks run ${reply.runId}: ${reply.outcome}`)
+    // A run that could not report its result is a failed job, not a quiet success.
+    return error ? 1 : 0
+  }
+
+  throw new Error('usage: assertchecks.mjs start | report (see the header of this file)')
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  run(process.argv.slice(2)).then(
+    (code) => { process.exitCode = code },
+    (error) => { console.error(error.message); process.exitCode = 1 },
+  )
+}
