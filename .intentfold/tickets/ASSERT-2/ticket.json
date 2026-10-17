@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-2",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "auto-merge",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-2",
   "branch": "ASSERT-2-generic-client",
