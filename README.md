@@ -20,7 +20,8 @@ node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \
 `start` prints only the run ID. `--trigger schedule|manual` defaults to `schedule` for scheduled
 GitHub Actions runs and `manual` otherwise; GitHub Actions also supplies the runner kind and run
 link. `--cases ID,ID` names the cases of a partial run. A version URL must return JSON with a
-40-character `sha`. If there is no report, `report --error "<why>"` records the run as incomplete.
+40-character `sha`; each read is tried up to three times (waiting 2 s, then 4 s) before the
+version is recorded as unreadable. If there is no report, `report --error "<why>"` records the run as incomplete.
 The client never prints the token, uploads the Playwright report unchanged, refuses to upload a
 report containing credential-like strings, and exits non-zero when the run could not be reported.
 

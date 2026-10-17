@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-5",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-5",
+  "branch": "ASSERT-5-version-retry",
+  "base": "7b9f5c84044b79aa052b1c9399743439f57eb015",
+  "ports": {}
+}
