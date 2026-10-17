@@ -149,8 +149,9 @@ function CheckPage() {
                 </Col>
               ))}
             </Row>
-            {latest.reason && (
-              <Alert type={latest.outcome === 'failed' ? 'error' : 'warning'} showIcon title={latest.reason} />
+            {/* Failed cases are listed in the Failed tab; only an incomplete run needs its reason here. */}
+            {latest.reason && latest.outcome === 'incomplete' && (
+              <Alert type="warning" showIcon title={latest.reason} />
             )}
           </Flex>
         ) : (
