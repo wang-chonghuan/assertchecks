@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Card, Col, Descriptions, Empty, Flex, Row, Typography, theme } from 'antd'
-import { ActiveRunNotice, CheckStatusTag, OutcomeTag, duration, utc } from '../../../../components/status'
+import { ActiveRunNotice, CheckStatusTag, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from '../../../../components/status'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -32,6 +32,7 @@ function OverviewPage() {
                 extra={<CheckStatusTag status={check.status} />}
               >
                 <ActiveRunNotice active={check.active} />
+                <PartialRunNotice partial={check.partial} />
                 <Descriptions
                   column={1}
                   size="small"
@@ -43,6 +44,7 @@ function OverviewPage() {
                       children: check.latest ? (
                         <Flex gap="small" align="center" wrap>
                           <OutcomeTag run={check.latest} />
+                          <TriggerTag trigger={check.latest.trigger} />
                           <Typography.Text>{utc(check.latest.startedAt)}</Typography.Text>
                         </Flex>
                       ) : (
@@ -53,7 +55,7 @@ function OverviewPage() {
                     {
                       key: 'schedule',
                       label: 'Schedule',
-                      children: `every ${duration(check.periodSeconds)}, grace ${duration(check.graceSeconds)}`,
+                      children: scheduleText(check.periodSeconds, check.graceSeconds),
                     },
                   ]}
                 />

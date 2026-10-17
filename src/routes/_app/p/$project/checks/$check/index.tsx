@@ -3,10 +3,10 @@ import { Alert, Breadcrumb, Card, Descriptions, Empty, Flex, Table, Typography, 
 import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import {
-  ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, Sha, ThenTag, duration, utc,
+  ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, PartialRunNotice, Sha, ThenTag, TriggerTag, scheduleText, utc,
 } from '../../../../../../components/status'
 import { getCheck } from '../../../../../../server/fns'
-import type { CaseResult } from '../../../../../../lib/types'
+import type { CaseResult, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
@@ -14,6 +14,11 @@ export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.check.name ?? 'Check'} · ${PRODUCT_NAME}` }] }),
   component: CheckPage,
 })
+
+// Every tested component either snapshot names, in a stable order.
+function versionNames(start: Versions | null, end: Versions | null): string[] {
+  return [...new Set([...Object.keys(start ?? {}), ...Object.keys(end ?? {})])].sort()
+}
 
 function CheckPage() {
   const { project, check, latest } = Route.useLoaderData()
@@ -53,6 +58,7 @@ function CheckPage() {
       />
       <Card title={check.name} extra={<CheckStatusTag status={check.status} />}>
         <ActiveRunNotice active={check.active} />
+        <PartialRunNotice partial={check.partial} />
         {latest?.reason && (
           <Alert
             type={latest.outcome === 'failed' ? 'error' : 'warning'}
@@ -69,12 +75,16 @@ function CheckPage() {
             {
               key: 'schedule',
               label: 'Schedule',
-              children: `every ${duration(check.periodSeconds)}, grace ${duration(check.graceSeconds)}`,
+              children: scheduleText(check.periodSeconds, check.graceSeconds),
             },
             { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
             ...(latest
               ? [
-                  { key: 'outcome', label: 'Latest run', children: <OutcomeTag run={latest} /> },
+                  {
+                    key: 'outcome',
+                    label: 'Latest run',
+                    children: <Flex gap="small" wrap><OutcomeTag run={latest} /><TriggerTag trigger={latest.trigger} /></Flex>,
+                  },
                   { key: 'started', label: 'Started', children: utc(latest.startedAt) },
                   { key: 'finished', label: 'Finished', children: utc(latest.finishedAt) },
                   { key: 'exit', label: 'Exit code', children: latest.exitCode ?? '—' },
@@ -88,10 +98,10 @@ function CheckPage() {
                       </Typography.Link>
                     ) : (latest.runnerKind ?? '—'),
                   },
-                  { key: 'webStart', label: 'Web SHA at start', children: <Sha value={latest.deployedStart?.web} /> },
-                  { key: 'webEnd', label: 'Web SHA at end', children: <Sha value={latest.deployedEnd?.web} /> },
-                  { key: 'apiStart', label: 'API SHA at start', children: <Sha value={latest.deployedStart?.api} /> },
-                  { key: 'apiEnd', label: 'API SHA at end', children: <Sha value={latest.deployedEnd?.api} /> },
+                  ...versionNames(latest.deployedStart, latest.deployedEnd).flatMap((name) => [
+                    { key: `${name}-start`, label: `${name} at start`, children: <Sha value={latest.deployedStart?.[name]} /> },
+                    { key: `${name}-end`, label: `${name} at end`, children: <Sha value={latest.deployedEnd?.[name]} /> },
+                  ]),
                 ]
               : []),
           ]}

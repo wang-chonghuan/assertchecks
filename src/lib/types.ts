@@ -1,8 +1,8 @@
 // View models shared by server functions and pages. Timestamps are ISO strings in UTC.
-import type { CaseResult, Outcome } from '../server/judge'
+import type { CaseResult, Outcome, Trigger, Versions } from '../server/judge'
 import type { CheckStatus } from '../server/status'
 
-export type { CaseResult, CaseStatus, Outcome, ThenResult, ThenStatus } from '../server/judge'
+export type { CaseResult, CaseStatus, Outcome, ThenResult, ThenStatus, Trigger, Versions } from '../server/judge'
 export type { CheckStatus } from '../server/status'
 
 export interface Me {
@@ -19,19 +19,27 @@ export interface RunRow {
   reason: string | null
   exitCode: number | null
   testSha: string | null
+  trigger: Trigger
+}
+
+export interface PartialRun extends RunRow {
+  caseCount: number
 }
 
 export interface CheckCard {
   slug: string
   name: string
   environment: string
-  periodSeconds: number
+  // null: the check is run on demand and is never late.
+  periodSeconds: number | null
   graceSeconds: number
   status: CheckStatus
   nextExpectedAt: string | null
   // The latest finished run, and a newer run that has started but not reported.
   latest: RunRow | null
   active: RunRow | null
+  // A named-case run that finished after the latest full run.
+  partial: PartialRun | null
 }
 
 export interface Overview {
@@ -39,16 +47,11 @@ export interface Overview {
   checks: CheckCard[]
 }
 
-export interface Deployed {
-  web: string | null
-  api: string | null
-}
-
 export interface LatestRun extends RunRow {
   runnerKind: string | null
   runUrl: string | null
-  deployedStart: Deployed | null
-  deployedEnd: Deployed | null
+  deployedStart: Versions | null
+  deployedEnd: Versions | null
   summary: CaseResult[] | null
 }
 
