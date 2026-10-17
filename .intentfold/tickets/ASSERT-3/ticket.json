@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-3",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-merge",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-3",
+  "branch": "ASSERT-3-vm-runner",
+  "base": "f04ab229b9167353d587ecad3d3a03e39f17ee67",
+  "ports": {}
+}
