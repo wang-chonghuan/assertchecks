@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Card, Col, Descriptions, Empty, Flex, Row, Typography, theme } from 'antd'
-import { ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, PartialRunNotice, TriggerTag, scheduleText, utc } from '../../../../components/status'
+import { Card, Col, Empty, Flex, Row, Typography, theme } from 'antd'
+import { CheckStatusTag } from '../../../../components/status'
+import { CheckSummary } from '../../../../components/check-summary'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -9,9 +10,6 @@ export const Route = createFileRoute('/_app/p/$project/')({
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.project.name ?? 'Project'} · ${PRODUCT_NAME}` }] }),
   component: OverviewPage,
 })
-
-// Longer lists continue on the check page.
-const NOT_PASSED_ON_CARD = 5
 
 function OverviewPage() {
   const { project, checks } = Route.useLoaderData()
@@ -34,86 +32,7 @@ function OverviewPage() {
                 }
                 extra={<CheckStatusTag status={check.status} />}
               >
-                <ActiveRunNotice active={check.active} />
-                <PartialRunNotice partial={check.partial} />
-                {check.notPassed.length > 0 && (
-                  <Flex vertical gap={token.marginXXS} style={{ marginBottom: token.margin }}>
-                    <Typography.Text strong>Not passed ({check.notPassed.length})</Typography.Text>
-                    {check.notPassed.slice(0, NOT_PASSED_ON_CARD).map((item) => (
-                      <Flex key={item.case} gap="small" align="baseline" style={{ minWidth: 0 }}>
-                        <CaseStatusTag status={item.status} />
-                        <Link
-                          to="/p/$project/checks/$check/cases/$case"
-                          params={{ project: project.slug, check: check.slug, case: item.case }}
-                        >
-                          {item.case}
-                        </Link>
-                        <Typography.Text type="secondary" ellipsis={{ tooltip: item.title }} style={{ flex: 1, minWidth: 0 }}>
-                          {item.title}
-                        </Typography.Text>
-                      </Flex>
-                    ))}
-                    {check.notPassed.length > NOT_PASSED_ON_CARD && (
-                      <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
-                        and {check.notPassed.length - NOT_PASSED_ON_CARD} more
-                      </Link>
-                    )}
-                  </Flex>
-                )}
-                {check.outsideRun.length > 0 && (
-                  <Flex vertical gap={token.marginXXS} style={{ marginBottom: token.margin }}>
-                    <Typography.Text strong>Not run automatically ({check.outsideRun.length})</Typography.Text>
-                    {check.outsideRun.slice(0, NOT_PASSED_ON_CARD).map((item) => (
-                      <Flex key={item.case} gap="small" align="baseline" style={{ minWidth: 0 }}>
-                        <OutsideRunTag status={item.status} run={item.run} />
-                        <Link
-                          to="/p/$project/checks/$check/cases/$case"
-                          params={{ project: project.slug, check: check.slug, case: item.case }}
-                        >
-                          {item.case}
-                        </Link>
-                        <Typography.Text
-                          type="secondary"
-                          ellipsis={{ tooltip: item.note ? `${item.title} — ${item.note}` : item.title }}
-                          style={{ flex: 1, minWidth: 0 }}
-                        >
-                          {item.title}
-                        </Typography.Text>
-                      </Flex>
-                    ))}
-                    {check.outsideRun.length > NOT_PASSED_ON_CARD && (
-                      <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
-                        and {check.outsideRun.length - NOT_PASSED_ON_CARD} more
-                      </Link>
-                    )}
-                  </Flex>
-                )}
-                <Descriptions
-                  column={1}
-                  size="small"
-                  items={[
-                    { key: 'env', label: 'Environment', children: check.environment },
-                    {
-                      key: 'last',
-                      label: 'Latest run',
-                      children: check.latest ? (
-                        <Flex gap="small" align="center" wrap>
-                          <OutcomeTag run={check.latest} />
-                          <TriggerTag trigger={check.latest.trigger} />
-                          <Typography.Text>{utc(check.latest.startedAt)}</Typography.Text>
-                        </Flex>
-                      ) : (
-                        <Typography.Text type="secondary">No finished runs yet</Typography.Text>
-                      ),
-                    },
-                    { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
-                    {
-                      key: 'schedule',
-                      label: 'Schedule',
-                      children: scheduleText(check.periodSeconds, check.graceSeconds),
-                    },
-                  ]}
-                />
+                <CheckSummary check={check} compact />
               </Card>
             </Col>
           ))}

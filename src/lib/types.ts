@@ -47,6 +47,16 @@ export interface CheckCard {
   // Catalog cases the check's selection leaves out (draft or manual, never retired), with the
   // catalog's own explanation when it gives one.
   outsideRun: OutsideCase[]
+  // Case counts of the latest full run and its catalog; null before the first finished run.
+  counts: CaseCounts | null
+}
+
+export interface CaseCounts {
+  total: number
+  passed: number
+  failed: number
+  draft: number
+  manual: number
 }
 
 export interface OutsideCase {

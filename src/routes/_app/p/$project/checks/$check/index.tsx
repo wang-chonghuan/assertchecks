@@ -1,13 +1,14 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Alert, Breadcrumb, Card, Col, Collapse, Descriptions, Empty, Flex, Row, Statistic, Table, Tabs, Typography, theme } from 'antd'
+import { Breadcrumb, Card, Collapse, Descriptions, Empty, Flex, Table, Tabs, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import {
-  ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, PartialRunNotice, Sha, ThenTag, TriggerTag, scheduleText, utc,
+  CaseStatusTag, CheckStatusTag, OutsideRunTag, Sha, ThenTag, utc,
 } from '../../../../../../components/status'
 import { getCheck } from '../../../../../../server/fns'
 import type { CaseResult, OutsideCase, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
+import { CheckSummary } from '../../../../../../components/check-summary'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
   loader: ({ params }) => getCheck({ data: { project: params.project, check: params.check } }),
@@ -115,13 +116,6 @@ function CheckPage() {
     />
   )
 
-  const counts = [
-    { key: 'total', title: 'Total cases', value: all.length },
-    { key: 'passed', title: 'Passed', value: passed.length, color: token.colorSuccess },
-    { key: 'failed', title: 'Failed', value: failed.length, color: failed.length ? token.colorError : undefined },
-    { key: 'draft', title: 'Draft', value: drafts.length, color: drafts.length ? token.orange : undefined },
-    { key: 'manual', title: 'Manual', value: manual.length },
-  ]
 
   return (
     <Flex vertical gap="middle">
@@ -132,40 +126,7 @@ function CheckPage() {
         ]}
       />
       <Card title={`${check.name} · ${check.environment}`} extra={<CheckStatusTag status={check.status} />}>
-        <ActiveRunNotice active={check.active} />
-        <PartialRunNotice partial={check.partial} />
-        {latest ? (
-          <Flex vertical gap="middle">
-            <Flex gap="small" align="center" wrap>
-              <Typography.Text type="secondary">Last run</Typography.Text>
-              <Typography.Text strong>{utc(latest.finishedAt)}</Typography.Text>
-              <OutcomeTag run={latest} />
-              <TriggerTag trigger={latest.trigger} />
-            </Flex>
-            <Row gutter={[token.margin, token.margin]}>
-              {counts.map((item) => (
-                <Col key={item.key} xs={12} sm={8} md={4}>
-                  <Statistic title={item.title} value={item.value} styles={{ content: item.color ? { color: item.color } : undefined }} />
-                </Col>
-              ))}
-            </Row>
-            {/* Failed cases are listed in the Failed tab; only an incomplete run needs its reason here. */}
-            {latest.reason && latest.outcome === 'incomplete' && (
-              <Alert type="warning" showIcon title={latest.reason} />
-            )}
-          </Flex>
-        ) : (
-          <Empty description="No finished runs yet." />
-        )}
-        <Descriptions
-          size="small"
-          style={{ marginTop: token.margin }}
-          column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
-          items={[
-            { key: 'schedule', label: 'Schedule', children: scheduleText(check.periodSeconds, check.graceSeconds) },
-            { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
-          ]}
-        />
+        <CheckSummary check={check} />
         {latest && (
           <Collapse
             ghost

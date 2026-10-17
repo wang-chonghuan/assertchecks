@@ -3,7 +3,7 @@
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
-import type { CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview, PartialRun, RunRow } from '../lib/types'
+import type { CaseCounts, CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview, PartialRun, RunRow } from '../lib/types'
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
@@ -116,6 +116,13 @@ function outsideRun(latest: LatestDbRow | null, selection: Selection): OutsideCa
     }))
 }
 
+// Every non-retired catalog case falls in exactly one bucket: passed, failed, draft or manual.
+function counts(latest: LatestDbRow, failed: CaseResult[], outside: OutsideCase[]): CaseCounts {
+  const ran = latest.summary?.length ?? 0
+  const draft = outside.filter((item) => item.status === 'draft').length
+  return { total: ran + outside.length, passed: ran - failed.length, failed: failed.length, draft, manual: outside.length - draft }
+}
+
 function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
   const cases = Array.isArray(latest.catalog?.cases) ? latest.catalog.cases : []
   return new Map(cases.map((item) => [item.id, item]))
@@ -134,6 +141,8 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
     latestFull: latest ? { outcome: latest.outcome } : null,
     latestScheduled: scheduled ? { finishedAt: scheduled } : null,
   })
+  const failed = notPassed(latest)
+  const outside = outsideRun(latest, check.selection)
   const partialRun: PartialRun | null = partial
     ? { ...toRun(partial, check.grace_seconds, now), caseCount: partial.count }
     : null
@@ -150,8 +159,9 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
       latest: latest ? toRun(latest, check.grace_seconds, now) : null,
       active: active ? toRun(active, check.grace_seconds, now) : null,
       partial: partialRun,
-      notPassed: notPassed(latest),
-      outsideRun: outsideRun(latest, check.selection),
+      notPassed: failed,
+      outsideRun: outside,
+      counts: latest ? counts(latest, failed, outside) : null,
     },
   }
 }
