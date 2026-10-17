@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { DEFAULT_ORIGIN, run, runnerFromEnv } from '../public/client/assertchecks.mjs'
+import { DEFAULT_ORIGIN, VERSION_RETRY_DELAYS_MS, run, runnerFromEnv } from '../public/client/assertchecks.mjs'
 
 const SHA = 'a'.repeat(40)
 
@@ -18,16 +18,19 @@ function fakeFetch(calls) {
   }
 }
 
-function harness(env = {}) {
+function harness(env = {}, fetchFor = fakeFetch) {
   const calls = []
   const lines = []
+  const sleeps = []
+  const warnings = []
   const options = {
     env: { ASSERTCHECKS_PING_TOKEN: 'secret-token', ...env },
-    fetchImpl: fakeFetch(calls),
+    fetchImpl: fetchFor(calls),
     out: (line) => lines.push(String(line)),
-    log: () => {},
+    log: (line) => warnings.push(String(line)),
+    sleep: async (ms) => { sleeps.push(ms) },
   }
-  return { calls, lines, options }
+  return { calls, lines, sleeps, warnings, options }
 }
 
 test('start sends trigger, runner, cases and versions and prints only the run ID', async () => {
@@ -94,4 +97,38 @@ test('a missing token fails before any request', async () => {
   const calls = []
   await assert.rejects(run(['start'], { env: {}, fetchImpl: fakeFetch(calls), out: () => {}, log: () => {} }), /ASSERTCHECKS_PING_TOKEN/)
   assert.equal(calls.length, 0)
+})
+
+// Fails the first `failures` version reads with a network error, then answers normally.
+function flakyFetch(failures) {
+  return (calls) => {
+    const inner = fakeFetch(calls)
+    let left = failures
+    return async (url, init) => {
+      if (String(url).endsWith('/version.json') && left > 0) {
+        left -= 1
+        calls.push({ url: String(url), body: null })
+        throw new TypeError('fetch failed')
+      }
+      return inner(url, init)
+    }
+  }
+}
+
+test('a version read that fails twice is retried and recorded', async () => {
+  const { calls, sleeps, warnings, options } = harness({}, flakyFetch(2))
+  await run(['start', '--version', 'web=https://dev.example/version.json'], options)
+  assert.equal(calls.filter((call) => call.url.endsWith('/version.json')).length, 3)
+  assert.deepEqual(sleeps, VERSION_RETRY_DELAYS_MS)
+  assert.deepEqual(calls.find((call) => call.url.endsWith('/start')).body.deployed, { web: SHA })
+  assert.deepEqual(warnings, [])
+})
+
+test('a version read that keeps failing gives up after three attempts', async () => {
+  const { calls, sleeps, warnings, options } = harness({}, flakyFetch(10))
+  await run(['start', '--version', 'web=https://dev.example/version.json'], options)
+  assert.equal(calls.filter((call) => call.url.endsWith('/version.json')).length, 3)
+  assert.deepEqual(sleeps, [2000, 4000])
+  assert.deepEqual(calls.find((call) => call.url.endsWith('/start')).body.deployed, { web: null })
+  assert.match(warnings[0], /web version after 3 attempts/)
 })

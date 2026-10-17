@@ -8,7 +8,8 @@
 //   node assertchecks.mjs report --run-id ID --exit-code N --error "why there is no report"
 //
 // Environment: ASSERTCHECKS_PING_TOKEN (required, never printed), ASSERTCHECKS_ORIGIN (optional).
-// `start` prints only the run ID. A version URL must return JSON with a 40-character `sha`.
+// `start` prints only the run ID. A version URL must return JSON with a 40-character `sha`; each read
+// is tried up to three times (waiting 2 s, then 4 s) before it is recorded as unreadable.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
@@ -44,22 +45,37 @@ function testSha(given, env) {
   }
 }
 
-async function readVersions(specs, fetchImpl, log) {
+// A transient network blip should not make a run incomplete, so each version read is retried.
+export const VERSION_RETRY_DELAYS_MS = [2_000, 4_000]
+
+async function readSha(url, fetchImpl) {
+  const response = await fetchImpl(url, { headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(TIMEOUT_MS) })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const body = await response.json()
+  if (typeof body.sha !== 'string' || !/^[0-9a-f]{40}$/.test(body.sha)) throw new Error('response has no 40-character sha')
+  return body.sha
+}
+
+async function readVersions(specs, fetchImpl, log, sleep) {
   const versions = {}
   for (const spec of specs) {
     const at = spec.indexOf('=')
     if (at < 1) throw new Error(`--version must look like NAME=URL: ${spec}`)
     const name = spec.slice(0, at)
     const url = spec.slice(at + 1)
-    try {
-      const response = await fetchImpl(url, { headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(TIMEOUT_MS) })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const body = await response.json()
-      versions[name] = typeof body.sha === 'string' && /^[0-9a-f]{40}$/.test(body.sha) ? body.sha : null
-    } catch (error) {
-      // An unreadable version is sent as null; AssertChecks then refuses to call the run passed.
-      log(`warning: could not read ${name} version: ${error.message}`)
-      versions[name] = null
+    versions[name] = null
+    for (let attempt = 0; attempt <= VERSION_RETRY_DELAYS_MS.length; attempt++) {
+      try {
+        versions[name] = await readSha(url, fetchImpl)
+        break
+      } catch (error) {
+        if (attempt < VERSION_RETRY_DELAYS_MS.length) {
+          await sleep(VERSION_RETRY_DELAYS_MS[attempt])
+        } else {
+          // An unreadable version is sent as null; AssertChecks then refuses to call the run passed.
+          log(`warning: could not read ${name} version after ${attempt + 1} attempts: ${error.message}`)
+        }
+      }
     }
   }
   return Object.keys(versions).length ? versions : null
@@ -77,7 +93,9 @@ async function post(origin, token, step, body, fetchImpl) {
   return reply
 }
 
-export async function run(argv, { env = process.env, fetchImpl = fetch, out = console.log, log = console.error } = {}) {
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+export async function run(argv, { env = process.env, fetchImpl = fetch, out = console.log, log = console.error, sleep = wait } = {}) {
   const { positionals, values } = parseArgs({
     args: argv,
     allowPositionals: true,
@@ -100,7 +118,7 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
   const trigger = values.trigger ?? runner.trigger
   if (!['schedule', 'manual'].includes(trigger)) throw new Error('--trigger must be schedule or manual')
   const cases = values.cases ? values.cases.split(',').map((id) => id.trim()).filter(Boolean) : null
-  const versions = () => readVersions(values.version ?? [], fetchImpl, log)
+  const versions = () => readVersions(values.version ?? [], fetchImpl, log, sleep)
   const [command] = positionals
 
   if (command === 'start') {
