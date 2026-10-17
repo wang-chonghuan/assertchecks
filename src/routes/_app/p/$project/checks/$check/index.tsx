@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Alert, Breadcrumb, Card, Col, Descriptions, Empty, Flex, Row, Statistic, Table, Tabs, Typography, theme } from 'antd'
+import { Alert, Breadcrumb, Card, Col, Collapse, Descriptions, Empty, Flex, Row, Statistic, Table, Tabs, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import {
@@ -156,6 +156,50 @@ function CheckPage() {
         ) : (
           <Empty description="No finished runs yet." />
         )}
+        <Descriptions
+          size="small"
+          style={{ marginTop: token.margin }}
+          column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
+          items={[
+            { key: 'schedule', label: 'Schedule', children: scheduleText(check.periodSeconds, check.graceSeconds) },
+            { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
+          ]}
+        />
+        {latest && (
+          <Collapse
+            ghost
+            size="small"
+            style={{ marginTop: token.marginSM }}
+            items={[{
+              key: 'run-details',
+              label: 'Run details',
+              children: (
+                <Descriptions
+                  size="small"
+                  column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
+                  items={[
+                    { key: 'started', label: 'Started', children: utc(latest.startedAt) },
+                    { key: 'exit', label: 'Exit code', children: latest.exitCode ?? '—' },
+                    { key: 'test', label: 'Test SHA', children: <Sha value={latest.testSha} /> },
+                    {
+                      key: 'runner',
+                      label: 'Runner',
+                      children: latest.runUrl ? (
+                        <Typography.Link href={latest.runUrl} target="_blank" rel="noreferrer">
+                          {latest.runnerKind ?? 'Open run'} <ExportOutlined />
+                        </Typography.Link>
+                      ) : (latest.runnerKind ?? '—'),
+                    },
+                    ...versionNames(latest.deployedStart, latest.deployedEnd).flatMap((name) => [
+                      { key: `${name}-start`, label: `${name} at start`, children: <Sha value={latest.deployedStart?.[name]} /> },
+                      { key: `${name}-end`, label: `${name} at end`, children: <Sha value={latest.deployedEnd?.[name]} /> },
+                    ]),
+                  ]}
+                />
+              ),
+            }]}
+          />
+        )}
       </Card>
       {latest && (
         <Card>
@@ -187,34 +231,6 @@ function CheckPage() {
                   <Table rowKey="key" size="small" pagination={false} columns={allColumns} dataSource={all} />
                 ),
               },
-            ]}
-          />
-        </Card>
-      )}
-      {latest && (
-        <Card title="Run details" size="small">
-          <Descriptions
-            size="small"
-            column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
-            items={[
-              { key: 'schedule', label: 'Schedule', children: scheduleText(check.periodSeconds, check.graceSeconds) },
-              { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
-              { key: 'started', label: 'Started', children: utc(latest.startedAt) },
-              { key: 'exit', label: 'Exit code', children: latest.exitCode ?? '—' },
-              { key: 'test', label: 'Test SHA', children: <Sha value={latest.testSha} /> },
-              {
-                key: 'runner',
-                label: 'Runner',
-                children: latest.runUrl ? (
-                  <Typography.Link href={latest.runUrl} target="_blank" rel="noreferrer">
-                    {latest.runnerKind ?? 'Open run'} <ExportOutlined />
-                  </Typography.Link>
-                ) : (latest.runnerKind ?? '—'),
-              },
-              ...versionNames(latest.deployedStart, latest.deployedEnd).flatMap((name) => [
-                { key: `${name}-start`, label: `${name} at start`, children: <Sha value={latest.deployedStart?.[name]} /> },
-                { key: `${name}-end`, label: `${name} at end`, children: <Sha value={latest.deployedEnd?.[name]} /> },
-              ]),
             ]}
           />
         </Card>
