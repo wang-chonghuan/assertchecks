@@ -1,0 +1,19 @@
+{
+  "project": "assertchecks",
+  "main_branch": "main",
+  "deploy": {
+    "where": "Azure Container Apps easy-app ca-assertchecks (https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io) with the shared easy-app PostgreSQL schema assertchecks-schema",
+    "how": "See .intentfold/charter/operations.md"
+  },
+  "tickets": {
+    "system": "plane",
+    "project_url": "https://app.plane.so/intentmill/projects/2fbad50e-b531-4f0e-a1b5-9629c4f0bb2b/issues/",
+    "project": "assertchecks"
+  },
+  "ports": {
+    "web": {
+      "main": 3000,
+      "ticket_prefix": 63
+    }
+  }
+}
