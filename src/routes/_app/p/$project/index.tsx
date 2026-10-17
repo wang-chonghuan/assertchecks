@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Card, Col, Descriptions, Empty, Flex, Row, Typography, theme } from 'antd'
-import { ActiveRunNotice, CheckStatusTag, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from '../../../../components/status'
+import { Card, Col, Empty, Flex, Row, Typography, theme } from 'antd'
+import { CheckStatusTag } from '../../../../components/status'
+import { CheckSummary } from '../../../../components/check-summary'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -31,34 +32,7 @@ function OverviewPage() {
                 }
                 extra={<CheckStatusTag status={check.status} />}
               >
-                <ActiveRunNotice active={check.active} />
-                <PartialRunNotice partial={check.partial} />
-                <Descriptions
-                  column={1}
-                  size="small"
-                  items={[
-                    { key: 'env', label: 'Environment', children: check.environment },
-                    {
-                      key: 'last',
-                      label: 'Latest run',
-                      children: check.latest ? (
-                        <Flex gap="small" align="center" wrap>
-                          <OutcomeTag run={check.latest} />
-                          <TriggerTag trigger={check.latest.trigger} />
-                          <Typography.Text>{utc(check.latest.startedAt)}</Typography.Text>
-                        </Flex>
-                      ) : (
-                        <Typography.Text type="secondary">No finished runs yet</Typography.Text>
-                      ),
-                    },
-                    { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
-                    {
-                      key: 'schedule',
-                      label: 'Schedule',
-                      children: scheduleText(check.periodSeconds, check.graceSeconds),
-                    },
-                  ]}
-                />
+                <CheckSummary check={check} compact />
               </Card>
             </Col>
           ))}

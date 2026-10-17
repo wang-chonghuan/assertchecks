@@ -8,6 +8,8 @@ export type { CheckStatus } from '../server/status'
 export interface Me {
   email: string
   projects: { slug: string; name: string }[]
+  // The last opened project, only when the user still belongs to it.
+  lastProject: string | null
 }
 
 export interface RunRow {
@@ -40,6 +42,29 @@ export interface CheckCard {
   active: RunRow | null
   // A named-case run that finished after the latest full run.
   partial: PartialRun | null
+  // Cases of the latest full run that did not pass, in run order; empty when all passed.
+  notPassed: CaseResult[]
+  // Catalog cases the check's selection leaves out (draft or manual, never retired), with the
+  // catalog's own explanation when it gives one.
+  outsideRun: OutsideCase[]
+  // Case counts of the latest full run and its catalog; null before the first finished run.
+  counts: CaseCounts | null
+}
+
+export interface CaseCounts {
+  total: number
+  passed: number
+  failed: number
+  draft: number
+  manual: number
+}
+
+export interface OutsideCase {
+  case: string
+  title: string
+  status: string
+  run: string
+  note: string | null
 }
 
 export interface Overview {
@@ -67,6 +92,7 @@ export interface CaseSpec {
   type: string
   run: string
   status: string
+  failure?: string
   given: string[]
   when: string[]
   then: { id: string; expect: string }[]

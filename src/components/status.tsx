@@ -108,3 +108,11 @@ export function PartialRunNotice({ partial }: { partial: PartialRun | null }) {
     />
   )
 }
+
+// Why a catalog case is not in the automatic run: an orange draft, or a grey manual-only case.
+// A failing case is never shown here; it runs and appears red among the cases that did not pass.
+export function OutsideRunTag({ status, run }: { status: string; run: string }) {
+  if (status === 'draft') return <Tag color="orange">Draft</Tag>
+  if (run === 'manual') return <Tag>Manual only</Tag>
+  return <Tag>{status} · {run}</Tag>
+}

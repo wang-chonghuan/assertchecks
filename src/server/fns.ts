@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { notFound, redirect } from '@tanstack/react-router'
-import { currentUser, signIn, signOut } from './session'
+import { currentUser, lastProject, rememberProject, signIn, signOut } from './session'
 import { caseDetail, checkDetail, me, overview } from './queries'
 
 const text = (value: unknown, field: string): string => {
@@ -19,9 +19,16 @@ function found<T>(value: T | null): T {
   return value
 }
 
+// Opening any page of a project the user can see makes it the default after sign-in.
+function remembered<T extends { project: { slug: string } }>(value: T | null): T {
+  const result = found(value)
+  rememberProject(result.project.slug)
+  return result
+}
+
 export const getMe = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await currentUser()
-  return user ? me(user) : null
+  return user ? me(user, lastProject()) : null
 })
 
 export const login = createServerFn({ method: 'POST' })
@@ -38,14 +45,14 @@ export const logout = createServerFn({ method: 'POST' }).handler(async () => {
 
 export const getOverview = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
-  .handler(async ({ data }) => found(await overview((await requireUser()).id, data.project)))
+  .handler(async ({ data }) => remembered(await overview((await requireUser()).id, data.project)))
 
 export const getCheck = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown; check: unknown }) => ({
     project: text(data.project, 'project'),
     check: text(data.check, 'check'),
   }))
-  .handler(async ({ data }) => found(await checkDetail((await requireUser()).id, data.project, data.check)))
+  .handler(async ({ data }) => remembered(await checkDetail((await requireUser()).id, data.project, data.check)))
 
 export const getCase = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown; check: unknown; case: unknown }) => ({
@@ -54,4 +61,4 @@ export const getCase = createServerFn({ method: 'GET' })
     case: text(data.case, 'case'),
   }))
   .handler(async ({ data }) =>
-    found(await caseDetail((await requireUser()).id, data.project, data.check, data.case)))
+    remembered(await caseDetail((await requireUser()).id, data.project, data.check, data.case)))

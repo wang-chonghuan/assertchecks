@@ -2,13 +2,13 @@
 // Only each check's latest finished run is shown; older runs stay stored but are never read here.
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
-import type { CaseResult, Outcome, Trigger, Versions } from './judge'
-import type { CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, Overview, PartialRun, RunRow } from '../lib/types'
+import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
+import type { CaseCounts, CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview, PartialRun, RunRow } from '../lib/types'
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
   id: string; slug: string; name: string; environment: string; period_seconds: number | null; grace_seconds: number
-  created_at: Date
+  created_at: Date; selection: Selection
 }
 interface RunDbRow {
   id: string; started_at: Date; finished_at: Date | null; outcome: Outcome; outcome_reason: string | null
@@ -43,7 +43,7 @@ async function project(userId: string, slug: string): Promise<ProjectRow | null>
 
 async function findCheck(projectId: string, slug: string): Promise<CheckRow | null> {
   const [row] = await sql()<CheckRow[]>`
-    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at FROM checks
+    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at, selection FROM checks
     WHERE project_id = ${projectId} AND slug = ${slug}
   `
   return row ?? null
@@ -92,6 +92,37 @@ async function activeRun(checkId: string, after: Date | null): Promise<RunDbRow 
   return row ?? null
 }
 
+// A case passes only when it passed and every declared Then passed.
+function notPassed(latest: LatestDbRow | null): CaseResult[] {
+  if (!latest?.summary) return []
+  const specs = catalogCases(latest)
+  return latest.summary
+    .filter((item) => item.status !== 'passed' || item.thens.some((then) => then.status !== 'passed'))
+    .map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title }))
+}
+
+// Catalog cases this check never runs automatically, so their absence is visible rather than silent.
+function outsideRun(latest: LatestDbRow | null, selection: Selection): OutsideCase[] {
+  if (!latest) return []
+  return [...catalogCases(latest).values()]
+    .filter((item) => item.status !== 'retired' &&
+      !(selection.status.includes(item.status) && selection.run.includes(item.run)))
+    .map((item) => ({
+      case: item.id,
+      title: item.title,
+      status: item.status,
+      run: item.run,
+      note: typeof item.failure === 'string' && item.failure ? item.failure : null,
+    }))
+}
+
+// Every non-retired catalog case falls in exactly one bucket: passed, failed, draft or manual.
+function counts(latest: LatestDbRow, failed: CaseResult[], outside: OutsideCase[]): CaseCounts {
+  const ran = latest.summary?.length ?? 0
+  const draft = outside.filter((item) => item.status === 'draft').length
+  return { total: ran + outside.length, passed: ran - failed.length, failed: failed.length, draft, manual: outside.length - draft }
+}
+
 function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
   const cases = Array.isArray(latest.catalog?.cases) ? latest.catalog.cases : []
   return new Map(cases.map((item) => [item.id, item]))
@@ -110,6 +141,8 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
     latestFull: latest ? { outcome: latest.outcome } : null,
     latestScheduled: scheduled ? { finishedAt: scheduled } : null,
   })
+  const failed = notPassed(latest)
+  const outside = outsideRun(latest, check.selection)
   const partialRun: PartialRun | null = partial
     ? { ...toRun(partial, check.grace_seconds, now), caseCount: partial.count }
     : null
@@ -126,16 +159,20 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
       latest: latest ? toRun(latest, check.grace_seconds, now) : null,
       active: active ? toRun(active, check.grace_seconds, now) : null,
       partial: partialRun,
+      notPassed: failed,
+      outsideRun: outside,
+      counts: latest ? counts(latest, failed, outside) : null,
     },
   }
 }
 
-export async function me(user: { id: string; email: string }): Promise<Me> {
+export async function me(user: { id: string; email: string }, remembered: string | null): Promise<Me> {
   const projects = await sql()<{ slug: string; name: string }[]>`
     SELECT p.slug, p.name FROM projects p JOIN memberships m ON m.project_id = p.id
     WHERE m.user_id = ${user.id} ORDER BY p.name
   `
-  return { email: user.email, projects: [...projects] }
+  const lastProject = projects.some((project) => project.slug === remembered) ? remembered : null
+  return { email: user.email, projects: [...projects], lastProject }
 }
 
 export async function overview(userId: string, projectSlug: string): Promise<Overview | null> {
@@ -143,7 +180,7 @@ export async function overview(userId: string, projectSlug: string): Promise<Ove
   if (!found) return null
   const now = new Date()
   const checks = await sql()<CheckRow[]>`
-    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at FROM checks
+    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at, selection FROM checks
     WHERE project_id = ${found.id} ORDER BY name
   `
   const cards = await Promise.all(checks.map((check) => card(check, now)))
