@@ -1,13 +1,9 @@
 // Read model. Every query is scoped to the signed-in user's memberships; a miss is null (rendered as 404).
+// Only each check's latest finished run is shown; older runs stay stored but are never read here.
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import type { CaseResult, Outcome } from './judge'
-import type {
-  CaseDetail, CaseSpec, CheckCard, CheckDetail, Deployed, Me, Overview, RunDetail, RunRow,
-} from '../lib/types'
-
-const RECENT_RUNS = 30
-const HISTORY_RUNS = 100
+import type { CaseDetail, CaseSpec, CheckCard, CheckDetail, Deployed, LatestRun, Me, Overview, RunRow } from '../lib/types'
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
@@ -16,6 +12,10 @@ interface CheckRow {
 interface RunDbRow {
   id: string; started_at: Date; finished_at: Date | null; outcome: Outcome; outcome_reason: string | null
   exit_code: number | null; test_sha: string | null
+}
+interface LatestDbRow extends RunDbRow {
+  runner_kind: string | null; run_url: string | null; deployed_start: Deployed | null
+  deployed_end: Deployed | null; summary: CaseResult[] | null; catalog: { cases?: CaseSpec[] } | null
 }
 
 function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
@@ -39,45 +39,62 @@ async function project(userId: string, slug: string): Promise<ProjectRow | null>
   return row ?? null
 }
 
-async function recentRuns(checkId: string, limit: number): Promise<RunDbRow[]> {
-  return sql()<RunDbRow[]>`
-    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha
-    FROM runs WHERE check_id = ${checkId} ORDER BY started_at DESC, id DESC LIMIT ${limit}
-  `
-}
-
-async function card(check: CheckRow, now: Date): Promise<CheckCard> {
-  const rows = await recentRuns(check.id, RECENT_RUNS)
-  const [lastFinished] = await sql()<{ outcome: string; finished_at: Date }[]>`
-    SELECT outcome, finished_at FROM runs WHERE check_id = ${check.id} AND finished_at IS NOT NULL
-    ORDER BY finished_at DESC, id DESC LIMIT 1
-  `
-  const derived = checkStatus({
-    now,
-    periodSeconds: check.period_seconds,
-    graceSeconds: check.grace_seconds,
-    lastFinished: lastFinished ? { outcome: lastFinished.outcome, finishedAt: lastFinished.finished_at } : null,
-  })
-  const recent = rows.map((row) => toRun(row, check.grace_seconds, now))
-  return {
-    slug: check.slug,
-    name: check.name,
-    environment: check.environment,
-    periodSeconds: check.period_seconds,
-    graceSeconds: check.grace_seconds,
-    status: derived.status,
-    nextExpectedAt: derived.nextExpectedAt?.toISOString() ?? null,
-    lastRun: recent[0] ?? null,
-    recent,
-  }
-}
-
 async function findCheck(projectId: string, slug: string): Promise<CheckRow | null> {
   const [row] = await sql()<CheckRow[]>`
     SELECT id, slug, name, environment, period_seconds, grace_seconds FROM checks
     WHERE project_id = ${projectId} AND slug = ${slug}
   `
   return row ?? null
+}
+
+async function latestFinished(checkId: string): Promise<LatestDbRow | null> {
+  const [row] = await sql()<LatestDbRow[]>`
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, runner_kind, run_url, deployed_start, deployed_end, summary, catalog
+    FROM runs WHERE check_id = ${checkId} AND finished_at IS NOT NULL
+    ORDER BY finished_at DESC, id DESC LIMIT 1
+  `
+  return row ?? null
+}
+
+// A run that started after the latest finished one and has not reported yet.
+async function activeRun(checkId: string, after: Date | null): Promise<RunDbRow | null> {
+  const [row] = await sql()<RunDbRow[]>`
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha FROM runs
+    WHERE check_id = ${checkId} AND outcome = 'running'
+      AND (${after}::timestamptz IS NULL OR started_at > ${after})
+    ORDER BY started_at DESC, id DESC LIMIT 1
+  `
+  return row ?? null
+}
+
+function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
+  const cases = Array.isArray(latest.catalog?.cases) ? latest.catalog.cases : []
+  return new Map(cases.map((item) => [item.id, item]))
+}
+
+async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; latest: LatestDbRow | null }> {
+  const latest = await latestFinished(check.id)
+  const active = await activeRun(check.id, latest?.started_at ?? null)
+  const derived = checkStatus({
+    now,
+    periodSeconds: check.period_seconds,
+    graceSeconds: check.grace_seconds,
+    lastFinished: latest?.finished_at ? { outcome: latest.outcome, finishedAt: latest.finished_at } : null,
+  })
+  return {
+    latest,
+    card: {
+      slug: check.slug,
+      name: check.name,
+      environment: check.environment,
+      periodSeconds: check.period_seconds,
+      graceSeconds: check.grace_seconds,
+      status: derived.status,
+      nextExpectedAt: derived.nextExpectedAt?.toISOString() ?? null,
+      latest: latest ? toRun(latest, check.grace_seconds, now) : null,
+      active: active ? toRun(active, check.grace_seconds, now) : null,
+    },
+  }
 }
 
 export async function me(user: { id: string; email: string }): Promise<Me> {
@@ -96,10 +113,8 @@ export async function overview(userId: string, projectSlug: string): Promise<Ove
     SELECT id, slug, name, environment, period_seconds, grace_seconds FROM checks
     WHERE project_id = ${found.id} ORDER BY name
   `
-  return {
-    project: { slug: found.slug, name: found.name },
-    checks: await Promise.all(checks.map((check) => card(check, now))),
-  }
+  const cards = await Promise.all(checks.map((check) => card(check, now)))
+  return { project: { slug: found.slug, name: found.name }, checks: cards.map((item) => item.card) }
 }
 
 export async function checkDetail(userId: string, projectSlug: string, checkSlug: string): Promise<CheckDetail | null> {
@@ -108,59 +123,21 @@ export async function checkDetail(userId: string, projectSlug: string, checkSlug
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
   const now = new Date()
-  const rows = await recentRuns(check.id, HISTORY_RUNS)
-  const matrixRows = await sql()<{ id: string; started_at: Date; outcome: Outcome; summary: CaseResult[] | null }[]>`
-    SELECT id, started_at, outcome, summary FROM runs
-    WHERE check_id = ${check.id} AND finished_at IS NOT NULL
-    ORDER BY started_at DESC, id DESC LIMIT ${RECENT_RUNS}
-  `
-  // Rows are the union of cases seen in the window, ordered by case ID.
-  const titles = new Map<string, string>()
-  for (const row of matrixRows) for (const item of row.summary ?? []) titles.set(item.case, item.title)
-  return {
-    project: { slug: found.slug, name: found.name },
-    check: await card(check, now),
-    runs: rows.map((row) => toRun(row, check.grace_seconds, now)),
-    matrix: {
-      cases: [...titles].sort(([a], [b]) => a.localeCompare(b)).map(([id, title]) => ({ id, title })),
-      runs: [...matrixRows].reverse().map((row) => ({
-        id: row.id,
-        startedAt: row.started_at.toISOString(),
-        outcome: row.outcome,
-        cases: Object.fromEntries((row.summary ?? []).map((item) => [item.case, item.status])),
-      })),
-    },
+  const { card: checkCard, latest } = await card(check, now)
+  let latestRun: LatestRun | null = null
+  if (latest) {
+    const specs = catalogCases(latest)
+    latestRun = {
+      ...toRun(latest, check.grace_seconds, now),
+      runnerKind: latest.runner_kind,
+      runUrl: latest.run_url,
+      deployedStart: latest.deployed_start,
+      deployedEnd: latest.deployed_end,
+      // Case titles come from the run's own catalog, not from the test title the runner reported.
+      summary: latest.summary?.map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title })) ?? null,
+    }
   }
-}
-
-export async function runDetail(userId: string, projectSlug: string, runId: string): Promise<RunDetail | null> {
-  if (!/^\d+$/.test(runId)) return null
-  const found = await project(userId, projectSlug)
-  if (!found) return null
-  const [row] = await sql()<(RunDbRow & {
-    check_slug: string; check_name: string; environment: string; grace_seconds: number
-    runner_kind: string | null; run_url: string | null; deployed_start: Deployed | null
-    deployed_end: Deployed | null; summary: CaseResult[] | null
-  })[]>`
-    SELECT r.id, r.started_at, r.finished_at, r.outcome, r.outcome_reason, r.exit_code, r.test_sha,
-           r.runner_kind, r.run_url, r.deployed_start, r.deployed_end, r.summary,
-           c.slug AS check_slug, c.name AS check_name, c.environment, c.grace_seconds
-    FROM runs r JOIN checks c ON c.id = r.check_id
-    WHERE r.id = ${runId} AND c.project_id = ${found.id}
-  `
-  if (!row) return null
-  return {
-    project: { slug: found.slug, name: found.name },
-    check: { slug: row.check_slug, name: row.check_name, environment: row.environment },
-    run: {
-      ...toRun(row, row.grace_seconds, new Date()),
-      runnerKind: row.runner_kind,
-      runUrl: row.run_url,
-      deployedStart: row.deployed_start,
-      deployedEnd: row.deployed_end,
-      summary: row.summary,
-    },
-  }
+  return { project: { slug: found.slug, name: found.name }, check: checkCard, latest: latestRun }
 }
 
 export async function caseDetail(
@@ -170,25 +147,14 @@ export async function caseDetail(
   if (!found) return null
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
-  const now = new Date()
-  // The specification text comes from the newest stored catalog that declares the case.
-  const [latest] = await sql()<{ id: string; spec: CaseSpec }[]>`
-    SELECT r.id, item AS spec FROM runs r, jsonb_array_elements(r.catalog -> 'cases') item
-    WHERE r.check_id = ${check.id} AND item ->> 'id' = ${caseId}
-    ORDER BY r.started_at DESC, r.id DESC LIMIT 1
-  `
-  const rows = await sql()<(RunDbRow & { result: CaseResult | null })[]>`
-    SELECT r.id, r.started_at, r.finished_at, r.outcome, r.outcome_reason, r.exit_code, r.test_sha,
-           (SELECT item FROM jsonb_array_elements(r.summary) item WHERE item ->> 'case' = ${caseId}) AS result
-    FROM runs r WHERE r.check_id = ${check.id} AND r.finished_at IS NOT NULL
-    ORDER BY r.started_at DESC, r.id DESC LIMIT ${HISTORY_RUNS}
-  `
-  if (!latest && !rows.some((row) => row.result)) return null
+  const latest = await latestFinished(check.id)
+  const spec = latest ? catalogCases(latest).get(caseId) : undefined
+  if (!latest || !spec) return null
   return {
     project: { slug: found.slug, name: found.name },
     check: { slug: check.slug, name: check.name },
-    spec: latest?.spec ?? null,
-    catalogRunId: latest?.id ?? null,
-    history: rows.map((row) => ({ run: toRun(row, check.grace_seconds, now), result: row.result })),
+    spec,
+    run: toRun(latest, check.grace_seconds, new Date()),
+    result: latest.summary?.find((item) => item.case === caseId) ?? null,
   }
 }

@@ -1,5 +1,4 @@
-import { Flex, Tag, Tooltip, Typography, theme } from 'antd'
-import { Link } from '@tanstack/react-router'
+import { Alert, Tag, Tooltip, Typography, theme } from 'antd'
 import type { CaseStatus, CheckStatus, Outcome, RunRow, ThenStatus } from '../lib/types'
 
 // All timestamps are shown in UTC so server and client render identical text.
@@ -70,55 +69,18 @@ export function ThenTag({ id, status }: { id: string; status: ThenStatus }) {
   return <Tag color={THEN[status].color}>{id} · {THEN[status].label}</Tag>
 }
 
-type Tone = 'success' | 'error' | 'warning' | 'processing' | 'neutral'
-
-export function outcomeTone(run: Pick<RunRow, 'outcome' | 'timedOut'>): Tone {
-  if (run.timedOut) return 'warning'
-  return { passed: 'success', failed: 'error', incomplete: 'warning', running: 'processing' }[run.outcome] as Tone
-}
-
-export function caseTone(status: CaseStatus | undefined): Tone {
-  if (!status) return 'neutral'
-  return { passed: 'success', failed: 'error', skipped: 'warning', flaky: 'warning', missing: 'neutral' }[status] as Tone
-}
-
-export function Cell({ tone, label }: { tone: Tone; label: string }) {
+// A run newer than the displayed one that has started but not reported yet.
+export function ActiveRunNotice({ active }: { active: RunRow | null }) {
   const { token } = theme.useToken()
-  const color = {
-    success: token.colorSuccess,
-    error: token.colorError,
-    warning: token.colorWarning,
-    processing: token.colorInfo,
-    neutral: token.colorFillSecondary,
-  }[tone]
+  if (!active) return null
   return (
-    <span
-      role="img"
-      aria-label={label}
-      style={{
-        display: 'inline-block',
-        width: token.sizeSM,
-        height: token.sizeMD,
-        borderRadius: token.borderRadiusXS,
-        background: color,
-      }}
+    <Alert
+      type={active.timedOut ? 'warning' : 'info'}
+      showIcon
+      title={active.timedOut
+        ? `A newer run started at ${utc(active.startedAt)} timed out without reporting.`
+        : `A newer run started at ${utc(active.startedAt)} is still running.`}
+      style={{ marginBottom: token.margin }}
     />
-  )
-}
-
-// Oldest to newest, left to right, each cell linking to its run.
-export function RunStrip({ project, runs }: { project: string; runs: RunRow[] }) {
-  const { token } = theme.useToken()
-  if (!runs.length) return <Typography.Text type="secondary">No runs yet</Typography.Text>
-  return (
-    <Flex gap={token.sizeXXS} wrap>
-      {[...runs].reverse().map((run) => (
-        <Tooltip key={run.id} title={`Run ${run.id} · ${run.outcome} · ${utc(run.startedAt)}`}>
-          <Link to="/p/$project/runs/$run" params={{ project, run: run.id }}>
-            <Cell tone={outcomeTone(run)} label={`Run ${run.id} ${run.outcome}`} />
-          </Link>
-        </Tooltip>
-      ))}
-    </Flex>
   )
 }
