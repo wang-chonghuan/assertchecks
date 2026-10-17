@@ -5,10 +5,11 @@ import { ExportOutlined } from '@ant-design/icons'
 import { CaseStatusTag, OutcomeTag, Sha, ThenTag, utc } from '../../../../../components/status'
 import { getRun } from '../../../../../server/fns'
 import type { CaseResult } from '../../../../../lib/types'
+import { PRODUCT_NAME } from '../../../../../components/brand'
 
 export const Route = createFileRoute('/_app/p/$project/runs/$run')({
   loader: ({ params }) => getRun({ data: { project: params.project, run: params.run } }),
-  head: ({ loaderData }) => ({ meta: [{ title: `Run ${loaderData?.run.id ?? ''} · assertchecks` }] }),
+  head: ({ loaderData }) => ({ meta: [{ title: `Run ${loaderData?.run.id ?? ''} · ${PRODUCT_NAME}` }] }),
   component: RunPage,
 })
 

@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { Alert, Button, Card, Flex, Form, Input, Typography, theme } from 'antd'
 import { useState } from 'react'
 import { getMe, login } from '../server/fns'
+import { Brand } from '../components/brand'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: async () => {
@@ -37,7 +38,7 @@ function LoginPage() {
   return (
     <Flex justify="center" align="center" style={{ minHeight: '100vh', padding: token.padding }}>
       <Card style={{ width: '100%', maxWidth: token.screenXS }}>
-        <Typography.Title level={3}>assertchecks</Typography.Title>
+        <Typography.Title level={3}><Brand /></Typography.Title>
         <Typography.Paragraph type="secondary">Sign in to see your projects' checks.</Typography.Paragraph>
         {error && <Alert type="error" showIcon title={error} style={{ marginBottom: token.margin }} />}
         <Form layout="vertical" onFinish={submit} requiredMark={false}>

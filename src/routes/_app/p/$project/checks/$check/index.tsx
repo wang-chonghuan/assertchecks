@@ -6,10 +6,11 @@ import {
 } from '../../../../../../components/status'
 import { getCheck } from '../../../../../../server/fns'
 import type { MatrixRun, RunRow } from '../../../../../../lib/types'
+import { PRODUCT_NAME } from '../../../../../../components/brand'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
   loader: ({ params }) => getCheck({ data: { project: params.project, check: params.check } }),
-  head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.check.name ?? 'Check'} · assertchecks` }] }),
+  head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.check.name ?? 'Check'} · ${PRODUCT_NAME}` }] }),
   component: CheckPage,
 })
 

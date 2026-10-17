@@ -4,10 +4,11 @@ import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, OutcomeTag, Sha, ThenTag, utc } from '../../../../../../../components/status'
 import { getCase } from '../../../../../../../server/fns'
 import type { CaseDetail } from '../../../../../../../lib/types'
+import { PRODUCT_NAME } from '../../../../../../../components/brand'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/cases/$case')({
   loader: ({ params }) => getCase({ data: { project: params.project, check: params.check, case: params.case } }),
-  head: ({ params }) => ({ meta: [{ title: `${params.case} · assertchecks` }] }),
+  head: ({ params }) => ({ meta: [{ title: `${params.case} · ${PRODUCT_NAME}` }] }),
   component: CasePage,
 })
 

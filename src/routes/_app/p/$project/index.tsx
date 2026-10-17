@@ -2,10 +2,11 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { Card, Col, Descriptions, Empty, Flex, Row, Typography, theme } from 'antd'
 import { CheckStatusTag, OutcomeTag, RunStrip, duration, utc } from '../../../../components/status'
 import { getOverview } from '../../../../server/fns'
+import { PRODUCT_NAME } from '../../../../components/brand'
 
 export const Route = createFileRoute('/_app/p/$project/')({
   loader: ({ params }) => getOverview({ data: { project: params.project } }),
-  head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.project.name ?? 'Project'} · assertchecks` }] }),
+  head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.project.name ?? 'Project'} · ${PRODUCT_NAME}` }] }),
   component: OverviewPage,
 })
 

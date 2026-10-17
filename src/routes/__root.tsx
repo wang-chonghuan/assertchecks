@@ -3,13 +3,14 @@ import { App, ConfigProvider, Result } from 'antd'
 import antdCss from '../generated/antd.css?url'
 import appCss from '../styles.css?url'
 import { theme } from '../theme'
+import { PRODUCT_NAME } from '../components/brand'
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'assertchecks' },
+      { title: PRODUCT_NAME },
     ],
     links: [
       { rel: 'stylesheet', href: antdCss },

@@ -2,6 +2,7 @@ import { Link, Outlet, createFileRoute, redirect, useNavigate, useParams, useRou
 import { Button, Flex, Grid, Layout, Select, Typography, theme } from 'antd'
 import { LogoutOutlined } from '@ant-design/icons'
 import { getMe, logout } from '../server/fns'
+import { Brand, PRODUCT_NAME } from '../components/brand'
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
@@ -38,8 +39,8 @@ function AppLayout() {
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
-        <Link to="/" aria-label="assertchecks home">
-          <Typography.Text strong style={{ fontSize: token.fontSizeLG, whiteSpace: 'nowrap' }}>assertchecks</Typography.Text>
+        <Link to="/" aria-label={`${PRODUCT_NAME} home`}>
+          <Typography.Text strong style={{ fontSize: token.fontSizeLG }}><Brand /></Typography.Text>
         </Link>
         {me.projects.length > 0 && (
           <Select
