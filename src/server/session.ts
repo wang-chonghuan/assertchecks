@@ -3,6 +3,7 @@ import { sql } from './db'
 import { randomToken, verifyPassword } from './crypto'
 
 const COOKIE = 'ac_session'
+const PROJECT_COOKIE = 'ac_project'
 const SESSION_DAYS = 30
 
 export interface SessionUser {
@@ -44,4 +45,19 @@ export async function signOut(): Promise<void> {
   const id = getCookie(COOKIE)
   if (id) await sql()`DELETE FROM sessions WHERE id = ${id}`
   deleteCookie(COOKIE, { path: '/' })
+}
+
+// The last project the user opened; only a hint, always re-checked against memberships.
+export function rememberProject(slug: string): void {
+  setCookie(PROJECT_COOKIE, slug, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 365 * 24 * 60 * 60,
+  })
+}
+
+export function lastProject(): string | null {
+  return getCookie(PROJECT_COOKIE) ?? null
 }

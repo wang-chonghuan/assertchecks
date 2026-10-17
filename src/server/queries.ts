@@ -92,6 +92,15 @@ async function activeRun(checkId: string, after: Date | null): Promise<RunDbRow 
   return row ?? null
 }
 
+// A case passes only when it passed and every declared Then passed.
+function notPassed(latest: LatestDbRow | null): CaseResult[] {
+  if (!latest?.summary) return []
+  const specs = catalogCases(latest)
+  return latest.summary
+    .filter((item) => item.status !== 'passed' || item.thens.some((then) => then.status !== 'passed'))
+    .map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title }))
+}
+
 function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
   const cases = Array.isArray(latest.catalog?.cases) ? latest.catalog.cases : []
   return new Map(cases.map((item) => [item.id, item]))
@@ -126,16 +135,18 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
       latest: latest ? toRun(latest, check.grace_seconds, now) : null,
       active: active ? toRun(active, check.grace_seconds, now) : null,
       partial: partialRun,
+      notPassed: notPassed(latest),
     },
   }
 }
 
-export async function me(user: { id: string; email: string }): Promise<Me> {
+export async function me(user: { id: string; email: string }, remembered: string | null): Promise<Me> {
   const projects = await sql()<{ slug: string; name: string }[]>`
     SELECT p.slug, p.name FROM projects p JOIN memberships m ON m.project_id = p.id
     WHERE m.user_id = ${user.id} ORDER BY p.name
   `
-  return { email: user.email, projects: [...projects] }
+  const lastProject = projects.some((project) => project.slug === remembered) ? remembered : null
+  return { email: user.email, projects: [...projects], lastProject }
 }
 
 export async function overview(userId: string, projectSlug: string): Promise<Overview | null> {

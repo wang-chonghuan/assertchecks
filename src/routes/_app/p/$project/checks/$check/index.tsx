@@ -48,6 +48,21 @@ function CheckPage() {
     { title: 'Duration', dataIndex: 'ms', render: (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1)}s`) },
   ]
 
+  // Only what went wrong: the Then steps that did not pass; each error excerpt is expanded below its row.
+  const notPassedColumns: TableColumnsType<CaseResult> = [
+    columns[0],
+    { title: 'Status', dataIndex: 'status', render: (status: CaseResult['status']) => <CaseStatusTag status={status} /> },
+    {
+      title: 'Then not passed',
+      dataIndex: 'thens',
+      render: (thens: CaseResult['thens']) => (
+        <Flex gap="small" wrap>
+          {thens.filter((then) => then.status !== 'passed').map((then) => <ThenTag key={then.id} id={then.id} status={then.status} />)}
+        </Flex>
+      ),
+    },
+  ]
+
   return (
     <Flex vertical gap="middle">
       <Breadcrumb
@@ -107,6 +122,23 @@ function CheckPage() {
           ]}
         />
       </Card>
+      {check.notPassed.length > 0 && (
+        <Card title={`Not passed in the latest run (${check.notPassed.length})`}>
+          <Table
+            rowKey="case"
+            size="small"
+            pagination={false}
+            scroll={{ x: 'max-content' }}
+            columns={notPassedColumns}
+            dataSource={check.notPassed}
+            expandable={{
+              defaultExpandAllRows: true,
+              rowExpandable: (item) => Boolean(item.error),
+              expandedRowRender: (item) => <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{item.error}</pre>,
+            }}
+          />
+        </Card>
+      )}
       <Card title="Cases in the latest run">
         {!latest ? (
           <Empty description="No finished runs yet." />

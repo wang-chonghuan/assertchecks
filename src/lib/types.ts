@@ -8,6 +8,8 @@ export type { CheckStatus } from '../server/status'
 export interface Me {
   email: string
   projects: { slug: string; name: string }[]
+  // The last opened project, only when the user still belongs to it.
+  lastProject: string | null
 }
 
 export interface RunRow {
@@ -40,6 +42,8 @@ export interface CheckCard {
   active: RunRow | null
   // A named-case run that finished after the latest full run.
   partial: PartialRun | null
+  // Cases of the latest full run that did not pass, in run order; empty when all passed.
+  notPassed: CaseResult[]
 }
 
 export interface Overview {

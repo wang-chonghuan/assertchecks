@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Card, Col, Descriptions, Empty, Flex, Row, Typography, theme } from 'antd'
-import { ActiveRunNotice, CheckStatusTag, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from '../../../../components/status'
+import { ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from '../../../../components/status'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -9,6 +9,9 @@ export const Route = createFileRoute('/_app/p/$project/')({
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.project.name ?? 'Project'} · ${PRODUCT_NAME}` }] }),
   component: OverviewPage,
 })
+
+// Longer lists continue on the check page.
+const NOT_PASSED_ON_CARD = 5
 
 function OverviewPage() {
   const { project, checks } = Route.useLoaderData()
@@ -33,6 +36,30 @@ function OverviewPage() {
               >
                 <ActiveRunNotice active={check.active} />
                 <PartialRunNotice partial={check.partial} />
+                {check.notPassed.length > 0 && (
+                  <Flex vertical gap={token.marginXXS} style={{ marginBottom: token.margin }}>
+                    <Typography.Text strong>Not passed ({check.notPassed.length})</Typography.Text>
+                    {check.notPassed.slice(0, NOT_PASSED_ON_CARD).map((item) => (
+                      <Flex key={item.case} gap="small" align="baseline" style={{ minWidth: 0 }}>
+                        <CaseStatusTag status={item.status} />
+                        <Link
+                          to="/p/$project/checks/$check/cases/$case"
+                          params={{ project: project.slug, check: check.slug, case: item.case }}
+                        >
+                          {item.case}
+                        </Link>
+                        <Typography.Text type="secondary" ellipsis={{ tooltip: item.title }} style={{ flex: 1, minWidth: 0 }}>
+                          {item.title}
+                        </Typography.Text>
+                      </Flex>
+                    ))}
+                    {check.notPassed.length > NOT_PASSED_ON_CARD && (
+                      <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
+                        and {check.notPassed.length - NOT_PASSED_ON_CARD} more
+                      </Link>
+                    )}
+                  </Flex>
+                )}
                 <Descriptions
                   column={1}
                   size="small"
