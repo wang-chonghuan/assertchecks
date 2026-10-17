@@ -20,3 +20,10 @@ such list.
 
 The check page shows a section above the full case table with each non-passed case, its failed or
 not-run Then IDs and its error excerpt; the all-passed check shows no such section.
+
+## AC 4 — cases outside the nightly run are shown (added 2026-10-17)
+
+For NSDK DEV, the latest run's catalog has 6 draft cases and 1 manual case outside the check's
+selection. The overview card and the check page list them with ID, title, draft/manual and the
+catalog's `failure` note when present; retired cases are not listed; a check whose selection covers
+every non-retired case shows no such list.

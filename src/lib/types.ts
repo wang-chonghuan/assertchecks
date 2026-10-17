@@ -44,6 +44,17 @@ export interface CheckCard {
   partial: PartialRun | null
   // Cases of the latest full run that did not pass, in run order; empty when all passed.
   notPassed: CaseResult[]
+  // Catalog cases the check's selection leaves out (draft or manual, never retired), with the
+  // catalog's own explanation when it gives one.
+  outsideRun: OutsideCase[]
+}
+
+export interface OutsideCase {
+  case: string
+  title: string
+  status: string
+  run: string
+  note: string | null
 }
 
 export interface Overview {
@@ -71,6 +82,7 @@ export interface CaseSpec {
   type: string
   run: string
   status: string
+  failure?: string
   given: string[]
   when: string[]
   then: { id: string; expect: string }[]

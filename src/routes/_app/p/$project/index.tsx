@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Card, Col, Descriptions, Empty, Flex, Row, Typography, theme } from 'antd'
-import { ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from '../../../../components/status'
+import { ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, PartialRunNotice, TriggerTag, scheduleText, utc } from '../../../../components/status'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -56,6 +56,34 @@ function OverviewPage() {
                     {check.notPassed.length > NOT_PASSED_ON_CARD && (
                       <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
                         and {check.notPassed.length - NOT_PASSED_ON_CARD} more
+                      </Link>
+                    )}
+                  </Flex>
+                )}
+                {check.outsideRun.length > 0 && (
+                  <Flex vertical gap={token.marginXXS} style={{ marginBottom: token.margin }}>
+                    <Typography.Text strong>Not run automatically ({check.outsideRun.length})</Typography.Text>
+                    {check.outsideRun.slice(0, NOT_PASSED_ON_CARD).map((item) => (
+                      <Flex key={item.case} gap="small" align="baseline" style={{ minWidth: 0 }}>
+                        <OutsideRunTag status={item.status} run={item.run} />
+                        <Link
+                          to="/p/$project/checks/$check/cases/$case"
+                          params={{ project: project.slug, check: check.slug, case: item.case }}
+                        >
+                          {item.case}
+                        </Link>
+                        <Typography.Text
+                          type="secondary"
+                          ellipsis={{ tooltip: item.note ? `${item.title} — ${item.note}` : item.title }}
+                          style={{ flex: 1, minWidth: 0 }}
+                        >
+                          {item.title}
+                        </Typography.Text>
+                      </Flex>
+                    ))}
+                    {check.outsideRun.length > NOT_PASSED_ON_CARD && (
+                      <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
+                        and {check.outsideRun.length - NOT_PASSED_ON_CARD} more
                       </Link>
                     )}
                   </Flex>

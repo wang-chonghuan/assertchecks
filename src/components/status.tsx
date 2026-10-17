@@ -108,3 +108,10 @@ export function PartialRunNotice({ partial }: { partial: PartialRun | null }) {
     />
   )
 }
+
+// Why a catalog case is not in the automatic run: a draft, or a case reserved for manual runs.
+export function OutsideRunTag({ status, run }: { status: string; run: string }) {
+  if (status === 'draft') return <Tag color="warning">Draft</Tag>
+  if (run === 'manual') return <Tag color="processing">Manual only</Tag>
+  return <Tag>{status} · {run}</Tag>
+}

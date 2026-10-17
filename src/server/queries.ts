@@ -2,13 +2,13 @@
 // Only each check's latest finished run is shown; older runs stay stored but are never read here.
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
-import type { CaseResult, Outcome, Trigger, Versions } from './judge'
-import type { CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, Overview, PartialRun, RunRow } from '../lib/types'
+import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
+import type { CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview, PartialRun, RunRow } from '../lib/types'
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
   id: string; slug: string; name: string; environment: string; period_seconds: number | null; grace_seconds: number
-  created_at: Date
+  created_at: Date; selection: Selection
 }
 interface RunDbRow {
   id: string; started_at: Date; finished_at: Date | null; outcome: Outcome; outcome_reason: string | null
@@ -43,7 +43,7 @@ async function project(userId: string, slug: string): Promise<ProjectRow | null>
 
 async function findCheck(projectId: string, slug: string): Promise<CheckRow | null> {
   const [row] = await sql()<CheckRow[]>`
-    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at FROM checks
+    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at, selection FROM checks
     WHERE project_id = ${projectId} AND slug = ${slug}
   `
   return row ?? null
@@ -101,6 +101,21 @@ function notPassed(latest: LatestDbRow | null): CaseResult[] {
     .map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title }))
 }
 
+// Catalog cases this check never runs automatically, so their absence is visible rather than silent.
+function outsideRun(latest: LatestDbRow | null, selection: Selection): OutsideCase[] {
+  if (!latest) return []
+  return [...catalogCases(latest).values()]
+    .filter((item) => item.status !== 'retired' &&
+      !(selection.status.includes(item.status) && selection.run.includes(item.run)))
+    .map((item) => ({
+      case: item.id,
+      title: item.title,
+      status: item.status,
+      run: item.run,
+      note: typeof item.failure === 'string' && item.failure ? item.failure : null,
+    }))
+}
+
 function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
   const cases = Array.isArray(latest.catalog?.cases) ? latest.catalog.cases : []
   return new Map(cases.map((item) => [item.id, item]))
@@ -136,6 +151,7 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
       active: active ? toRun(active, check.grace_seconds, now) : null,
       partial: partialRun,
       notPassed: notPassed(latest),
+      outsideRun: outsideRun(latest, check.selection),
     },
   }
 }
@@ -154,7 +170,7 @@ export async function overview(userId: string, projectSlug: string): Promise<Ove
   if (!found) return null
   const now = new Date()
   const checks = await sql()<CheckRow[]>`
-    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at FROM checks
+    SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at, selection FROM checks
     WHERE project_id = ${found.id} ORDER BY name
   `
   const cards = await Promise.all(checks.map((check) => card(check, now)))

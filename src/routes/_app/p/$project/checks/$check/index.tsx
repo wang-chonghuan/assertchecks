@@ -3,10 +3,10 @@ import { Alert, Breadcrumb, Card, Descriptions, Empty, Flex, Table, Typography, 
 import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import {
-  ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, PartialRunNotice, Sha, ThenTag, TriggerTag, scheduleText, utc,
+  ActiveRunNotice, CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, PartialRunNotice, Sha, ThenTag, TriggerTag, scheduleText, utc,
 } from '../../../../../../components/status'
 import { getCheck } from '../../../../../../server/fns'
-import type { CaseResult, Versions } from '../../../../../../lib/types'
+import type { CaseResult, OutsideCase, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
@@ -58,6 +58,23 @@ function CheckPage() {
       render: (thens: CaseResult['thens']) => (
         <Flex gap="small" wrap>
           {thens.filter((then) => then.status !== 'passed').map((then) => <ThenTag key={then.id} id={then.id} status={then.status} />)}
+        </Flex>
+      ),
+    },
+  ]
+
+  // Catalog cases outside this check's selection; the catalog's own note explains why, when present.
+  const outsideColumns: TableColumnsType<OutsideCase> = [
+    { title: 'Why not run', key: 'kind', width: 120, render: (_, item) => <OutsideRunTag status={item.status} run={item.run} /> },
+    {
+      title: 'Case',
+      dataIndex: 'case',
+      render: (id: string, item) => (
+        <Flex vertical>
+          <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: id }}>
+            {id}
+          </Link>
+          <Typography.Text type="secondary">{item.title}</Typography.Text>
         </Flex>
       ),
     },
@@ -135,6 +152,22 @@ function CheckPage() {
               defaultExpandAllRows: true,
               rowExpandable: (item) => Boolean(item.error),
               expandedRowRender: (item) => <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{item.error}</pre>,
+            }}
+          />
+        </Card>
+      )}
+      {check.outsideRun.length > 0 && (
+        <Card title={`Not run automatically (${check.outsideRun.length})`}>
+          <Table
+            rowKey="case"
+            size="small"
+            pagination={false}
+            columns={outsideColumns}
+            dataSource={check.outsideRun}
+            expandable={{
+              defaultExpandAllRows: true,
+              rowExpandable: (item) => Boolean(item.note),
+              expandedRowRender: (item) => <Typography.Paragraph style={{ margin: 0 }}>{item.note}</Typography.Paragraph>,
             }}
           />
         </Card>
