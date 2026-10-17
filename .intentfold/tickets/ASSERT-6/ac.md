@@ -27,3 +27,8 @@ For NSDK DEV, the latest run's catalog has 6 draft cases and 1 manual case outsi
 selection. The overview card and the check page list them with ID, title, draft/manual and the
 catalog's `failure` note when present; retired cases are not listed; a check whose selection covers
 every non-retired case shows no such list.
+
+## AC 5 — tag colours (added 2026-10-17)
+
+In the not-run list, Draft tags render orange and Manual only tags grey (computed styles); failed
+cases keep the red Failed tag in the not-passed list.
