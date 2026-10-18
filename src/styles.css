@@ -2,3 +2,14 @@
 body {
   margin: 0;
 }
+
+/* Homepage section links: hidden on narrow screens, shown from antd's md breakpoint. */
+.home-nav {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .home-nav {
+    display: flex;
+  }
+}

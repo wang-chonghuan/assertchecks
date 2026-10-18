@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Result } from 'antd'
 
-export const Route = createFileRoute('/_app/')({
+export const Route = createFileRoute('/_app/p/')({
   beforeLoad: ({ context }) => {
     const target = context.me.lastProject ?? context.me.projects[0]?.slug
     if (target) throw redirect({ to: '/p/$project', params: { project: target } })

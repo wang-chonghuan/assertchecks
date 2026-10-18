@@ -6,7 +6,7 @@ import { Brand } from '../components/brand'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: async () => {
-    if (await getMe()) throw redirect({ to: '/' })
+    if (await getMe()) throw redirect({ to: '/p' })
   },
   component: LoginPage,
 })
@@ -27,7 +27,7 @@ function LoginPage() {
         return
       }
       await router.invalidate()
-      await router.navigate({ to: '/' })
+      await router.navigate({ to: '/p' })
     } catch {
       setError('Sign-in failed. Try again.')
     } finally {
