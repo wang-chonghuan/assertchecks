@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-9",
   "mode": "open",
-  "stage": "setup-complete",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-9",
   "branch": "ASSERT-9-catalog-changes",
