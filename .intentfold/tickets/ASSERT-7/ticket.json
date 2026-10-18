@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-7",
   "mode": "open",
-  "stage": "setup-complete",
+  "stage": "handed-off",
   "finish": "auto-deploy",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-7",
   "branch": "ASSERT-7-homepage",
