@@ -7,8 +7,8 @@ are repo-root-relative and executable as written. Section shape is fixed by
 Most tickets end at merge. `Finish: auto-deploy` runs this file's deploy and post-deploy tools after
 merge. Acceptance verification also uses this file, so stale commands block delivery.
 
-*Seeded by IntentFold cap1 on 2026-10-17 from repository evidence; items marked (review) are
-inferences the owner should confirm.*
+*Seeded by IntentFold cap1 on 2026-10-17 from repository evidence; brought up to date with the
+repository at the owner's request in ASSERT-12 (2026-10-19).*
 
 ## Contract
 
@@ -80,6 +80,13 @@ pnpm build
   `.credentials.local`.
 - Push API: `curl` against the local or production origin with a ticket-scoped check's token.
 - Data: `psql "$DATABASE_URL"` with `set search_path to "assertchecks-schema"` for read-only checks.
+- Ticket-scoped test data: create it with `pnpm admin project:add`, `check:add`, `user:add` and
+  `member:add`; remove it with the CLI, never with hand-written SQL:
+
+```bash
+pnpm admin project:remove <slug> --confirm <slug>
+pnpm admin user:remove <email> --confirm <email>
+```
 
 **Environment**
 
@@ -100,12 +107,14 @@ python3 <n-easyapp-skill>/scripts/redeploy_current_repo.py --project assertcheck
 **Post-deploy check**
 
 ```bash
-curl -fsS -o /dev/null -w '%{http_code}\n' https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/login
+for page in / /login /schemas/catalog.schema.json /client/assertchecks.mjs; do curl -fsS -o /dev/null -w "$page %{http_code}\n" "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io$page"; done
 az containerapp show -g rg-easyapp-shared -n ca-assertchecks --query 'tags."easyapp.commit"' -o tsv
 git rev-parse origin/main
 ```
 
-The login page must return 200 and the deployed commit tag must equal `origin/main`.
+Every path must return 200 and the deployed commit tag must equal `origin/main`. Right after a
+deploy the previous revision may answer for a short while; repeat the check until the new revision
+does, rather than reporting the old one.
 
 **Operations**
 
@@ -125,7 +134,8 @@ it. A browser proves rendered behavior but may not prove a background write comp
 when the criterion spans both surfaces.
 
 **Use headed browser verification for formal UI acceptance.** Fall back to headless only when no GUI
-is available and record that limitation.
+is available, or when a check needs a session of its own (signed out, or a ticket-scoped user) that
+must not disturb the human's signed-in browser; record which was used.
 
 **Use stable locators.** Prefer role, label, placeholder, visible text, or a stable `data-testid`.
 Locate the stable container first, then assert its contents.
@@ -144,8 +154,8 @@ check targeted the wrong surface, then rerun the same check.
 check is.
 
 **Ticket-scoped test data.** Because local runs use the production database, acceptance creates its
-own project, users and checks named after the ticket (for example `assert-12-test`), and removes them
-when the ticket closes (review).
+own project, users and checks named after the ticket (for example `assert-12-test`), never attaches
+them to a real user, and removes them with the CLI as soon as the evidence is recorded.
 
 ## Redlines
 

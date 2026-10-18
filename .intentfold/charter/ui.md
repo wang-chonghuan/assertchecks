@@ -16,15 +16,17 @@ styling system. Ant Design Pro pages are layout references only.
 
 **Where components live**
 
-Pages under `src/routes/`; shared presentational pieces under `src/components/` (`status.tsx` for
-outcome/status tags and cells, `brand.tsx` for the product name). Prefer an antd component or
-documented composition over a new component.
+Pages under `src/routes/`; shared presentational pieces under `src/components/`: `brand.tsx` (the
+product mark), `status.tsx` (outcome/status tags and notices), `check-summary.tsx` (the environment
+overview shared by project cards and the check page) and `code-block.tsx` (copyable code; Ant has
+only inline code). `src/styles.css` holds structural rules only, such as the homepage section links'
+breakpoint. Prefer an antd component or documented composition over a new component.
 
 **Tokens**
 
 `src/theme.ts` is the single theme authority (antd seed/alias tokens plus the fixed `cssVar.key`).
 Components read values with `theme.useToken()`; colours, spacing, radii and sizes come from tokens,
-not literals. The product name and its brand colour live only in `src/components/brand.tsx`.
+not literals. The product mark and name live only in `src/components/brand.tsx`.
 
 **Layout and responsive**
 

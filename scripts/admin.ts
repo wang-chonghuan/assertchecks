@@ -10,6 +10,8 @@ const USAGE = `usage: pnpm admin <command>
   project:add <slug> <name>             create a project
   member:add <email> <project-slug>     grant a user access to a project
   member:remove <email> <project-slug>  revoke a user's access to a project
+  project:remove <slug> --confirm <slug>     delete a project with its checks, runs and memberships
+  user:remove <email> --confirm <email>      delete a user with its sessions and memberships
   check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds>
             [--select-status active] [--select-run nightly]
   check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace]
@@ -28,6 +30,7 @@ const { positionals, values } = parseArgs({
     grace: { type: 'string' },
     slug: { type: 'string' },
     'select-status': { type: 'string' },
+    confirm: { type: 'string' },
     'select-run': { type: 'string' },
   },
 })
@@ -109,6 +112,26 @@ async function main(): Promise<void> {
         RETURNING m.user_id
       `, 'membership not found')
       console.log(`${email.toLowerCase()} can no longer see ${project}`)
+      return
+    }
+    // Removal is for ticket-scoped test data; the repeated name guards against deleting the wrong object.
+    case 'project:remove': {
+      const [slug] = need(1)
+      if (values.confirm !== slug) throw new Error(`refusing: repeat the project slug with --confirm ${slug}`)
+      const [counts] = await db<{ checks: number; runs: number; members: number }[]>`
+        SELECT (SELECT count(*)::int FROM checks c JOIN projects p ON p.id = c.project_id WHERE p.slug = ${slug}) AS checks,
+               (SELECT count(*)::int FROM runs r JOIN checks c ON c.id = r.check_id JOIN projects p ON p.id = c.project_id WHERE p.slug = ${slug}) AS runs,
+               (SELECT count(*)::int FROM memberships m JOIN projects p ON p.id = m.project_id WHERE p.slug = ${slug}) AS members
+      `
+      await one(db`DELETE FROM projects WHERE slug = ${slug} RETURNING id`, 'unknown project')
+      console.log(`removed project ${slug} with ${counts.checks} check(s), ${counts.runs} run(s) and ${counts.members} membership(s)`)
+      return
+    }
+    case 'user:remove': {
+      const [email] = need(1)
+      if (values.confirm?.toLowerCase() !== email.toLowerCase()) throw new Error(`refusing: repeat the email with --confirm ${email}`)
+      await one(db`DELETE FROM users WHERE email = ${email.toLowerCase()} RETURNING id`, 'unknown user')
+      console.log(`removed ${email.toLowerCase()} with its sessions and memberships`)
       return
     }
     case 'check:add': {

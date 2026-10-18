@@ -1,7 +1,12 @@
-# assertchecks
+# AssertChecks
 
-healthchecks.io for e2e assertions: a runner pushes each Playwright run here, and assertchecks
-records whether every declared assertion actually passed, not just whether the job ran.
+healthchecks.io for end-to-end assertions. Each project runs its own tests where it always runs them
+and reports every run here; AssertChecks judges whether the run arrived on time, ran in full, and
+whether every declared assertion passed, then shows exactly which case and which assertion broke.
+
+The public homepage explains the product and how to connect a project, with a "Copy for your agent"
+button that copies the whole guide (`src/lib/connect-guide.ts`). The report format is published at
+`/schemas/catalog.schema.json` and `/schemas/result.schema.json`.
 
 ## How it works
 
@@ -56,7 +61,9 @@ between start and end. Assertion failures are `failed`; anything not fully execu
 Results with credential-like strings are rejected (HTTP 422) and not stored. Bodies are limited to
 5 MB. Unknown tokens return 404.
 
-Each check shows its latest finished full run. Status (`new`, `up`, `failing`, `late`) follows that
+Each check shows its latest finished full run. When that run's catalog removed a required case, or
+moved one out of the check's selection, compared with the previous full run, the check shows a
+"Catalog changed" notice; the run is still judged as reported. Status (`new`, `up`, `failing`, `late`) follows that
 run; `late` applies only to checks with a period and only scheduled runs reset it, so manual runs
 cannot hide a missing scheduled run. A check without a period is run on demand. The web UI is
 read-only; times are shown in UTC.
@@ -91,6 +98,8 @@ pnpm admin user:password <email>
 pnpm admin project:add <slug> <name>
 pnpm admin member:add <email> <project-slug>
 pnpm admin member:remove <email> <project-slug>
+pnpm admin project:remove <slug> --confirm <slug>
+pnpm admin user:remove <email> --confirm <email>
 pnpm admin check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds> [--select-status active] [--select-run nightly]
 pnpm admin check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace] [--select-status a,b] [--select-run a,b]
 pnpm admin check:token <project-slug> <check-slug>
