@@ -89,7 +89,8 @@ export interface CheckDetail {
 export interface CaseSpec {
   id: string
   title: string
-  type: string
+  // A project's own field (for example ui / api), not part of the AssertChecks catalog format.
+  type?: string
   run: string
   status: string
   failure?: string

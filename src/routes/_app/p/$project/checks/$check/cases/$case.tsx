@@ -33,7 +33,7 @@ function CasePage() {
       />
       <Card
         title={`${spec.id} · ${spec.title}`}
-        extra={<Flex gap="small"><Tag>{spec.type.toUpperCase()}</Tag><Tag>{spec.run}</Tag><Tag>{spec.status}</Tag></Flex>}
+        extra={<Flex gap="small">{spec.type && <Tag>{spec.type.toUpperCase()}</Tag>}<Tag>{spec.run}</Tag><Tag>{spec.status}</Tag></Flex>}
       >
         <Descriptions
           column={1}
