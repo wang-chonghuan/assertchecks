@@ -1,6 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { App, ConfigProvider, Result } from 'antd'
-import antdCss from '../generated/antd.css?url'
+import antdCss from '#antd-css?url'
 import appCss from '../styles.css?url'
 import { theme } from '../theme'
 import { PRODUCT_NAME } from '../components/brand'

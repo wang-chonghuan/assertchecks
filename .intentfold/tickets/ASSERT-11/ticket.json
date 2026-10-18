@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-11",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-11",
+  "branch": "ASSERT-11-homepage-brand",
+  "base": "8859d7077a3c3dc24ff03b5ce27798147fe01548",
+  "ports": {
+    "web": 63011
+  }
+}
