@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-10",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-10",
+  "branch": "ASSERT-10-generic-skill",
+  "base": "d3962f174bacd2343946da4961c793ed7c7f35bb",
+  "ports": {}
+}
