@@ -55,6 +55,7 @@ const EXAMPLE: CheckCard = {
   notPassed: [],
   outsideRun: [],
   counts: { total: 48, passed: 41, failed: 2, draft: 4, manual: 1 },
+  catalogChanges: [],
 }
 
 const EXAMPLE_FAILURES = [
