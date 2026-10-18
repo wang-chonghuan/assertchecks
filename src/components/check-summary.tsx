@@ -1,6 +1,6 @@
 import { Alert, Col, Descriptions, Empty, Flex, Row, Statistic, Typography, theme } from 'antd'
 import { ActiveRunNotice, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from './status'
-import type { CheckCard } from '../lib/types'
+import type { CatalogChange, CheckCard } from '../lib/types'
 
 // The overview of one environment's latest results, shared by the project page cards and the
 // check page so both always show the same numbers.
@@ -19,6 +19,7 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
 
   return (
     <Flex vertical gap="middle">
+      <CatalogChangeNotice changes={check.catalogChanges} compact={compact} />
       <ActiveRunNotice active={check.active} />
       <PartialRunNotice partial={check.partial} />
       {latest ? (
@@ -53,5 +54,41 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
         ]}
       />
     </Flex>
+  )
+}
+
+// On a card at most this many changes are listed; the check page lists them all.
+const CARD_CHANGES = 3
+
+function changeText(change: CatalogChange): string {
+  if (change.change === 'removed') return 'removed from the catalog'
+  return `now ${[change.status, change.run].filter(Boolean).join(' · ')}`
+}
+
+// Required cases the latest full run's catalog dropped. Only a notice: the run is judged as reported.
+function CatalogChangeNotice({ changes, compact }: { changes: CatalogChange[]; compact: boolean }) {
+  if (!changes.length) return null
+  const shown = compact ? changes.slice(0, CARD_CHANGES) : changes
+  return (
+    <Alert
+      type="warning"
+      showIcon
+      title={`Catalog changed: ${changes.length} required case${changes.length === 1 ? '' : 's'} no longer in the run`}
+      description={
+        <Flex vertical gap="small">
+          {shown.map((change) => (
+            <Typography.Text key={change.case}>
+              <Typography.Text code>{change.case}</Typography.Text> {change.title} — {changeText(change)}
+            </Typography.Text>
+          ))}
+          {changes.length > shown.length && (
+            <Typography.Text type="secondary">and {changes.length - shown.length} more on the check page</Typography.Text>
+          )}
+          {!compact && (
+            <Typography.Text type="secondary">Compared with the previous full run. The latest run is judged as reported.</Typography.Text>
+          )}
+        </Flex>
+      }
+    />
   )
 }

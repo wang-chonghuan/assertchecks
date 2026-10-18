@@ -2,6 +2,7 @@
 // Only each check's latest finished run is shown; older runs stay stored but are never read here.
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
+import { catalogChanges } from './catalog-changes'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type { CaseCounts, CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview, PartialRun, RunRow } from '../lib/types'
 
@@ -56,6 +57,18 @@ async function latestFinished(checkId: string): Promise<LatestDbRow | null> {
     ORDER BY finished_at DESC, id DESC LIMIT 1
   `
   return row ?? null
+}
+
+// The catalog of the full run before the latest one, to show required cases the latest dropped.
+// Runs without a catalog (reported errors) are skipped.
+async function previousCatalog(checkId: string, latest: LatestDbRow): Promise<unknown> {
+  const [row] = await sql()<{ catalog: unknown }[]>`
+    SELECT catalog FROM runs
+    WHERE check_id = ${checkId} AND finished_at IS NOT NULL AND cases IS NULL AND catalog IS NOT NULL
+      AND (finished_at, id) < (${latest.finished_at}, ${latest.id})
+    ORDER BY finished_at DESC, id DESC LIMIT 1
+  `
+  return row?.catalog ?? null
 }
 
 // Lateness is measured only from scheduled full runs.
@@ -143,6 +156,7 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
   })
   const failed = notPassed(latest)
   const outside = outsideRun(latest, check.selection)
+  const changes = latest ? catalogChanges(await previousCatalog(check.id, latest), latest.catalog, check.selection) : []
   const partialRun: PartialRun | null = partial
     ? { ...toRun(partial, check.grace_seconds, now), caseCount: partial.count }
     : null
@@ -162,6 +176,7 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
       notPassed: failed,
       outsideRun: outside,
       counts: latest ? counts(latest, failed, outside) : null,
+      catalogChanges: changes,
     },
   }
 }

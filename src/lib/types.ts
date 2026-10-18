@@ -49,6 +49,19 @@ export interface CheckCard {
   outsideRun: OutsideCase[]
   // Case counts of the latest full run and its catalog; null before the first finished run.
   counts: CaseCounts | null
+  // Required cases of the previous full run that the latest full run's catalog removed or moved out
+  // of the check's selection; empty when nothing was dropped.
+  catalogChanges: CatalogChange[]
+}
+
+export interface CatalogChange {
+  case: string
+  title: string
+  // removed: no longer in the catalog. moved: still there, but no longer required.
+  change: 'removed' | 'moved'
+  // For moved: the new status and/or run that left the check's selection; null when unchanged.
+  status: string | null
+  run: string | null
 }
 
 export interface CaseCounts {
