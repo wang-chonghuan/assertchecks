@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/schemas/catalog.schema.json",
+  "title": "AssertChecks case catalog",
+  "description": "What must hold. Uploaded with every report. AssertChecks reads only the fields below; a project may add its own fields, which are kept and ignored. Case IDs are unique in the catalog and Then IDs are unique in their case.",
+  "type": "object",
+  "required": ["version", "cases"],
+  "properties": {
+    "version": { "const": 1, "description": "Catalog format version." },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "case": {
+      "type": "object",
+      "required": ["id", "title", "status", "run", "given", "when", "then"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*$",
+          "description": "Stable case ID, for example E2E-001. A Playwright test title starts with it: \"E2E-001: ...\"."
+        },
+        "title": { "$ref": "#/$defs/text" },
+        "status": {
+          "enum": ["active", "draft", "retired"],
+          "description": "active: required in the run and must pass. draft: listed, not run. retired: kept for its ID, not shown."
+        },
+        "run": {
+          "enum": ["nightly", "manual"],
+          "description": "nightly: part of every full run. manual: runs only when named with --cases."
+        },
+        "failure": { "$ref": "#/$defs/text", "description": "Optional known, investigated failure note, shown next to the case." },
+        "given": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
+        "when": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
+        "then": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/then" } }
+      }
+    },
+    "then": {
+      "type": "object",
+      "required": ["id", "expect"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]+$",
+          "description": "Assertion ID, for example A1. A Playwright step title starts with it: \"Then A1: ...\"."
+        },
+        "expect": { "$ref": "#/$defs/text" }
+      }
+    }
+  }
+}
