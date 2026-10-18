@@ -39,7 +39,7 @@ function AppLayout() {
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
-        <Link to="/" aria-label={`${PRODUCT_NAME} home`}>
+        <Link to="/p" aria-label={`${PRODUCT_NAME} home`}>
           <Typography.Text strong style={{ fontSize: token.fontSizeLG }}><Brand /></Typography.Text>
         </Link>
         {me.projects.length > 0 && (

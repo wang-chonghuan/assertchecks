@@ -9,15 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppPIndexRouteImport } from './routes/_app/p/index'
 import { Route as AppPProjectIndexRouteImport } from './routes/_app/p/$project/index'
 import { Route as ApiPingTokenReportRouteImport } from './routes/api/ping/$token/report'
 import { Route as ApiPingTokenStartRouteImport } from './routes/api/ping/$token/start'
 import { Route as AppPProjectChecksCheckIndexRouteImport } from './routes/_app/p/$project/checks/$check/index'
 import { Route as AppPProjectChecksCheckCasesCaseRouteImport } from './routes/_app/p/$project/checks/$check/cases/$case'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -27,9 +33,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppPIndexRoute = AppPIndexRouteImport.update({
+  id: '/p/',
+  path: '/p/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPProjectIndexRoute = AppPProjectIndexRouteImport.update({
@@ -61,8 +67,9 @@ const AppPProjectChecksCheckCasesCaseRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppIndexRoute
+  '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/p/': typeof AppPIndexRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project/': typeof AppPProjectIndexRoute
@@ -70,8 +77,9 @@ export interface FileRoutesByFullPath {
   '/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/': typeof AppIndexRoute
+  '/p': typeof AppPIndexRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project': typeof AppPProjectIndexRoute
@@ -80,9 +88,10 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/_app/': typeof AppIndexRoute
+  '/_app/p/': typeof AppPIndexRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/_app/p/$project/': typeof AppPProjectIndexRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/p/'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project/'
@@ -101,8 +111,9 @@ export interface FileRouteTypes {
     | '/p/$project/checks/$check/cases/$case'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/login'
     | '/'
+    | '/login'
+    | '/p'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project'
@@ -110,9 +121,10 @@ export interface FileRouteTypes {
     | '/p/$project/checks/$check/cases/$case'
   id:
     | '__root__'
+    | '/'
     | '/_app'
     | '/login'
-    | '/_app/'
+    | '/_app/p/'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/_app/p/$project/'
@@ -121,6 +133,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiPingTokenReportRoute: typeof ApiPingTokenReportRoute
@@ -129,6 +142,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -143,11 +163,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/': {
-      id: '/_app/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
+    '/_app/p/': {
+      id: '/_app/p/'
+      path: '/p'
+      fullPath: '/p/'
+      preLoaderRoute: typeof AppPIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/p/$project/': {
@@ -189,14 +209,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
-  AppIndexRoute: typeof AppIndexRoute
+  AppPIndexRoute: typeof AppPIndexRoute
   AppPProjectIndexRoute: typeof AppPProjectIndexRoute
   AppPProjectChecksCheckIndexRoute: typeof AppPProjectChecksCheckIndexRoute
   AppPProjectChecksCheckCasesCaseRoute: typeof AppPProjectChecksCheckCasesCaseRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppIndexRoute: AppIndexRoute,
+  AppPIndexRoute: AppPIndexRoute,
   AppPProjectIndexRoute: AppPProjectIndexRoute,
   AppPProjectChecksCheckIndexRoute: AppPProjectChecksCheckIndexRoute,
   AppPProjectChecksCheckCasesCaseRoute: AppPProjectChecksCheckCasesCaseRoute,
@@ -205,6 +225,7 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiPingTokenReportRoute: ApiPingTokenReportRoute,

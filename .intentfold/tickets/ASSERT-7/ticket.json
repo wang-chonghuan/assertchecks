@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-7",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-7",
+  "branch": "ASSERT-7-homepage",
+  "base": "a4db6982d14a5377d2c4efcc73ac3b755e98052f",
+  "ports": {
+    "web": 63007
+  }
+}
