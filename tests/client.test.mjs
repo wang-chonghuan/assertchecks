@@ -132,3 +132,47 @@ test('a version read that keeps failing gives up after three attempts', async ()
   assert.deepEqual(calls.find((call) => call.url.endsWith('/start')).body.deployed, { web: null })
   assert.match(warnings[0], /web version after 3 attempts/)
 })
+
+test('check sends the catalog and result for a dry run and reports validity', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'assertchecks-client-'))
+  writeFileSync(join(dir, 'results.json'), JSON.stringify({ suites: [] }))
+  writeFileSync(join(dir, 'e2e.json'), JSON.stringify({ version: 1, cases: [] }))
+  const answers = (calls) => async (url, init = {}) => {
+    calls.push({ url: String(url), body: JSON.parse(init.body) })
+    return Response.json({ valid: true, outcome: 'passed', reason: null })
+  }
+  const { calls, lines, options } = harness({}, answers)
+  const code = await run(['check', '--catalog', join(dir, 'e2e.json'), '--playwright', join(dir, 'results.json'), '--exit-code', '1'], options)
+  assert.equal(code, 0)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, `${DEFAULT_ORIGIN}/api/ping/secret-token/check`)
+  assert.deepEqual(calls[0].body, { cases: null, catalog: { version: 1, cases: [] }, exitCode: 1, result: { format: 'playwright', report: { suites: [] } } })
+  assert.deepEqual(lines, ['AssertChecks dry run: valid, would be passed; nothing was recorded'])
+})
+
+test('check exits non-zero and lists the fields when the format is wrong', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'assertchecks-client-'))
+  writeFileSync(join(dir, 'e2e.json'), JSON.stringify({ cases: [] }))
+  const answers = (calls) => async (url, init = {}) => {
+    calls.push({ url: String(url), body: JSON.parse(init.body) })
+    return Response.json({ valid: false, errors: ['catalog: missing version'] })
+  }
+  const { calls, lines, warnings, options } = harness({}, answers)
+  const code = await run(['check', '--catalog', join(dir, 'e2e.json')], options)
+  assert.equal(code, 1)
+  assert.deepEqual(calls[0].body, { cases: null, catalog: { cases: [] } })
+  assert.deepEqual(warnings, ['format error: catalog: missing version'])
+  assert.deepEqual(lines, ['AssertChecks dry run: invalid; nothing was recorded'])
+})
+
+test('report exits non-zero when AssertChecks names format errors', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'assertchecks-client-'))
+  writeFileSync(join(dir, 'results.json'), JSON.stringify({ suites: [] }))
+  writeFileSync(join(dir, 'e2e.json'), JSON.stringify({ cases: [] }))
+  const answers = () => async () => Response.json({ runId: '8', outcome: 'incomplete', errors: ['catalog: missing version'] })
+  const { lines, warnings, options } = harness({}, answers)
+  const code = await run(['report', '--run-id', '8', '--exit-code', '0', '--playwright', join(dir, 'results.json'), '--catalog', join(dir, 'e2e.json')], options)
+  assert.equal(code, 1)
+  assert.deepEqual(lines, ['AssertChecks run 8: incomplete'])
+  assert.deepEqual(warnings, ['format error: catalog: missing version'])
+})

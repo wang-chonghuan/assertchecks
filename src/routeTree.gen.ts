@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppPIndexRouteImport } from './routes/_app/p/index'
 import { Route as AppPProjectIndexRouteImport } from './routes/_app/p/$project/index'
+import { Route as ApiPingTokenCheckRouteImport } from './routes/api/ping/$token/check'
 import { Route as ApiPingTokenReportRouteImport } from './routes/api/ping/$token/report'
 import { Route as ApiPingTokenStartRouteImport } from './routes/api/ping/$token/start'
 import { Route as AppPProjectChecksCheckIndexRouteImport } from './routes/_app/p/$project/checks/$check/index'
@@ -43,6 +44,11 @@ const AppPProjectIndexRoute = AppPProjectIndexRouteImport.update({
   path: '/p/$project/',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPingTokenCheckRoute = ApiPingTokenCheckRouteImport.update({
+  id: '/api/ping/$token/check',
+  path: '/api/ping/$token/check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPingTokenReportRoute = ApiPingTokenReportRouteImport.update({
   id: '/api/ping/$token/report',
   path: '/api/ping/$token/report',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/p/': typeof AppPIndexRoute
+  '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project/': typeof AppPProjectIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/p': typeof AppPIndexRoute
+  '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project': typeof AppPProjectIndexRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/p/': typeof AppPIndexRoute
+  '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/_app/p/$project/': typeof AppPProjectIndexRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/p/'
+    | '/api/ping/$token/check'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project/'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/p'
+    | '/api/ping/$token/check'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/p/'
+    | '/api/ping/$token/check'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/_app/p/$project/'
@@ -136,6 +148,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiPingTokenCheckRoute: typeof ApiPingTokenCheckRoute
   ApiPingTokenReportRoute: typeof ApiPingTokenReportRoute
   ApiPingTokenStartRoute: typeof ApiPingTokenStartRoute
 }
@@ -176,6 +189,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/p/$project/'
       preLoaderRoute: typeof AppPProjectIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/api/ping/$token/check': {
+      id: '/api/ping/$token/check'
+      path: '/api/ping/$token/check'
+      fullPath: '/api/ping/$token/check'
+      preLoaderRoute: typeof ApiPingTokenCheckRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/ping/$token/report': {
       id: '/api/ping/$token/report'
@@ -228,6 +248,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiPingTokenCheckRoute: ApiPingTokenCheckRoute,
   ApiPingTokenReportRoute: ApiPingTokenReportRoute,
   ApiPingTokenStartRoute: ApiPingTokenStartRoute,
 }

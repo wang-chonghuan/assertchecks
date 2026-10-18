@@ -1,6 +1,7 @@
 import { sql } from './db'
 import { hashToken } from './crypto'
 import { containsSensitive, judge, type Selection, type Trigger, type Versions } from './judge'
+import { catalogErrors, resultErrors } from './schema'
 
 export const MAX_BODY_BYTES = 5 * 1024 * 1024
 
@@ -147,11 +148,15 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
 
   // Reject the whole result rather than store a partially cleaned copy.
   const sensitive = !producerError && containsSensitive(JSON.stringify(body.result))
+  // A report that does not match the published format is recorded as incomplete, naming the fields.
+  const formatErrors = producerError || sensitive ? [] : [...catalogErrors(body.catalog), ...resultErrors(body.result)]
   const verdict = producerError
     ? { outcome: 'incomplete' as const, reason: `Runner reported no result: ${producerError}`, summary: null }
     : sensitive
       ? { outcome: 'incomplete' as const, reason: 'Report rejected: it contains a suspected credential', summary: null }
-      : judge({
+      : formatErrors.length
+        ? { outcome: 'incomplete' as const, reason: `Report does not match the AssertChecks format: ${formatErrors.join('; ')}`, summary: null }
+        : judge({
           result: body.result,
           catalog: body.catalog,
           exitCode,
@@ -189,5 +194,40 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
       `
   if (!run) return fail(409, 'run already finished')
   if (sensitive) return { status: 422, body: { runId: run.id, outcome: verdict.outcome, error: verdict.reason } }
+  if (formatErrors.length) return { status: 200, body: { runId: run.id, outcome: verdict.outcome, errors: formatErrors } }
   return { status: 200, body: { runId: run.id, outcome: verdict.outcome } }
+}
+
+// A dry run: validates a catalog, and optionally a result, as a report would be, judges it against
+// the check's selection, and records nothing.
+export async function checkReport(token: string, text: string): Promise<Reply> {
+  const check = await findCheck(token)
+  if (!check) return fail(404, 'unknown token')
+  let body: Record<string, unknown>
+  let cases: string[] | null
+  try {
+    body = parseJson(text)
+    cases = namedCases(body.cases)
+    if (body.exitCode !== undefined && !Number.isInteger(body.exitCode)) throw new Error('exitCode must be an integer')
+  } catch (error) {
+    return fail(400, (error as Error).message)
+  }
+  const hasResult = body.result !== undefined && body.result !== null
+  if (hasResult && containsSensitive(JSON.stringify(body.result))) {
+    return { status: 200, body: { valid: false, errors: ['result: contains a suspected credential; it would be rejected'] } }
+  }
+  const errors = [...catalogErrors(body.catalog), ...(hasResult ? resultErrors(body.result) : [])]
+  if (errors.length) return { status: 200, body: { valid: false, errors } }
+  if (!hasResult) return { status: 200, body: { valid: true } }
+  const verdict = judge({
+    result: body.result,
+    catalog: body.catalog,
+    exitCode: (body.exitCode as number | undefined) ?? 0,
+    deployedStart: null,
+    deployedEnd: null,
+    selection: check.selection,
+    cases,
+    skipVersions: true,
+  })
+  return { status: 200, body: { valid: true, outcome: verdict.outcome, reason: verdict.reason } }
 }

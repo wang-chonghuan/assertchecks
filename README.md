@@ -30,13 +30,23 @@ report containing credential-like strings, and exits non-zero when the run could
 | Endpoint | Body | Response |
 |---|---|---|
 | `POST /api/ping/:token/start` | `{testSha, runner: {kind, runUrl}, trigger, cases?, deployed: {name: sha}}` | `{runId}` |
-| `POST /api/ping/:token/report` | `{runId?, exitCode, testSha, trigger, cases?, deployedEnd: {name: sha}, result, catalog}` or `{runId?, exitCode, error}` | `{runId, outcome}` |
+| `POST /api/ping/:token/report` | `{runId?, exitCode, testSha, trigger, cases?, deployedEnd: {name: sha}, result, catalog}` or `{runId?, exitCode, error}` | `{runId, outcome, errors?}` |
+| `POST /api/ping/:token/check` | `{catalog, result?, exitCode?, cases?}` | `{valid, errors?, outcome?, reason?}` |
+
+The format is fixed and published as JSON Schema: `/schemas/catalog.schema.json` (the catalog's core
+fields; projects may add their own, which are kept and ignored) and `/schemas/result.schema.json`.
+The server validates every report against these same files. A report that does not match is recorded
+as `incomplete`, and the reply lists each wrong field (`errors`, for example
+`catalog.cases[0].then[0]: missing expect`); the client then exits non-zero. `check` is a dry run:
+it validates a catalog, and a result when given, judges it against the check's selection (versions
+are not compared), and records nothing. The client runs it with
+`node assertchecks.mjs check --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]`.
 
 `result` is an envelope: `{"format": "playwright", "report": <Playwright JSON report>}` (case IDs come
 from the test title prefix `E2E-001: …`, Then IDs from step titles `Then A1: …`), or
 `{"format": "cases", "cases": [{id, title?, status, ms?, thens: [{id, status}], error?}]}` for producers
-that are not test runners. `catalog` is the AssertChecks case catalog (`cases[]` with `id`, `title`,
-`status`, `run`, `then[].id`).
+that are not test runners. `catalog` is the AssertChecks case catalog (`version: 1` and `cases[]` with
+`id`, `title`, `status`, `run`, `given`, `when`, `then[]` of `{id, expect}`, and an optional `failure`).
 
 A full run is judged against the catalog cases in the check's selection (default: status `active`,
 run `nightly`); a run that names `cases` is partial and judged against exactly those. A run is

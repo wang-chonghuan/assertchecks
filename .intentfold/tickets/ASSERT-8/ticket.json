@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-8",
+  "mode": "open",
+  "stage": "setup-complete",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-8",
+  "branch": "ASSERT-8-report-format",
+  "base": "d3962f174bacd2343946da4961c793ed7c7f35bb",
+  "ports": {
+    "web": 63008
+  }
+}

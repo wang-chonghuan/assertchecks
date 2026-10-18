@@ -6,6 +6,10 @@
 //   node assertchecks.mjs report --run-id ID --exit-code N --playwright results.json --catalog e2e.json
 //                                [--version NAME=URL]...
 //   node assertchecks.mjs report --run-id ID --exit-code N --error "why there is no report"
+//   node assertchecks.mjs check  --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]
+//
+// `check` is a dry run: it validates the catalog (and the result, when given) against the published
+// formats at /schemas/ and shows how the check would judge it, without recording a run.
 //
 // Environment: ASSERTCHECKS_PING_TOKEN (required, never printed), ASSERTCHECKS_ORIGIN (optional).
 // `start` prints only the run ID. A version URL must return JSON with a 40-character `sha`; each read
@@ -164,11 +168,31 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
     }
     const reply = await post(origin, token, 'report', error ? { ...base, error } : { ...base, result, catalog }, fetchImpl)
     out(`AssertChecks run ${reply.runId}: ${reply.outcome}`)
-    // A run that could not report its result is a failed job, not a quiet success.
-    return error ? 1 : 0
+    for (const problem of reply.errors ?? []) log(`format error: ${problem}`)
+    // A run that could not report its result, or reported it in the wrong format, is a failed job.
+    return error || reply.errors?.length ? 1 : 0
   }
 
-  throw new Error('usage: assertchecks.mjs start | report (see the header of this file)')
+  if (command === 'check') {
+    if (!values.catalog) throw new Error('check needs --catalog, and optionally --playwright')
+    const body = { cases, catalog: JSON.parse(readFileSync(values.catalog, 'utf8')) }
+    if (values.playwright) {
+      const exitCode = values['exit-code'] === undefined ? 0 : Number(values['exit-code'])
+      if (!Number.isInteger(exitCode)) throw new Error('--exit-code must be an integer')
+      body.exitCode = exitCode
+      body.result = { format: 'playwright', report: JSON.parse(readFileSync(values.playwright, 'utf8')) }
+    }
+    const reply = await post(origin, token, 'check', body, fetchImpl)
+    if (!reply.valid) {
+      for (const problem of reply.errors) log(`format error: ${problem}`)
+      out('AssertChecks dry run: invalid; nothing was recorded')
+      return 1
+    }
+    out(`AssertChecks dry run: valid${reply.outcome ? `, would be ${reply.outcome}${reply.reason ? ` (${reply.reason})` : ''}` : ''}; nothing was recorded`)
+    return 0
+  }
+
+  throw new Error('usage: assertchecks.mjs start | report | check (see the header of this file)')
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

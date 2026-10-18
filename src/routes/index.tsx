@@ -7,6 +7,7 @@ import {
   ClockCircleOutlined,
   CloudServerOutlined,
   FileDoneOutlined,
+  FileTextOutlined,
   HistoryOutlined,
   KeyOutlined,
   SafetyCertificateOutlined,
@@ -101,6 +102,9 @@ const PARTIAL = `node assertchecks.mjs start --cases E2E-014,E2E-031`
 
 const ERROR = `node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \\
   --error "The browser could not start"`
+
+const DRY_RUN = `node assertchecks.mjs check --catalog e2e.json \\
+  --playwright results.json --exit-code "$code"`
 
 const CASES_FORMAT = `{
   "format": "cases",
@@ -303,7 +307,8 @@ function HomePage() {
                     <Typography.Text code>draft</Typography.Text> cases are listed but not run.{' '}
                     <Typography.Text code>nightly</Typography.Text> cases belong to every full run;{' '}
                     <Typography.Text code>manual</Typography.Text> cases run only when named. Put the case ID at the start
-                    of each test title and each Then ID at the start of a step.
+                    of each test title and each Then ID at the start of a step. The dry run under Report format checks
+                    the catalog without recording anything.
                   </>
                 }
               >
@@ -342,18 +347,25 @@ function HomePage() {
         <div id="format" style={{ ...section, scrollMarginTop: token.controlHeightLG * 1.6 }}>
           <SectionTitle
             eyebrow="Report format"
-            title="One fixed format, three calls"
-            text="The client makes these calls for you. Any producer that is not a test runner can send the same JSON directly."
+            title="One fixed format, checked on arrival"
+            text="All calls go to /api/ping/<token>/… and the client makes them for you; a producer that is not a test runner can send the same JSON directly. A report that does not match is recorded as Incomplete, with every wrong field named."
           />
+          <Flex gap="small" wrap style={{ marginTop: -token.marginLG, marginBottom: token.marginXL }}>
+            <Button icon={<FileTextOutlined />} href="/schemas/catalog.schema.json" target="_blank">Catalog format</Button>
+            <Button icon={<FileTextOutlined />} href="/schemas/result.schema.json" target="_blank">Result format</Button>
+          </Flex>
           <Row gutter={[token.marginLG, token.marginLG]}>
-            <Col xs={24} md={8}>
+            <Col xs={24} sm={12} lg={6}>
               <FormatCard method="start" title="A run began" text="The trigger, the named cases of a partial run, and each tested component's deployed SHA. Returns the run ID." />
             </Col>
-            <Col xs={24} md={8}>
+            <Col xs={24} sm={12} lg={6}>
               <FormatCard method="report" title="Here are the results" text="The catalog plus a result: Playwright's JSON report uploaded unchanged, or the cases format below." />
             </Col>
-            <Col xs={24} md={8}>
+            <Col xs={24} sm={12} lg={6}>
               <FormatCard method="report" title="There are no results" text="Say why instead. The run is recorded as Incomplete, so a crash never looks like a pass." />
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <FormatCard method="check" title="Would this pass?" text="A dry run: validates the catalog and result, shows the outcome the check would give, and records nothing." />
             </Col>
           </Row>
           <Row gutter={[token.marginLG, token.marginLG]} style={{ marginTop: token.marginLG }}>
@@ -366,6 +378,7 @@ function HomePage() {
               <Flex vertical gap="middle">
                 <CodeBlock label="Partial run of named cases" code={PARTIAL} />
                 <CodeBlock label="No results" code={ERROR} />
+                <CodeBlock label="Dry run" code={DRY_RUN} />
                 <Alert
                   type="info"
                   showIcon
@@ -523,7 +536,7 @@ function FormatCard({ method, title, text }: { method: string; title: string; te
   return (
     <Card style={{ height: '100%' }}>
       <Flex vertical gap="small">
-        <Typography.Text code style={{ alignSelf: 'start' }}>POST /api/ping/&lt;token&gt;/{method}</Typography.Text>
+        <Typography.Text code title={`POST /api/ping/<token>/${method}`} style={{ alignSelf: 'start' }}>POST …/{method}</Typography.Text>
         <Typography.Title level={5} style={{ margin: 0, marginTop: token.marginXXS }}>{title}</Typography.Title>
         <Typography.Text type="secondary">{text}</Typography.Text>
       </Flex>

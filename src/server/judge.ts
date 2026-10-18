@@ -212,6 +212,8 @@ export function judge(input: {
   deployedEnd: Versions | null
   selection: Selection
   cases: string[] | null
+  // A dry run has no start, so it cannot compare versions.
+  skipVersions?: boolean
 }): Judgement {
   let expected: CatalogCase[]
   let parsed: ParsedResult
@@ -262,7 +264,7 @@ export function judge(input: {
   }
   if (parsed.runErrors) gaps.push(`${parsed.runErrors} run-level error(s)`)
   if (expected.length === 0) gaps.push(`${scope} is empty`)
-  const versionGap = versionsMatch(input.deployedStart, input.deployedEnd)
+  const versionGap = input.skipVersions ? null : versionsMatch(input.deployedStart, input.deployedEnd)
   if (versionGap) gaps.push(versionGap)
 
   if (failures.length) return { outcome: 'failed', reason: [...failures, ...gaps].join('; '), summary }

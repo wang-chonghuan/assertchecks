@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/schemas/result.schema.json",
+  "title": "AssertChecks run result",
+  "description": "The result of one run, in one of two formats. Case and Then IDs must match the catalog uploaded with it.",
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "title": "Playwright",
+      "description": "Playwright's JSON report, uploaded unchanged. Test titles start with the case ID (\"E2E-001: ...\") and step titles with the Then ID (\"Then A1: ...\").",
+      "required": [
+        "format",
+        "report"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "playwright"
+        },
+        "report": {
+          "type": "object",
+          "required": [
+            "suites"
+          ],
+          "properties": {
+            "suites": {
+              "type": "array"
+            },
+            "errors": {
+              "type": "array"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "title": "Cases",
+      "description": "For producers that are not test runners: one entry per case that ran.",
+      "required": [
+        "format",
+        "cases"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "cases"
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/case"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "description": "Run-level errors; any entry makes the run incomplete."
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "case": {
+      "type": "object",
+      "required": [
+        "id",
+        "status",
+        "thens"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "skipped",
+            "flaky"
+          ]
+        },
+        "ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "thens": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/then"
+          }
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "then": {
+      "type": "object",
+      "required": [
+        "id",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]+$"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        }
+      }
+    }
+  }
+}
