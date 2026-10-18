@@ -38,7 +38,7 @@ function LoginPage() {
   return (
     <Flex justify="center" align="center" style={{ minHeight: '100vh', padding: token.padding }}>
       <Card style={{ width: '100%', maxWidth: token.screenXS }}>
-        <Typography.Title level={3}><Brand /></Typography.Title>
+        <a href="/" aria-label="AssertChecks home" style={{ display: 'inline-block', marginBottom: token.marginLG }}><Brand size="large" /></a>
         <Typography.Paragraph type="secondary">Sign in to see your projects' checks.</Typography.Paragraph>
         {error && <Alert type="error" showIcon title={error} style={{ marginBottom: token.margin }} />}
         <Form layout="vertical" onFinish={submit} requiredMark={false}>

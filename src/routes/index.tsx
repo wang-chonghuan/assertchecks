@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Alert, Button, Card, Col, Flex, Row, Steps, Tag, Typography, theme } from 'antd'
+import { Alert, App, Button, Card, Col, Flex, Row, Steps, Tag, Typography, theme } from 'antd'
 import {
   ApiOutlined,
   ArrowRightOutlined,
   BellOutlined,
   ClockCircleOutlined,
-  CloudServerOutlined,
+  CopyOutlined,
   FileDoneOutlined,
   FileTextOutlined,
   HistoryOutlined,
@@ -18,6 +18,7 @@ import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
 import { CheckStatusTag, ThenTag } from '../components/status'
 import { CodeBlock } from '../components/code-block'
+import { CASES_FORMAT, CONNECT_STEPS, FORMAT_CALLS, FORMAT_INTRO, FORMAT_LINKS, PASS_RULE, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
 
 export const Route = createFileRoute('/')({
@@ -25,9 +26,6 @@ export const Route = createFileRoute('/')({
   head: () => ({ meta: [{ title: `${PRODUCT_NAME} · End-to-end assertion monitoring` }] }),
   component: HomePage,
 })
-
-// The production origin, as in the client's default and the README.
-const ORIGIN = 'https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io'
 
 // An illustration of the real environment card. Not stored anywhere; times are fixed so server and
 // client render identical text.
@@ -63,62 +61,6 @@ const EXAMPLE_FAILURES = [
   { id: 'E2E-031', title: 'Export statements as CSV', then: 'A1' },
 ]
 
-const CHECK_COMMAND = `pnpm admin check:add shop staging --name "Staging" --env staging \\
-  --period 86400 --grace 7200`
-
-const CATALOG = `{
-  "version": 1,
-  "cases": [
-    {
-      "id": "E2E-001",
-      "title": "Sign in with a saved account",
-      "status": "active",
-      "run": "nightly",
-      "given": ["A registered account"],
-      "when": ["Sign in through the login page"],
-      "then": [
-        { "id": "A1", "expect": "The dashboard greets the account holder" }
-      ]
-    }
-  ]
-}`
-
-const TEST = `test('E2E-001: Sign in with a saved account', async ({ page }) => {
-  // Given / When ...
-  await test.step('Then A1: the dashboard greets the account holder', async () => {
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Welcome')
-  })
-})`
-
-const REPORT = `curl -fsSO ${ORIGIN}/client/assertchecks.mjs
-export ASSERTCHECKS_PING_TOKEN="$YOUR_CI_SECRET"
-
-run_id="$(node assertchecks.mjs start --version web=https://staging.example.com/version.json)"
-PLAYWRIGHT_JSON_OUTPUT_NAME=results.json npx playwright test --reporter=json; code=$?
-node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \\
-  --playwright results.json --catalog e2e.json \\
-  --version web=https://staging.example.com/version.json`
-
-const PARTIAL = `node assertchecks.mjs start --cases E2E-014,E2E-031`
-
-const ERROR = `node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \\
-  --error "The browser could not start"`
-
-const DRY_RUN = `node assertchecks.mjs check --catalog e2e.json \\
-  --playwright results.json --exit-code "$code"`
-
-const CASES_FORMAT = `{
-  "format": "cases",
-  "cases": [
-    {
-      "id": "E2E-001",
-      "status": "passed",
-      "ms": 5120,
-      "thens": [{ "id": "A1", "status": "passed" }]
-    }
-  ]
-}`
-
 function HomePage() {
   const { me } = Route.useLoaderData()
   const { token } = theme.useToken()
@@ -145,13 +87,12 @@ function HomePage() {
         }}
       >
         <Flex align="center" gap="middle" style={{ ...container, height: token.controlHeightLG * 1.6 }}>
-          <Typography.Text strong style={{ fontSize: token.fontSizeLG }}><Brand /></Typography.Text>
+          <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
           <Flex flex={1} justify="end" align="center" gap="small">
             {/* Section links need room; the stylesheet shows them from the md breakpoint so SSR renders them too. */}
             <nav className="home-nav">
               <Button type="text" href="#checks">What it checks</Button>
               <Button type="text" href="#connect">Connect</Button>
-              <Button type="text" href="#format">Report format</Button>
             </nav>
             <Button type={me ? 'primary' : 'default'} href={me ? '/p' : '/login'}>{me ? 'My projects' : 'Sign in'}</Button>
           </Flex>
@@ -186,17 +127,7 @@ function HomePage() {
                     letterSpacing: '-0.025em',
                   }}
                 >
-                  Know every assertion{' '}
-                  <span
-                    style={{
-                      background: `linear-gradient(90deg, ${token.colorPrimary}, ${token.purple6})`,
-                      WebkitBackgroundClip: 'text',
-                      backgroundClip: 'text',
-                      color: 'transparent',
-                    }}
-                  >
-                    still holds.
-                  </span>
+                  Know every assertion still holds.
                 </Typography.Title>
                 <Typography.Paragraph style={{ margin: 0, fontSize: token.fontSizeHeading5, color: token.colorTextSecondary, maxWidth: 560 }}>
                   Your end-to-end tests keep running in your own CI. After each run, your runner reports to {PRODUCT_NAME},
@@ -275,120 +206,75 @@ function HomePage() {
           </Card>
         </div>
 
-        {/* Connect */}
+        {/* Connect: every instruction lives here, and the copy button hands the same content to an agent. */}
         <div id="connect" style={{ background: token.colorBgLayout, borderBlock: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`, scrollMarginTop: token.controlHeightLG * 1.6 }}>
           <div style={section}>
             <SectionTitle
               eyebrow="Connect"
-              title="Connect a project in four steps"
-              text="No SDK and no change to how your tests run. You keep a catalog next to your tests and add two client calls around your test command."
+              title="Connect a project"
+              text="No SDK and no change to how your tests run. You keep a catalog next to your tests and add two client calls around your test command. Or hand the whole guide to your coding agent."
             />
+            <Card
+              style={{ marginTop: -token.marginSM, marginBottom: token.marginLG, borderColor: token.colorPrimaryBorder, background: token.colorPrimaryBg }}
+              styles={{ body: { padding: token.paddingLG } }}
+            >
+              <Flex justify="space-between" align="center" gap="large" wrap>
+                <Flex vertical gap="small" style={{ flex: '1 1 320px', minWidth: 0 }}>
+                  <Typography.Title level={4} style={{ margin: 0 }}>Let your coding agent connect it</Typography.Title>
+                  <Typography.Text type="secondary">
+                    One click copies this whole guide as Markdown: every step, command, format link and the dry run.
+                    Paste it to your agent in the project's repository.
+                  </Typography.Text>
+                  <Flex gap="small" wrap>
+                    {FORMAT_LINKS.map((link) => (
+                      <Button key={link.path} type="link" icon={<FileTextOutlined />} href={link.path} target="_blank" style={{ paddingInline: 0, marginInlineEnd: token.margin }}>
+                        {link.label}
+                      </Button>
+                    ))}
+                  </Flex>
+                </Flex>
+                <CopyForAgent />
+              </Flex>
+            </Card>
             <Flex vertical gap="large">
-              <ConnectStep
-                n={1}
-                icon={<KeyOutlined />}
-                title="Create a check and keep its token"
-                text={
-                  <>
-                    One check per environment, for example Staging. An {PRODUCT_NAME} administrator creates it; use{' '}
-                    <Typography.Text code>--period none</Typography.Text> for a check that only runs on demand. The ping
-                    token is printed once: store it as the CI secret <Typography.Text code>ASSERTCHECKS_PING_TOKEN</Typography.Text>.
-                  </>
-                }
-              >
-                <CodeBlock label="Administrator" code={CHECK_COMMAND} />
-              </ConnectStep>
-              <ConnectStep
-                n={2}
-                icon={<FileDoneOutlined />}
-                title="Write the catalog and name your tests by it"
-                text={
-                  <>
-                    The catalog says what must hold. <Typography.Text code>active</Typography.Text> cases are required;{' '}
-                    <Typography.Text code>draft</Typography.Text> cases are listed but not run.{' '}
-                    <Typography.Text code>nightly</Typography.Text> cases belong to every full run;{' '}
-                    <Typography.Text code>manual</Typography.Text> cases run only when named. Put the case ID at the start
-                    of each test title and each Then ID at the start of a step. The dry run under Report format checks
-                    the catalog without recording anything.
-                  </>
-                }
-              >
-                <Row gutter={[token.margin, token.margin]}>
-                  <Col xs={24} lg={12} style={{ minWidth: 0 }}><CodeBlock label="e2e.json" code={CATALOG} /></Col>
-                  <Col xs={24} lg={12} style={{ minWidth: 0 }}><CodeBlock label="tests/E2E-001.spec.ts" code={TEST} /></Col>
-                </Row>
-              </ConnectStep>
-              <ConnectStep
-                n={3}
-                icon={<CloudServerOutlined />}
-                title="Report from CI"
-                text={
-                  <>
-                    Download the client on every run so it always matches the server. Pass each tested component&apos;s
-                    version URL (JSON with a 40-character <Typography.Text code>sha</Typography.Text>) to both calls. In
-                    GitHub Actions the client records the run link and whether the run was scheduled.
-                  </>
-                }
-              >
-                <CodeBlock label="CI step" code={REPORT} />
-              </ConnectStep>
-              <ConnectStep
-                n={4}
-                icon={<ArrowRightOutlined />}
-                title="Open your project"
-                text="Each environment card shows the last run, its counts and when the next run is due. Open an environment and it starts on the failed cases."
-              >
-                {primary}
-              </ConnectStep>
+              {CONNECT_STEPS.map((step, index) => (
+                <ConnectStep key={step.title} n={index + 1} title={step.title} text={<Inline text={step.text} />}>
+                  {step.samples.length > 0 ? (
+                    <Row gutter={[token.margin, token.margin]}>
+                      {step.samples.map((sample) => (
+                        <Col key={sample.label} xs={24} lg={step.samples.length === 2 ? 12 : 24} style={{ minWidth: 0 }}>
+                          <CodeBlock label={sample.label} code={sample.code} />
+                        </Col>
+                      ))}
+                    </Row>
+                  ) : primary}
+                </ConnectStep>
+              ))}
+              <Card styles={{ body: { padding: token.paddingLG } }}>
+                <Flex vertical gap="large">
+                  <Flex vertical gap="small">
+                    <Typography.Title level={4} style={{ margin: 0 }}>Report format</Typography.Title>
+                    <Typography.Paragraph type="secondary" style={{ margin: 0 }}><Inline text={FORMAT_INTRO} /></Typography.Paragraph>
+                  </Flex>
+                  <Row gutter={[token.margin, token.margin]}>
+                    {FORMAT_CALLS.map((call) => (
+                      <Col key={call.title} xs={24} sm={12} lg={6}>
+                        <FormatCard method={call.method} title={call.title} text={call.text} />
+                      </Col>
+                    ))}
+                  </Row>
+                  <Row gutter={[token.margin, token.margin]}>
+                    <Col xs={24} lg={12} style={{ minWidth: 0 }}>
+                      <CodeBlock label={CASES_FORMAT.label} code={CASES_FORMAT.code} />
+                    </Col>
+                    <Col xs={24} lg={12}>
+                      <Alert type="info" showIcon title="IDs must match the catalog" description={PASS_RULE.replace('IDs must match the catalog. ', '')} />
+                    </Col>
+                  </Row>
+                </Flex>
+              </Card>
             </Flex>
           </div>
-        </div>
-
-        {/* Report format */}
-        <div id="format" style={{ ...section, scrollMarginTop: token.controlHeightLG * 1.6 }}>
-          <SectionTitle
-            eyebrow="Report format"
-            title="One fixed format, checked on arrival"
-            text="All calls go to /api/ping/<token>/… and the client makes them for you; a producer that is not a test runner can send the same JSON directly. A report that does not match is recorded as Incomplete, with every wrong field named."
-          />
-          <Flex gap="small" wrap style={{ marginTop: -token.marginLG, marginBottom: token.marginXL }}>
-            <Button icon={<FileTextOutlined />} href="/schemas/catalog.schema.json" target="_blank">Catalog format</Button>
-            <Button icon={<FileTextOutlined />} href="/schemas/result.schema.json" target="_blank">Result format</Button>
-          </Flex>
-          <Row gutter={[token.marginLG, token.marginLG]}>
-            <Col xs={24} sm={12} lg={6}>
-              <FormatCard method="start" title="A run began" text="The trigger, the named cases of a partial run, and each tested component's deployed SHA. Returns the run ID." />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <FormatCard method="report" title="Here are the results" text="The catalog plus a result: Playwright's JSON report uploaded unchanged, or the cases format below." />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <FormatCard method="report" title="There are no results" text="Say why instead. The run is recorded as Incomplete, so a crash never looks like a pass." />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <FormatCard method="check" title="Would this pass?" text="A dry run: validates the catalog and result, shows the outcome the check would give, and records nothing." />
-            </Col>
-          </Row>
-          <Row gutter={[token.marginLG, token.marginLG]} style={{ marginTop: token.marginLG }}>
-            <Col xs={24} lg={12} style={{ minWidth: 0 }}>
-              <Flex vertical gap="middle">
-                <CodeBlock label="result · cases format" code={CASES_FORMAT} />
-              </Flex>
-            </Col>
-            <Col xs={24} lg={12} style={{ minWidth: 0 }}>
-              <Flex vertical gap="middle">
-                <CodeBlock label="Partial run of named cases" code={PARTIAL} />
-                <CodeBlock label="No results" code={ERROR} />
-                <CodeBlock label="Dry run" code={DRY_RUN} />
-                <Alert
-                  type="info"
-                  showIcon
-                  title="IDs must match the catalog"
-                  description="A run passes only when every expected case reported, nothing was skipped or flaky, every Then passed, and each version was recorded and unchanged. Reports over 5 MB or containing credential-like text are rejected."
-                />
-              </Flex>
-            </Col>
-          </Row>
         </div>
 
         {/* Not in scope */}
@@ -419,7 +305,7 @@ function HomePage() {
 
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
         <Flex justify="space-between" align="center" gap="middle" wrap style={{ ...container, paddingBlock: token.paddingLG }}>
-          <Typography.Text strong><Brand /></Typography.Text>
+          <Brand />
           <Typography.Text type="secondary">
             Client: <Typography.Link href="/client/assertchecks.mjs">/client/assertchecks.mjs</Typography.Link>
           </Typography.Text>
@@ -503,22 +389,19 @@ function Pillar({ icon, color, bg, title, text }: { icon: ReactNode; color: stri
   )
 }
 
-function ConnectStep({ n, icon, title, text, children }: { n: number; icon: ReactNode; title: string; text: ReactNode; children: ReactNode }) {
+function ConnectStep({ n, title, text, children }: { n: number; title: string; text: ReactNode; children: ReactNode }) {
   const { token } = theme.useToken()
   return (
     <Card styles={{ body: { padding: token.paddingLG } }}>
       <Row gutter={[token.marginLG, token.margin]}>
         <Col xs={24} lg={8}>
           <Flex vertical gap="small">
-            <Flex align="center" gap="small">
-              <Flex
-                align="center"
-                justify="center"
-                style={{ width: token.controlHeight, height: token.controlHeight, borderRadius: '50%', background: token.colorPrimary, color: token.colorTextLightSolid, fontWeight: token.fontWeightStrong, flex: 'none' }}
-              >
-                {n}
-              </Flex>
-              <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>{icon}</Typography.Text>
+            <Flex
+              align="center"
+              justify="center"
+              style={{ width: token.controlHeight, height: token.controlHeight, borderRadius: '50%', background: token.colorPrimary, color: token.colorTextLightSolid, fontWeight: token.fontWeightStrong, flex: 'none' }}
+            >
+              {n}
             </Flex>
             <Typography.Title level={4} style={{ margin: 0 }}>{title}</Typography.Title>
             <Typography.Paragraph type="secondary" style={{ margin: 0 }}>{text}</Typography.Paragraph>
@@ -529,6 +412,29 @@ function ConnectStep({ n, icon, title, text, children }: { n: number; icon: Reac
         </Col>
       </Row>
     </Card>
+  )
+}
+
+// Renders `backticks` in guide text as inline code.
+function Inline({ text }: { text: string }) {
+  return <>{text.split('`').map((part, index) => (index % 2 ? <Typography.Text key={index} code>{part}</Typography.Text> : part))}</>
+}
+
+function CopyForAgent() {
+  const { token } = theme.useToken()
+  const { message } = App.useApp()
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(agentPrompt())
+      message.success('Copied. Paste it to your coding agent.')
+    } catch {
+      message.error('Copying failed. Select the steps below instead.')
+    }
+  }
+  return (
+    <Button type="primary" size="large" icon={<CopyOutlined />} onClick={copy} style={{ height: 'auto', paddingBlock: token.padding, paddingInline: token.paddingXL, fontSize: token.fontSizeHeading4, fontWeight: token.fontWeightStrong, boxShadow: token.boxShadowSecondary }}>
+      Copy for your agent
+    </Button>
   )
 }
 

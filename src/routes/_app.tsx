@@ -1,6 +1,6 @@
-import { Link, Outlet, createFileRoute, redirect, useNavigate, useParams, useRouter } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect, useNavigate, useParams, useRouter } from '@tanstack/react-router'
 import { Button, Flex, Grid, Layout, Select, Typography, theme } from 'antd'
-import { LogoutOutlined } from '@ant-design/icons'
+import { HomeOutlined, LogoutOutlined } from '@ant-design/icons'
 import { getMe, logout } from '../server/fns'
 import { Brand, PRODUCT_NAME } from '../components/brand'
 
@@ -39,9 +39,7 @@ function AppLayout() {
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
-        <Link to="/p" aria-label={`${PRODUCT_NAME} home`}>
-          <Typography.Text strong style={{ fontSize: token.fontSizeLG }}><Brand /></Typography.Text>
-        </Link>
+        <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
         {me.projects.length > 0 && (
           <Select
             aria-label="Project"
@@ -53,6 +51,7 @@ function AppLayout() {
           />
         )}
         <Flex flex={1} justify="end" align="center" gap={token.marginXS}>
+          <Button icon={<HomeOutlined />} href="/" aria-label="Home" title="Home">{screens.md && 'Home'}</Button>
           {screens.md && (
             <Typography.Text type="secondary" ellipsis style={{ maxWidth: token.screenXS / 2 }}>
               {me.email}
