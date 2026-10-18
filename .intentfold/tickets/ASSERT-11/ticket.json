@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-11",
   "mode": "open",
-  "stage": "setup-complete",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-11",
   "branch": "ASSERT-11-homepage-brand",
