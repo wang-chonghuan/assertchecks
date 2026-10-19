@@ -218,9 +218,7 @@ function HomePage() {
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
         <Flex justify="space-between" align="center" gap="middle" wrap style={{ ...container, paddingBlock: token.padding }}>
           <Brand />
-          <Typography.Text type="secondary">
-            Client: <Typography.Link href="/client/assertchecks.mjs">/client/assertchecks.mjs</Typography.Link>
-          </Typography.Text>
+          <Typography.Text type="secondary">© {new Date().getUTCFullYear()} {PRODUCT_NAME}. All rights reserved.</Typography.Text>
         </Flex>
       </footer>
     </div>
