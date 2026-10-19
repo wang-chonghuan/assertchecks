@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-14",
   "mode": "open",
-  "stage": "setup-complete",
+  "stage": "handed-off",
   "finish": "auto-deploy",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-14",
   "branch": "ASSERT-14-custom-domain",
