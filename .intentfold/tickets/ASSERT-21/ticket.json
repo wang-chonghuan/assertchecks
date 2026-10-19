@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-21",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-21",
+  "branch": "ASSERT-21-tidy",
+  "base": "57b570b778eba058660c725b0d6e076a336c2cbd",
+  "ports": {
+    "web": 63021
+  }
+}
