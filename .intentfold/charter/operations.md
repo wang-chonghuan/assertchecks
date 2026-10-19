@@ -25,6 +25,8 @@ local database.
   address `https://assertchecks.com`: Cloudflare zone `assertchecks.com` with the apex A record DNS-only
   to the environment's static IP, the `asuid` ownership TXT, and `www` proxied with a 301 redirect rule
   to the apex; the certificate is an Azure managed certificate (HTTP validation, auto-renewing). The
+  Clerk production instance needs five DNS-only CNAMEs in the same zone: `clerk`, `accounts`, `clkmail`,
+  `clk._domainkey` and `clk2._domainkey`, with the targets shown on its Domains page. The
   default hostname `https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io` stays in service for
   clients configured with it.
 - Local: the dev server on the main or ticket port, using the same database.
@@ -115,7 +117,7 @@ python3 <n-easyapp-skill>/scripts/redeploy_current_repo.py --project assertcheck
 **Post-deploy check**
 
 ```bash
-for page in / /login /schemas/catalog.schema.json /client/assertchecks.mjs; do curl -fsS -o /dev/null -w "$page %{http_code}\n" "https://assertchecks.com$page"; done
+for page in / /login /privacy /schemas/catalog.schema.json /client/assertchecks.mjs; do curl -fsS -o /dev/null -w "$page %{http_code}\n" "https://assertchecks.com$page"; done
 curl -fsS -o /dev/null -w "default hostname %{http_code}\n" "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/client/assertchecks.mjs"
 az containerapp show -g rg-easyapp-shared -n ca-assertchecks --query 'tags."easyapp.commit"' -o tsv
 git rev-parse origin/main

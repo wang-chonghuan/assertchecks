@@ -19,7 +19,7 @@ async function verifiedEmail(clerkUserId: string): Promise<string> {
   const cached = emails.get(clerkUserId)
   if (cached) return cached
   const primary = (await clerkClient().users.getUser(clerkUserId)).primaryEmailAddress
-  // The Clerk application signs in by email code only, so the primary email is always verified.
+  // The Clerk application signs in by email code or Google, both of which verify the email first.
   if (primary?.verification?.status !== 'verified') throw new Error(`Clerk user ${clerkUserId} has no verified primary email`)
   const email = primary.emailAddress.toLowerCase()
   emails.set(clerkUserId, email)
