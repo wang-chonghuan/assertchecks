@@ -1,6 +1,5 @@
-// How a project connects to AssertChecks: the homepage renders it, and "Copy for your agent" turns the
-// same content into Markdown, so the page and the copied instructions can never disagree.
-// Text uses `backticks` for inline code, which the page renders as code and Markdown keeps as is.
+// How a project connects to AssertChecks. "Copy for your agent" on the homepage turns it into Markdown;
+// the page itself shows only a diagram and the format links. Text uses `backticks` for inline code.
 
 // The production origin, as in the client's default and the README.
 export const ORIGIN = 'https://assertchecks.com'

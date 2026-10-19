@@ -13,3 +13,18 @@ body {
     display: flex;
   }
 }
+
+/* Homepage "How it works": the wide diagram from antd's md breakpoint, the tall one below it. */
+.diagram-wide {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .diagram-wide {
+    display: block;
+  }
+
+  .diagram-tall {
+    display: none;
+  }
+}

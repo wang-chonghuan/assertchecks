@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Alert, App, Button, Card, Col, Collapse, Flex, Row, Tag, Typography, theme } from 'antd'
+import { App, Button, Card, Col, Flex, Row, Tag, Typography, theme } from 'antd'
 import {
   ArrowRightOutlined,
   ClockCircleOutlined,
@@ -13,8 +13,8 @@ import { getMe } from '../server/fns'
 import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
 import { CheckStatusTag, ThenTag } from '../components/status'
-import { CodeBlock } from '../components/code-block'
-import { CASES_FORMAT, CONNECT_STEPS, FORMAT_CALLS, FORMAT_INTRO, FORMAT_LINKS, FORMAT_SAMPLES, PASS_RULE, agentPrompt } from '../lib/connect-guide'
+import { HowItWorks } from '../components/how-it-works'
+import { FORMAT_LINKS, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
 
 export const Route = createFileRoute('/')({
@@ -88,7 +88,7 @@ function HomePage() {
             {/* Section links need room; the stylesheet shows them from the md breakpoint so SSR renders them too. */}
             <nav className="home-nav">
               <Button type="text" href="#checks">What it checks</Button>
-              <Button type="text" href="#connect">Connect</Button>
+              <Button type="text" href="#connect">How it works</Button>
             </nav>
             <Button type={me ? 'primary' : 'default'} href={me ? '/p' : '/login'}>{me ? 'My projects' : 'Sign in'}</Button>
           </Flex>
@@ -180,22 +180,25 @@ function HomePage() {
           </Row>
         </div>
 
-        {/* Connect: every instruction lives here, and the copy button hands the same content to an agent. */}
-        <div id="connect" style={{ background: token.colorBgLayout, borderBlock: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`, scrollMarginTop: token.controlHeightLG * 1.4 }}>
+        {/* How it works: a diagram of one run. Every step, command and format detail goes out through
+            "Copy for your agent", built from src/lib/connect-guide.ts. */}
+        <div id="connect" style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`, scrollMarginTop: token.controlHeightLG * 1.4 }}>
           <div style={section}>
             <SectionTitle
-              eyebrow="Connect"
-              title="Connect a project"
-              text="No SDK. Keep a catalog next to your tests and add two client calls around your test command."
+              eyebrow="How it works"
+              title="One run, from your CI to your team"
+              text="No SDK. Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
             />
-            <Card
-              style={{ marginTop: -token.marginSM, marginBottom: token.marginLG, borderColor: token.colorPrimaryBorder, background: token.colorPrimaryBg }}
-              
-            >
+            <Card style={{ marginBottom: token.margin }}>
+              <HowItWorks />
+            </Card>
+            <Card style={{ borderColor: token.colorPrimaryBorder, background: token.colorPrimaryBg }}>
               <Flex justify="space-between" align="center" gap="middle" wrap>
                 <Flex vertical gap="small" style={{ flex: '1 1 320px', minWidth: 0 }}>
-                  <Typography.Title level={4} style={{ margin: 0 }}>Let your coding agent connect it</Typography.Title>
-                  <Typography.Text type="secondary">Copies every step below as Markdown, ready to paste.</Typography.Text>
+                  <Typography.Title level={5} style={{ margin: 0 }}>Connect a project with your coding agent</Typography.Title>
+                  <Typography.Text type="secondary">
+                    Copies every step, command and the report format as Markdown, ready to paste.
+                  </Typography.Text>
                   <Flex gap="small" wrap>
                     {FORMAT_LINKS.map((link) => (
                       <Button key={link.path} type="link" icon={<FileTextOutlined />} href={link.path} target="_blank" style={{ paddingInline: 0, marginInlineEnd: token.margin }}>
@@ -207,53 +210,8 @@ function HomePage() {
                 <CopyForAgent large />
               </Flex>
             </Card>
-            <Flex vertical gap="middle">
-              {CONNECT_STEPS.map((step, index) => (
-                <ConnectStep key={step.title} n={index + 1} title={step.title} text={<Inline text={step.text} />}>
-                  {step.samples.length > 0 ? (
-                    <Row gutter={[token.margin, token.margin]}>
-                      {step.samples.map((sample) => (
-                        <Col key={sample.label} xs={24} lg={step.samples.length === 2 ? 12 : 24} style={{ minWidth: 0 }}>
-                          <CodeBlock label={sample.label} code={sample.code} />
-                        </Col>
-                      ))}
-                    </Row>
-                  ) : primary}
-                </ConnectStep>
-              ))}
-              <Collapse
-                items={[{
-                  key: 'format',
-                  label: <Typography.Text strong>Report format reference</Typography.Text>,
-                  children: (
-                    <Flex vertical gap="middle">
-                      <Typography.Paragraph type="secondary" style={{ margin: 0 }}><Inline text={FORMAT_INTRO} /></Typography.Paragraph>
-                      <Row gutter={[token.margin, token.margin]}>
-                        {FORMAT_CALLS.map((call) => (
-                          <Col key={call.title} xs={24} sm={12} lg={6}>
-                            <FormatCard method={call.method} title={call.title} text={call.text} />
-                          </Col>
-                        ))}
-                      </Row>
-                      <Row gutter={[token.margin, token.margin]}>
-                        <Col xs={24} lg={12} style={{ minWidth: 0 }}>
-                          <CodeBlock label={CASES_FORMAT.label} code={CASES_FORMAT.code} />
-                        </Col>
-                        <Col xs={24} lg={12} style={{ minWidth: 0 }}>
-                          <Flex vertical gap="middle">
-                            {FORMAT_SAMPLES.map((sample) => <CodeBlock key={sample.label} label={sample.label} code={sample.code} />)}
-                            <Alert type="info" showIcon title="IDs must match the catalog" description={PASS_RULE.replace('IDs must match the catalog. ', '')} />
-                          </Flex>
-                        </Col>
-                      </Row>
-                    </Flex>
-                  ),
-                }]}
-              />
-            </Flex>
           </div>
         </div>
-
       </main>
 
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
@@ -342,37 +300,6 @@ function Pillar({ icon, color, bg, title, text }: { icon: ReactNode; color: stri
   )
 }
 
-function ConnectStep({ n, title, text, children }: { n: number; title: string; text: ReactNode; children: ReactNode }) {
-  const { token } = theme.useToken()
-  return (
-    <Card>
-      <Row gutter={[token.marginLG, token.marginSM]}>
-        <Col xs={24} lg={8}>
-          <Flex vertical gap="small">
-            <Flex
-              align="center"
-              justify="center"
-              style={{ width: token.controlHeight, height: token.controlHeight, borderRadius: '50%', background: token.colorPrimary, color: token.colorTextLightSolid, fontWeight: token.fontWeightStrong, flex: 'none' }}
-            >
-              {n}
-            </Flex>
-            <Typography.Title level={5} style={{ margin: 0 }}>{title}</Typography.Title>
-            <Typography.Paragraph type="secondary" style={{ margin: 0 }}>{text}</Typography.Paragraph>
-          </Flex>
-        </Col>
-        <Col xs={24} lg={16} style={{ minWidth: 0 }}>
-          {children}
-        </Col>
-      </Row>
-    </Card>
-  )
-}
-
-// Renders `backticks` in guide text as inline code.
-function Inline({ text }: { text: string }) {
-  return <>{text.split('`').map((part, index) => (index % 2 ? <Typography.Text key={index} code>{part}</Typography.Text> : part))}</>
-}
-
 function CopyForAgent({ large = false }: { large?: boolean }) {
   const { token } = theme.useToken()
   const { message } = App.useApp()
@@ -397,15 +324,3 @@ function CopyForAgent({ large = false }: { large?: boolean }) {
   )
 }
 
-function FormatCard({ method, title, text }: { method: string; title: string; text: string }) {
-  const { token } = theme.useToken()
-  return (
-    <Card style={{ height: '100%' }}>
-      <Flex vertical gap="small">
-        <Typography.Text code title={`POST /api/ping/<token>/${method}`} style={{ alignSelf: 'start' }}>POST …/{method}</Typography.Text>
-        <Typography.Title level={5} style={{ margin: 0, marginTop: token.marginXXS }}>{title}</Typography.Title>
-        <Typography.Text type="secondary">{text}</Typography.Text>
-      </Flex>
-    </Card>
-  )
-}
