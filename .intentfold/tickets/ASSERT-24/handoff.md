@@ -35,6 +35,10 @@ reconciliation recomputation inside end-to-end cases under three rules, with the
   `config.json` gains `expectedState` per environment.
 - **agents/openai.yaml** lists cap4 and cap5.
 
+After review the text was tightened, at the owner's request, to remove repetition while keeping
+every rule. The oracle section is about 425 words, and cap4 and cap5 together about 500, half their
+first draft.
+
 ## AC results
 
 1. **Rules present, bound to no project — passed.** A search of the skill files finds no project
@@ -56,4 +60,5 @@ reconciliation recomputation inside end-to-end cases under three rules, with the
      than the Then. Both points check out.
    - **Missed:** the E2E-153 "90 days" against the product template's "30 days" contradiction. It
      needs product source, outside a read-only case audit.
-3. **Checks — passed.** The skill's 32 tests pass. Installation follows the merge.
+3. **Checks — passed.** The skill's 32 tests pass. After the merge, `skillhost update` installed the
+   new version, which contains cap4, cap5 and Assertion Oracles.
