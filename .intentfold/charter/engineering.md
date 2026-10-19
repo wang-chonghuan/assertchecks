@@ -22,7 +22,7 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 **Structure**
 
 - `src/start.ts` — request middleware: Clerk, and TanStack Start's CSRF check for server functions.
-- `src/routes/` — the public homepage (`index`), `login` (Clerk sign-in), the signed-in pages
+- `src/routes/` — the public homepage (`index`) and `privacy`, `login` (Clerk sign-in), the signed-in pages
   (`_app/...`) and the push API server routes (`api/ping/$token/start`, `report`, and the dry run
   `check`).
 - `src/server/` — server-only code: `db` (pool), `session` (the signed-in Clerk user's verified email
@@ -43,8 +43,10 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 - Push model: projects call the API; AssertChecks never executes tests.
 - The report format is fixed. `public/schemas/*.json` is its single definition: the server validates
   against those files, the site serves them unchanged, and the homepage and client point to them.
-- The homepage is public and shows no project data; everything else requires signing in.
-- Identity comes from Clerk (application `assertchecks`, email verification code only). Access comes
+- The homepage and the privacy page are public and show no project data; everything else requires
+  signing in.
+- Identity comes from Clerk (application `assertchecks`: email verification code or Google; production
+  Google uses the owner's OAuth client in Google Cloud project `assertchecks-auth`). Access comes
   only from users and memberships created with the CLI, matched by the verified email; an email the
   CLI never added can sign in but sees no project.
 - Check state is derived on read; no stored status table.

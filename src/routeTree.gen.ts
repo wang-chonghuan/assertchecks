@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AppPIndexRouteImport } from './routes/_app/p/index'
 import { Route as AppPProjectIndexRouteImport } from './routes/_app/p/$project/index'
 import { Route as ApiPingTokenCheckRouteImport } from './routes/api/ping/$token/check'
@@ -32,6 +33,11 @@ const AppRoute = AppRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppPIndexRoute = AppPIndexRouteImport.update({
@@ -75,6 +81,7 @@ const AppPProjectChecksCheckCasesCaseRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/p/': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/p': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/_app/p/': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/privacy'
     | '/p/'
     | '/api/ping/$token/check'
     | '/api/ping/$token/report'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/privacy'
     | '/p'
     | '/api/ping/$token/check'
     | '/api/ping/$token/report'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
+    | '/privacy'
     | '/_app/p/'
     | '/api/ping/$token/check'
     | '/api/ping/$token/report'
@@ -148,6 +160,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   ApiPingTokenCheckRoute: typeof ApiPingTokenCheckRoute
   ApiPingTokenReportRoute: typeof ApiPingTokenReportRoute
   ApiPingTokenStartRoute: typeof ApiPingTokenStartRoute
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/p/': {
@@ -248,6 +268,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   ApiPingTokenCheckRoute: ApiPingTokenCheckRoute,
   ApiPingTokenReportRoute: ApiPingTokenReportRoute,
   ApiPingTokenStartRoute: ApiPingTokenStartRoute,
