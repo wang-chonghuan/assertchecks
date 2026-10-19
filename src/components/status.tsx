@@ -52,6 +52,7 @@ const CASE: Record<CaseStatus, { color: string; label: string }> = {
   failed: { color: 'error', label: 'Failed' },
   skipped: { color: 'warning', label: 'Skipped' },
   flaky: { color: 'warning', label: 'Flaky' },
+  interrupted: { color: 'warning', label: 'Interrupted' },
   missing: { color: 'default', label: 'Missing' },
 }
 

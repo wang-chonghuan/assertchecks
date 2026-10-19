@@ -258,7 +258,7 @@ function CheckPage() {
           <Tabs
             defaultActiveKey="failed"
             items={[
-              { key: 'failed', label: `Failed (${failed.length})`, children: byGroup(failed, (item) => item.case, failedTable) },
+              { key: 'failed', label: `Not passed (${failed.length})`, children: byGroup(failed, (item) => item.case, failedTable) },
               {
                 key: 'passed',
                 label: `Passed (${passed.length})`,

@@ -79,7 +79,7 @@ node assertchecks.mjs check --catalog e2e.json --playwright results.json --exit-
   },
   {
     title: 'Report every run from CI',
-    text: 'Download the client on every run. Pass each tested component\'s version URL (JSON with a 40-character `sha`) to both calls: a run passes only when every version was recorded and unchanged.',
+    text: 'Download the client on every run. Pass each tested component\'s version URL (JSON with a 40-character `sha`) to both calls: a run passes only when every version was recorded and unchanged. Time limits only stop a hung run: give the whole suite 60 minutes (Playwright `globalTimeout`), the CI job 70 so the report step still runs, and the check a grace longer than the job. A run stopped by its limit is Incomplete; do not rerun the whole suite automatically.',
     samples: [
       {
         label: 'CI step',

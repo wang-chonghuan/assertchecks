@@ -9,11 +9,12 @@ import { ASSERTCHECKS_STYLE } from '../theme'
 export function CheckSummary({ check, compact = false }: { check: CheckCard; compact?: boolean }) {
   const { token } = theme.useToken()
   const { latest, counts } = check
-  const ran = counts ? counts.passed + counts.failed : 0
+  const ran = counts ? counts.passed + counts.failed + counts.notRun : 0
   const segments = counts
     ? [
         { key: 'passed', label: 'passed', value: counts.passed, color: token.colorSuccess, always: true },
         { key: 'failed', label: 'failed', value: counts.failed, color: token.colorError, always: true },
+        { key: 'notRun', label: 'not run', value: counts.notRun, color: token.colorWarning, always: false },
         { key: 'draft', label: 'draft', value: counts.draft, color: token.orange, always: false },
         { key: 'manual', label: 'manual', value: counts.manual, color: token.colorTextQuaternary, always: false },
       ].filter((segment) => segment.always || segment.value > 0)
