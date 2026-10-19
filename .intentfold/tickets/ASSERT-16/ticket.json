@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-16",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-16",
+  "branch": "ASSERT-16-adsy-theme",
+  "base": "6e3618496db83d2c791e58891c373ecbc5e79d2e",
+  "ports": {
+    "web": 63016
+  }
+}

@@ -7,7 +7,7 @@ export const PRODUCT_NAME = 'AssertChecks'
 // colour. `large` is for the sign-in card; headers and the footer use the default.
 export function Brand({ size = 'default' }: { size?: 'default' | 'large' }) {
   const { token } = theme.useToken()
-  const font = Number(size === 'large' ? token.fontSizeHeading2 : token.fontSizeHeading4)
+  const font = Number(size === 'large' ? token.fontSizeHeading4 : token.fontSizeLG)
   const tile = Math.round(font * 1.3)
   return (
     <span

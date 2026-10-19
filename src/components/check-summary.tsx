@@ -1,58 +1,104 @@
-import { Alert, Col, Descriptions, Empty, Flex, Row, Statistic, Typography, theme } from 'antd'
-import { ActiveRunNotice, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from './status'
+import { Alert, Flex, Typography, theme } from 'antd'
+import { ActiveRunNotice, OutcomeTag, PartialRunNotice, duration, utc } from './status'
 import type { CatalogChange, CheckCard } from '../lib/types'
 
-// The overview of one environment's latest results, shared by the project page cards and the
-// check page so both always show the same numbers.
+// The overview of one environment's latest results, shared by the project page cards, the check page
+// and the homepage example, so all three always look the same. Three levels: the result (passed out of
+// ran), the spread of the catalog (bar and legend), then when it ran and when it runs next.
 export function CheckSummary({ check, compact = false }: { check: CheckCard; compact?: boolean }) {
   const { token } = theme.useToken()
   const { latest, counts } = check
-  const stats = counts
+  const ran = counts ? counts.passed + counts.failed : 0
+  const segments = counts
     ? [
-        { key: 'total', title: 'Total cases', value: counts.total },
-        { key: 'passed', title: 'Passed', value: counts.passed, color: token.colorSuccess },
-        { key: 'failed', title: 'Failed', value: counts.failed, color: counts.failed ? token.colorError : undefined },
-        { key: 'draft', title: 'Draft', value: counts.draft, color: counts.draft ? token.orange : undefined },
-        { key: 'manual', title: 'Manual', value: counts.manual },
-      ]
+        { key: 'passed', label: 'passed', value: counts.passed, color: token.colorSuccess, always: true },
+        { key: 'failed', label: 'failed', value: counts.failed, color: token.colorError, always: true },
+        { key: 'draft', label: 'draft', value: counts.draft, color: token.orange, always: false },
+        { key: 'manual', label: 'manual', value: counts.manual, color: token.colorTextQuaternary, always: false },
+      ].filter((segment) => segment.always || segment.value > 0)
     : []
+  // Only an unusual outcome needs its own tag; a plain pass or fail is already the card's status.
+  const unusual = latest && (latest.timedOut || latest.outcome === 'incomplete')
+  const small = { fontSize: token.fontSizeSM }
+  // Vertical rhythm in grid units (4 px), independent of the compact algorithm's smaller margins.
+  const unit = token.sizeUnit
 
+  // One vertical rhythm on an 8 px grid: the headline, then the bar with its legend held close, then the
+  // run times set apart under a rule.
+  const notices = [
+    <CatalogChangeNotice key="catalog" changes={check.catalogChanges} compact={compact} />,
+    <ActiveRunNotice key="active" active={check.active} />,
+    <PartialRunNotice key="partial" partial={check.partial} />,
+  ]
   return (
-    <Flex vertical gap="middle">
-      <CatalogChangeNotice changes={check.catalogChanges} compact={compact} />
-      <ActiveRunNotice active={check.active} />
-      <PartialRunNotice partial={check.partial} />
-      {latest ? (
+    <Flex vertical>
+      {(check.catalogChanges.length > 0 || check.active || check.partial) && (
+        <Flex vertical gap={unit * 2} style={{ marginBottom: unit * 3 }}>{notices}</Flex>
+      )}
+
+      {latest && counts ? (
         <>
-          <Flex gap="small" align="center" wrap>
-            <Typography.Text type="secondary">Last run</Typography.Text>
-            <Typography.Text strong>{utc(latest.finishedAt)}</Typography.Text>
-            <OutcomeTag run={latest} />
-            <TriggerTag trigger={latest.trigger} />
+          <Flex align="baseline" justify="space-between" gap="small" wrap style={{ marginBottom: unit * 3 }}>
+            <Flex align="baseline" gap={token.marginXS}>
+              <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: 1, color: token.colorText }}>
+                {counts.passed}
+              </span>
+              <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>/ {ran} passed</Typography.Text>
+            </Flex>
+            <Flex align="center" gap="small">
+              {unusual && <OutcomeTag run={latest} />}
+              <Typography.Text type="secondary">{counts.total} cases</Typography.Text>
+            </Flex>
           </Flex>
-          <Row gutter={[token.margin, token.margin]}>
-            {stats.map((item) => (
-              <Col key={item.key} xs={12} sm={8} md={compact ? 8 : 4}>
-                <Statistic title={item.title} value={item.value} styles={{ content: item.color ? { color: item.color } : undefined }} />
-              </Col>
+
+          <Flex role="img" aria-label={segments.map((segment) => `${segment.value} ${segment.label}`).join(', ')}
+            gap={token.lineWidth * 2} style={{ height: unit * 2, marginBottom: unit * 2, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
+            {segments.filter((segment) => segment.value > 0).map((segment) => (
+              <div key={segment.key} style={{ flex: segment.value, background: segment.color }} />
             ))}
-          </Row>
-          {/* Failed cases are listed on the check page; only an incomplete run needs its reason here. */}
+          </Flex>
+
+          <Flex wrap style={{ gap: `${token.marginXXS}px ${token.margin}px` }}>
+            {segments.map((segment) => (
+              <Flex key={segment.key} align="center" gap={token.marginXXS}>
+                <span aria-hidden style={{ width: token.marginXS, height: token.marginXS, borderRadius: '50%', background: segment.color }} />
+                <Typography.Text strong>{segment.value}</Typography.Text>
+                <Typography.Text type="secondary">{segment.label}</Typography.Text>
+              </Flex>
+            ))}
+          </Flex>
+
           {latest.reason && latest.outcome === 'incomplete' && (
-            <Alert type="warning" showIcon title={latest.reason} />
+            <Alert type="warning" showIcon title={latest.reason} style={{ marginTop: unit * 3 }} />
           )}
         </>
       ) : (
-        <Empty description="No finished runs yet." />
+        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>No runs yet</Typography.Text>
       )}
-      <Descriptions
-        size="small"
-        column={{ xs: 1, sm: 1, md: compact ? 1 : 2, lg: compact ? 1 : 2, xl: compact ? 1 : 2, xxl: compact ? 1 : 2 }}
-        items={[
-          { key: 'schedule', label: 'Schedule', children: scheduleText(check.periodSeconds, check.graceSeconds) },
-          { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
-        ]}
-      />
+
+      <Flex
+        vertical={compact}
+        wrap
+        justify="space-between"
+        style={{
+          gap: `${unit}px ${unit * 4}px`,
+          marginTop: unit * 4,
+          paddingTop: unit * 3,
+          borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}`,
+          lineHeight: 1,
+        }}
+      >
+        {latest && (
+          <Typography.Text type="secondary" style={small}>
+            Last run {utc(latest.finishedAt)} · {latest.trigger === 'schedule' ? 'scheduled' : 'manual'}
+          </Typography.Text>
+        )}
+        <Typography.Text type="secondary" style={small}>
+          {check.periodSeconds === null
+            ? 'Runs on demand'
+            : `Every ${duration(check.periodSeconds)} · next ${utc(check.nextExpectedAt)}`}
+        </Typography.Text>
+      </Flex>
     </Flex>
   )
 }

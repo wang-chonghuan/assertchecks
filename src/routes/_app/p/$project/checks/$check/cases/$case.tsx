@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Breadcrumb, Card, Descriptions, Flex, Tag, Typography } from 'antd'
+import { Breadcrumb, Card, Descriptions, Flex, Tag, Typography, theme } from 'antd'
 import { CaseStatusTag, OutcomeTag, ThenTag, utc } from '../../../../../../../components/status'
 import { getCase } from '../../../../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
@@ -20,6 +20,7 @@ function Steps({ items }: { items: string[] }) {
 }
 
 function CasePage() {
+  const { token } = theme.useToken()
   const { project, check, spec, run, result } = Route.useLoaderData()
   const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
   const meta = caseMeta(spec)
@@ -41,6 +42,7 @@ function CasePage() {
           column={1}
           bordered
           size="small"
+          styles={{ label: { width: token.controlHeight * 4 } }}
           items={[
             { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text type="secondary">{UNGROUPED}</Typography.Text> },
             ...(meta.tags.length

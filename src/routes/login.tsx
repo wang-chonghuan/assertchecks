@@ -3,6 +3,7 @@ import { Alert, Button, Card, Flex, Form, Input, Typography, theme } from 'antd'
 import { useState } from 'react'
 import { getMe, login } from '../server/fns'
 import { Brand } from '../components/brand'
+import { pageGutter } from '../components/page-frame'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: async () => {
@@ -36,7 +37,7 @@ function LoginPage() {
   }
 
   return (
-    <Flex justify="center" align="center" style={{ minHeight: '100vh', padding: token.padding }}>
+    <Flex justify="center" align="center" style={{ minHeight: '100vh', paddingInline: pageGutter, background: token.colorBgLayout }}>
       <Card style={{ width: '100%', maxWidth: token.screenXS }}>
         <a href="/" aria-label="AssertChecks home" style={{ display: 'inline-block', marginBottom: token.marginLG }}><Brand size="large" /></a>
         <Typography.Paragraph type="secondary">Sign in to see your projects' checks.</Typography.Paragraph>

@@ -1,5 +1,5 @@
 import { Alert, Tag, Tooltip, Typography, theme } from 'antd'
-import type { CaseStatus, CheckStatus, Outcome, PartialRun, RunRow, ThenStatus, Trigger } from '../lib/types'
+import type { CaseStatus, CheckStatus, Outcome, PartialRun, RunRow, ThenStatus } from '../lib/types'
 
 // All timestamps are shown in UTC so server and client render identical text.
 export function utc(iso: string | null): string {
@@ -83,15 +83,6 @@ export function ActiveRunNotice({ active }: { active: RunRow | null }) {
       style={{ marginBottom: token.margin }}
     />
   )
-}
-
-export function scheduleText(periodSeconds: number | null, graceSeconds: number): string {
-  if (periodSeconds === null) return 'manual only'
-  return `every ${duration(periodSeconds)}, grace ${duration(graceSeconds)}, plus manual runs`
-}
-
-export function TriggerTag({ trigger }: { trigger: Trigger }) {
-  return <Tag>{trigger === 'schedule' ? 'Scheduled' : 'Manual'}</Tag>
 }
 
 // A named-case run newer than the displayed full run; it never replaces the full run's result.
