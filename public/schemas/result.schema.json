@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/schemas/result.schema.json",
+  "$id": "https://assertchecks.com/schemas/result.schema.json",
   "title": "AssertChecks run result",
   "description": "The result of one run, in one of two formats. Case and Then IDs must match the catalog uploaded with it.",
   "type": "object",

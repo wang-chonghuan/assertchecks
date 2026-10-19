@@ -2,7 +2,7 @@
   "project": "assertchecks",
   "main_branch": "main",
   "deploy": {
-    "where": "Azure Container Apps easy-app ca-assertchecks (https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io) with the shared easy-app PostgreSQL schema assertchecks-schema",
+    "where": "Azure Container Apps easy-app ca-assertchecks at https://assertchecks.com (default hostname https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io) with the shared easy-app PostgreSQL schema assertchecks-schema",
     "how": "See .intentfold/charter/operations.md"
   },
   "tickets": {

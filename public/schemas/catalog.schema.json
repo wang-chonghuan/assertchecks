@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/schemas/catalog.schema.json",
+  "$id": "https://assertchecks.com/schemas/catalog.schema.json",
   "title": "AssertChecks case catalog",
   "description": "What must hold. Uploaded with every report. AssertChecks reads only the fields below; a project may add its own fields, which are kept and ignored. Case IDs are unique in the catalog and Then IDs are unique in their case.",
   "type": "object",

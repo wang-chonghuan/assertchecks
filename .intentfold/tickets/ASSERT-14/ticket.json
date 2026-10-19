@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-14",
+  "mode": "open",
+  "stage": "setup-complete",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-14",
+  "branch": "ASSERT-14-custom-domain",
+  "base": "4edbb31b7daf536f4f52df238e43f4843a650360",
+  "ports": {
+    "web": 63014
+  }
+}
