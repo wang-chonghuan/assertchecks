@@ -1,15 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Alert, App, Button, Card, Col, Flex, Row, Steps, Tag, Typography, theme } from 'antd'
+import { Alert, App, Button, Card, Col, Collapse, Flex, Row, Tag, Typography, theme } from 'antd'
 import {
-  ApiOutlined,
   ArrowRightOutlined,
-  BellOutlined,
   ClockCircleOutlined,
   CopyOutlined,
   FileDoneOutlined,
   FileTextOutlined,
-  HistoryOutlined,
-  KeyOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
@@ -18,7 +14,7 @@ import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
 import { CheckStatusTag, ThenTag } from '../components/status'
 import { CodeBlock } from '../components/code-block'
-import { CASES_FORMAT, CONNECT_STEPS, FORMAT_CALLS, FORMAT_INTRO, FORMAT_LINKS, PASS_RULE, agentPrompt } from '../lib/connect-guide'
+import { CASES_FORMAT, CONNECT_STEPS, FORMAT_CALLS, FORMAT_INTRO, FORMAT_LINKS, FORMAT_SAMPLES, PASS_RULE, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
 
 export const Route = createFileRoute('/')({
@@ -115,9 +111,6 @@ function HomePage() {
           <Row gutter={[token.marginXL, token.marginXL]} align="middle" style={{ ...section, marginInline: 'auto' }}>
             <Col xs={24} lg={13}>
               <Flex vertical gap="large" align="start">
-                <Tag color="blue" variant="filled" style={{ marginInlineEnd: 0, fontSize: token.fontSize, paddingBlock: token.paddingXXS, paddingInline: token.paddingSM }}>
-                  End-to-end assertion monitoring
-                </Tag>
                 <Typography.Title
                   level={1}
                   style={{
@@ -130,16 +123,15 @@ function HomePage() {
                   Know every assertion still holds.
                 </Typography.Title>
                 <Typography.Paragraph style={{ margin: 0, fontSize: token.fontSizeHeading5, color: token.colorTextSecondary, maxWidth: 560 }}>
-                  Your end-to-end tests keep running in your own CI. After each run, your runner reports to {PRODUCT_NAME},
-                  which checks that it ran on time, ran in full, and that every assertion passed, then shows exactly which
-                  case and which assertion broke.
+                  Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
+                  arrived on time, ran in full, and which assertion failed.
                 </Typography.Paragraph>
                 <Flex gap="small" wrap>
                   {primary}
-                  <Button size="large" href="#connect">How to connect</Button>
+                  <CopyForAgent />
                 </Flex>
                 <Flex gap="large" wrap>
-                  {['Push only', 'Never runs your tests', 'Holds no product credentials'].map((item) => (
+                  {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
                     <Typography.Text key={item} type="secondary">
                       <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: token.marginXXS }} />
                       {item}
@@ -156,19 +148,15 @@ function HomePage() {
 
         {/* What it checks */}
         <div id="checks" style={{ ...section, scrollMarginTop: token.controlHeightLG * 1.6 }}>
-          <SectionTitle
-            eyebrow="What it checks"
-            title="Three questions after every run"
-            text={`healthchecks.io tells you a job ran. ${PRODUCT_NAME} also tells you whether it ran everything it should, and whether every declared assertion held.`}
-          />
+          <SectionTitle eyebrow="What it checks" title="Every check answers three questions" />
           <Row gutter={[token.marginLG, token.marginLG]}>
             <Col xs={24} md={8}>
               <Pillar
                 icon={<ClockCircleOutlined />}
                 color={token.colorWarning}
                 bg={token.colorWarningBg}
-                title="On time"
-                text="Each check expects a run on its schedule. If a scheduled run has not arrived when its grace period ends, the check turns Late. Manual runs never hide a missing scheduled one, and manual-only checks are never late."
+                title="On time?"
+                text="A scheduled run that misses its grace period turns the check Late."
               />
             </Col>
             <Col xs={24} md={8}>
@@ -176,8 +164,8 @@ function HomePage() {
                 icon={<FileDoneOutlined />}
                 color={token.colorPrimary}
                 bg={token.colorPrimaryBg}
-                title="Complete"
-                text="Results are compared with your catalog. If an expected case did not run, was skipped, or was flaky, or a tested version changed mid-run, the run is Incomplete. It is never shown as Passed."
+                title="Complete?"
+                text="A required case that did not run, was skipped or flaky makes the run Incomplete, never Passed."
               />
             </Col>
             <Col xs={24} md={8}>
@@ -185,25 +173,11 @@ function HomePage() {
                 icon={<SafetyCertificateOutlined />}
                 color={token.colorError}
                 bg={token.colorErrorBg}
-                title="Correct"
-                text="Every case lists its Then assertions. One failed assertion fails the run, and the environment page opens on the failed cases, with the Then that broke and its error."
+                title="Correct?"
+                text="One failed Then fails the run, and the page opens on that case and its error."
               />
             </Col>
           </Row>
-          <Card style={{ marginTop: token.marginXL }} styles={{ body: { padding: token.paddingLG } }}>
-            <Typography.Title level={5} style={{ marginTop: 0 }}>How one run flows</Typography.Title>
-            <Steps
-              current={5}
-              size="small"
-              items={[
-                { title: 'Start', content: 'Your runner reports that a run began, with the deployed versions.' },
-                { title: 'Test', content: 'Your tests run where they always run.' },
-                { title: 'Report', content: 'The runner uploads the results and the catalog.' },
-                { title: 'Judge', content: `${PRODUCT_NAME} compares them with the catalog and the schedule.` },
-                { title: 'Show', content: 'Your team sees the result per environment.' },
-              ]}
-            />
-          </Card>
         </div>
 
         {/* Connect: every instruction lives here, and the copy button hands the same content to an agent. */}
@@ -212,7 +186,7 @@ function HomePage() {
             <SectionTitle
               eyebrow="Connect"
               title="Connect a project"
-              text="No SDK and no change to how your tests run. You keep a catalog next to your tests and add two client calls around your test command. Or hand the whole guide to your coding agent."
+              text="No SDK. Keep a catalog next to your tests and add two client calls around your test command."
             />
             <Card
               style={{ marginTop: -token.marginSM, marginBottom: token.marginLG, borderColor: token.colorPrimaryBorder, background: token.colorPrimaryBg }}
@@ -221,10 +195,7 @@ function HomePage() {
               <Flex justify="space-between" align="center" gap="large" wrap>
                 <Flex vertical gap="small" style={{ flex: '1 1 320px', minWidth: 0 }}>
                   <Typography.Title level={4} style={{ margin: 0 }}>Let your coding agent connect it</Typography.Title>
-                  <Typography.Text type="secondary">
-                    One click copies this whole guide as Markdown: every step, command, format link and the dry run.
-                    Paste it to your agent in the project's repository.
-                  </Typography.Text>
+                  <Typography.Text type="secondary">Copies every step below as Markdown, ready to paste.</Typography.Text>
                   <Flex gap="small" wrap>
                     {FORMAT_LINKS.map((link) => (
                       <Button key={link.path} type="link" icon={<FileTextOutlined />} href={link.path} target="_blank" style={{ paddingInline: 0, marginInlineEnd: token.margin }}>
@@ -233,7 +204,7 @@ function HomePage() {
                     ))}
                   </Flex>
                 </Flex>
-                <CopyForAgent />
+                <CopyForAgent large />
               </Flex>
             </Card>
             <Flex vertical gap="large">
@@ -250,57 +221,39 @@ function HomePage() {
                   ) : primary}
                 </ConnectStep>
               ))}
-              <Card styles={{ body: { padding: token.paddingLG } }}>
-                <Flex vertical gap="large">
-                  <Flex vertical gap="small">
-                    <Typography.Title level={4} style={{ margin: 0 }}>Report format</Typography.Title>
-                    <Typography.Paragraph type="secondary" style={{ margin: 0 }}><Inline text={FORMAT_INTRO} /></Typography.Paragraph>
-                  </Flex>
-                  <Row gutter={[token.margin, token.margin]}>
-                    {FORMAT_CALLS.map((call) => (
-                      <Col key={call.title} xs={24} sm={12} lg={6}>
-                        <FormatCard method={call.method} title={call.title} text={call.text} />
-                      </Col>
-                    ))}
-                  </Row>
-                  <Row gutter={[token.margin, token.margin]}>
-                    <Col xs={24} lg={12} style={{ minWidth: 0 }}>
-                      <CodeBlock label={CASES_FORMAT.label} code={CASES_FORMAT.code} />
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Alert type="info" showIcon title="IDs must match the catalog" description={PASS_RULE.replace('IDs must match the catalog. ', '')} />
-                    </Col>
-                  </Row>
-                </Flex>
-              </Card>
+              <Collapse
+                items={[{
+                  key: 'format',
+                  label: <Typography.Text strong>Report format reference</Typography.Text>,
+                  children: (
+                    <Flex vertical gap="large">
+                      <Typography.Paragraph type="secondary" style={{ margin: 0 }}><Inline text={FORMAT_INTRO} /></Typography.Paragraph>
+                      <Row gutter={[token.margin, token.margin]}>
+                        {FORMAT_CALLS.map((call) => (
+                          <Col key={call.title} xs={24} sm={12} lg={6}>
+                            <FormatCard method={call.method} title={call.title} text={call.text} />
+                          </Col>
+                        ))}
+                      </Row>
+                      <Row gutter={[token.margin, token.margin]}>
+                        <Col xs={24} lg={12} style={{ minWidth: 0 }}>
+                          <CodeBlock label={CASES_FORMAT.label} code={CASES_FORMAT.code} />
+                        </Col>
+                        <Col xs={24} lg={12} style={{ minWidth: 0 }}>
+                          <Flex vertical gap="middle">
+                            {FORMAT_SAMPLES.map((sample) => <CodeBlock key={sample.label} label={sample.label} code={sample.code} />)}
+                            <Alert type="info" showIcon title="IDs must match the catalog" description={PASS_RULE.replace('IDs must match the catalog. ', '')} />
+                          </Flex>
+                        </Col>
+                      </Row>
+                    </Flex>
+                  ),
+                }]}
+              />
             </Flex>
           </div>
         </div>
 
-        {/* Not in scope */}
-        <div style={{ background: token.colorBgLayout, borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
-          <div style={section}>
-            <SectionTitle eyebrow="Boundaries" title="What it does not do" />
-            <Row gutter={[token.marginLG, token.marginLG]}>
-              {[
-                { icon: <ApiOutlined />, title: 'Run your tests', text: 'Projects run their own suites. It never pulls code or starts a runner.' },
-                { icon: <KeyOutlined />, title: 'Hold your credentials', text: 'Only results arrive. Product accounts and secrets stay with the project.' },
-                { icon: <HistoryOutlined />, title: 'Show history yet', text: 'Each check shows its latest run. Every run is kept for later.' },
-                { icon: <BellOutlined />, title: 'Send alerts yet', text: 'Results are on the page; notifications come later.' },
-              ].map((item) => (
-                <Col key={item.title} xs={24} sm={12} lg={6}>
-                  <Card size="small" style={{ height: '100%' }}>
-                    <Flex vertical gap="small">
-                      <Typography.Text type="secondary" style={{ fontSize: token.fontSizeHeading4 }}>{item.icon}</Typography.Text>
-                      <Typography.Text strong>{item.title}</Typography.Text>
-                      <Typography.Text type="secondary">{item.text}</Typography.Text>
-                    </Flex>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
-          </div>
-        </div>
       </main>
 
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
@@ -420,7 +373,7 @@ function Inline({ text }: { text: string }) {
   return <>{text.split('`').map((part, index) => (index % 2 ? <Typography.Text key={index} code>{part}</Typography.Text> : part))}</>
 }
 
-function CopyForAgent() {
+function CopyForAgent({ large = false }: { large?: boolean }) {
   const { token } = theme.useToken()
   const { message } = App.useApp()
   const copy = async () => {
@@ -432,7 +385,13 @@ function CopyForAgent() {
     }
   }
   return (
-    <Button type="primary" size="large" icon={<CopyOutlined />} onClick={copy} style={{ height: 'auto', paddingBlock: token.padding, paddingInline: token.paddingXL, fontSize: token.fontSizeHeading4, fontWeight: token.fontWeightStrong, boxShadow: token.boxShadowSecondary }}>
+    <Button
+      type={large ? 'primary' : 'default'}
+      size="large"
+      icon={<CopyOutlined />}
+      onClick={copy}
+      style={large ? { height: 'auto', paddingBlock: token.padding, paddingInline: token.paddingXL, fontSize: token.fontSizeHeading4, fontWeight: token.fontWeightStrong, boxShadow: token.boxShadowSecondary } : undefined}
+    >
       Copy for your agent
     </Button>
   )

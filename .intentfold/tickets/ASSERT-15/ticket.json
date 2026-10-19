@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-15",
+  "mode": "open",
+  "stage": "setup-complete",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-15",
+  "branch": "ASSERT-15-homepage-copy",
+  "base": "6e3618496db83d2c791e58891c373ecbc5e79d2e",
+  "ports": {
+    "web": 63015
+  }
+}
