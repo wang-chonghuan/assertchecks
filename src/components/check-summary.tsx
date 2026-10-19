@@ -20,16 +20,25 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
   // Only an unusual outcome needs its own tag; a plain pass or fail is already the card's status.
   const unusual = latest && (latest.timedOut || latest.outcome === 'incomplete')
   const small = { fontSize: token.fontSizeSM }
+  // Vertical rhythm in grid units (4 px), independent of the compact algorithm's smaller margins.
+  const unit = token.sizeUnit
 
+  // One vertical rhythm on an 8 px grid: the headline, then the bar with its legend held close, then the
+  // run times set apart under a rule.
+  const notices = [
+    <CatalogChangeNotice key="catalog" changes={check.catalogChanges} compact={compact} />,
+    <ActiveRunNotice key="active" active={check.active} />,
+    <PartialRunNotice key="partial" partial={check.partial} />,
+  ]
   return (
-    <Flex vertical gap={compact ? 'small' : 'middle'}>
-      <CatalogChangeNotice changes={check.catalogChanges} compact={compact} />
-      <ActiveRunNotice active={check.active} />
-      <PartialRunNotice partial={check.partial} />
+    <Flex vertical>
+      {(check.catalogChanges.length > 0 || check.active || check.partial) && (
+        <Flex vertical gap={unit * 2} style={{ marginBottom: unit * 3 }}>{notices}</Flex>
+      )}
 
       {latest && counts ? (
         <>
-          <Flex align="baseline" justify="space-between" gap="small" wrap>
+          <Flex align="baseline" justify="space-between" gap="small" wrap style={{ marginBottom: unit * 3 }}>
             <Flex align="baseline" gap={token.marginXS}>
               <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: 1, color: token.colorText }}>
                 {counts.passed}
@@ -43,7 +52,7 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
           </Flex>
 
           <Flex role="img" aria-label={segments.map((segment) => `${segment.value} ${segment.label}`).join(', ')}
-            gap={token.lineWidth * 2} style={{ height: token.lineWidth * 8, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
+            gap={token.lineWidth * 2} style={{ height: unit * 2, marginBottom: unit * 2, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
             {segments.filter((segment) => segment.value > 0).map((segment) => (
               <div key={segment.key} style={{ flex: segment.value, background: segment.color }} />
             ))}
@@ -59,7 +68,9 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
             ))}
           </Flex>
 
-          {latest.reason && latest.outcome === 'incomplete' && <Alert type="warning" showIcon title={latest.reason} />}
+          {latest.reason && latest.outcome === 'incomplete' && (
+            <Alert type="warning" showIcon title={latest.reason} style={{ marginTop: unit * 3 }} />
+          )}
         </>
       ) : (
         <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>No runs yet</Typography.Text>
@@ -69,7 +80,13 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
         vertical={compact}
         wrap
         justify="space-between"
-        style={{ gap: `${token.marginXXS}px ${token.margin}px`, paddingTop: token.paddingXS, borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}` }}
+        style={{
+          gap: `${unit}px ${unit * 4}px`,
+          marginTop: unit * 4,
+          paddingTop: unit * 3,
+          borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}`,
+          lineHeight: 1,
+        }}
       >
         {latest && (
           <Typography.Text type="secondary" style={small}>

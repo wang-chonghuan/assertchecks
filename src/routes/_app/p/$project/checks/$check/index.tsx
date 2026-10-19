@@ -187,7 +187,7 @@ function CheckPage() {
           { title: check.name },
         ]}
       />
-      <Card title={`${check.name} · ${check.environment}`} extra={<CheckStatusTag status={check.status} />}>
+      <Card title={`${check.name} · ${check.environment}`} extra={<CheckStatusTag status={check.status} />} styles={{ body: { paddingTop: token.paddingXXS } }}>
         <CheckSummary check={check} />
         {latest && (
           <Collapse

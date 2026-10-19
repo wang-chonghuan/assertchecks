@@ -26,6 +26,8 @@ function OverviewPage() {
             <Col key={check.slug} xs={24} md={12} xl={8}>
               <Card
                 style={{ height: '100%' }}
+                // The header has no rule, so the body starts close under the title.
+                styles={{ body: { paddingTop: token.paddingXXS } }}
                 title={
                   <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
                     {check.name}

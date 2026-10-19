@@ -243,6 +243,7 @@ function ExampleCard() {
         }
         extra={<Tag variant="filled">Example</Tag>}
         style={{ position: 'relative', boxShadow: token.boxShadowSecondary }}
+        styles={{ body: { paddingTop: token.paddingXXS } }}
       >
         <CheckSummary check={EXAMPLE} compact />
       </Card>
