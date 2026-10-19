@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-13",
   "mode": "open",
-  "stage": "setup-complete",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-13",
   "branch": "ASSERT-13-group-tags",
