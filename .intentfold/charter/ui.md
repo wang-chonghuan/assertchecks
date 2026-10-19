@@ -20,11 +20,15 @@ Pages under `src/routes/`; shared presentational pieces under `src/components/`:
 product mark), `status.tsx` (outcome/status tags and notices), `check-summary.tsx` (the environment
 overview shared by project cards and the check page) and `code-block.tsx` (copyable code; Ant has
 only inline code). `src/styles.css` holds structural rules only, such as the homepage section links'
-breakpoint. Prefer an antd component or documented composition over a new component.
+breakpoint. Prefer an antd component or documented composition over a new component. An Ant component
+is overridden only when tokens cannot do it, in `src/components/ant-overrides/`, one file per
+component, each listed here.
 
 **Tokens**
 
-`src/theme.ts` is the single theme authority (antd seed/alias tokens plus the fixed `cssVar.key`).
+`src/theme.ts` is the single theme authority. Every custom value (colours, radii, the pill radius) is
+declared once in the `ASSERTCHECKS_STYLE` table at the top of that file; the exported theme takes its
+values only from that table, and no colour literal appears outside it.
 Components read values with `theme.useToken()`; colours, spacing, radii and sizes come from tokens,
 not literals. The product mark and name live only in `src/components/brand.tsx`.
 
@@ -36,7 +40,8 @@ label. The interface language is English.
 
 **Design source of truth**
 
-Existing pages and the antd documentation for the installed version.
+Existing pages, the antd documentation for the installed version, and the adsy.com palette measured
+in ASSERT-16 (`.intentfold/tickets/ASSERT-16/palette.md`).
 
 ## Tools
 

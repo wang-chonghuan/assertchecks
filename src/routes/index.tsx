@@ -71,7 +71,7 @@ function HomePage() {
   const section = { ...container, paddingBlock: token.paddingXL * 2 }
 
   return (
-    <div style={{ minHeight: '100vh', background: token.colorBgContainer }}>
+    <div style={{ minHeight: '100vh', background: token.colorBgLayout }}>
       <header
         style={{
           position: 'sticky',

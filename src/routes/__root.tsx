@@ -2,7 +2,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { App, ConfigProvider, Result } from 'antd'
 import antdCss from '#antd-css?url'
 import appCss from '../styles.css?url'
-import { theme } from '../theme'
+import { ASSERTCHECKS_STYLE, theme } from '../theme'
 import { PRODUCT_NAME } from '../components/brand'
 
 export const Route = createRootRoute({
@@ -10,6 +10,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      // The mobile address bar matches the header.
+      { name: 'theme-color', content: ASSERTCHECKS_STYLE.headerBg },
       { title: PRODUCT_NAME },
     ],
     links: [

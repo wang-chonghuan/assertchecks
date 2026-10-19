@@ -35,7 +35,6 @@ function AppLayout() {
           alignItems: 'center',
           gap: token.marginSM,
           paddingInline: token.padding,
-          background: token.colorBgContainer,
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
