@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-18",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-18",
+  "branch": "ASSERT-18-cleanup",
+  "base": "cd3b5e26406b556742b09edc3b9ea343e65d5e12",
+  "ports": {
+    "web": 63018
+  }
+}
