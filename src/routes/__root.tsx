@@ -15,6 +15,8 @@ export const Route = createRootRoute({
       { title: PRODUCT_NAME },
     ],
     links: [
+      // The body typeface, preloaded so text does not render in the fallback first.
+      { rel: 'preload', href: '/fonts/space-grotesk/space-grotesk-latin.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
       { rel: 'stylesheet', href: antdCss },
       { rel: 'stylesheet', href: appCss },
     ],

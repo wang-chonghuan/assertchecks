@@ -30,16 +30,16 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
   // Wide: four columns. Tall: four rows.
   const boxes: Record<string, Box> = wide
     ? {
-        repo: { x: 10, y: 40, w: 180, h: 140 },
-        ci: { x: 300, y: 40, w: 180, h: 140 },
-        ac: { x: 630, y: 30, w: 200, h: 160 },
-        team: { x: 940, y: 40, w: 180, h: 140 },
+        repo: { x: 10, y: 40, w: 220, h: 150 },
+        ci: { x: 350, y: 40, w: 220, h: 150 },
+        ac: { x: 740, y: 25, w: 230, h: 180 },
+        team: { x: 1090, y: 40, w: 220, h: 150 },
       }
     : {
-        repo: { x: 30, y: 10, w: 300, h: 110 },
-        ci: { x: 30, y: 200, w: 300, h: 110 },
-        ac: { x: 30, y: 420, w: 300, h: 150 },
-        team: { x: 30, y: 650, w: 300, h: 110 },
+        repo: { x: 20, y: 10, w: 320, h: 124 },
+        ci: { x: 20, y: 224, w: 320, h: 124 },
+        ac: { x: 20, y: 458, w: 320, h: 160 },
+        team: { x: 20, y: 708, w: 320, h: 124 },
       }
   const edges: Edge[] = [
     { from: boxes.repo, to: boxes.ci, label: 'checks out', detail: '' },
@@ -47,8 +47,8 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
     { from: boxes.ci, to: boxes.ac, label: '② report', detail: 'results + catalog', offset: 1 },
     { from: boxes.ac, to: boxes.team, label: '③ judged run', detail: '' },
   ]
-  const width = wide ? 1130 : 360
-  const height = wide ? 220 : 770
+  const width = wide ? 1320 : 360
+  const height = wide ? 230 : 840
   const marker = `arrow-${layout}`
   const font = { fontFamily: token.fontFamily }
 
@@ -67,21 +67,21 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
       </defs>
 
       {edges.map((edge) => {
-        const spread = (edge.offset ?? 0) * (wide ? 34 : 70)
+        const spread = (edge.offset ?? 0) * (wide ? 40 : 76)
         const [x1, y1, x2, y2] = wide
           ? [edge.from.x + edge.from.w, edge.from.y + edge.from.h / 2 + spread, edge.to.x - 4, edge.to.y + edge.to.h / 2 + spread]
           : [edge.from.x + edge.from.w / 2 + spread, edge.from.y + edge.from.h, edge.to.x + edge.to.w / 2 + spread, edge.to.y - 4]
         const midX = (x1 + x2) / 2
         const midY = (y1 + y2) / 2
         // Wide: label above the line. Tall: label beside it.
-        const [lx, ly] = wide ? [midX, midY - (edge.detail ? 22 : 10)] : [midX + 10, midY - (edge.detail ? 6 : -4)]
+        const [lx, ly] = wide ? [midX, midY - (edge.detail ? 26 : 10)] : [midX + 10, midY - (edge.detail ? 8 : -5)]
         const anchor = wide ? 'middle' : 'start'
         return (
           <g key={`${edge.label}`}>
             <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={token.colorTextSecondary} strokeWidth={1.5} markerEnd={`url(#${marker})`} />
-            <text x={lx} y={ly} textAnchor={anchor} fill={token.colorText} fontSize={13} fontWeight={600} style={font}>{edge.label}</text>
+            <text x={lx} y={ly} textAnchor={anchor} fill={token.colorText} fontSize={token.fontSize} fontWeight={token.fontWeightStrong} style={font}>{edge.label}</text>
             {edge.detail && (
-              <text x={lx} y={ly + 16} textAnchor={anchor} fill={token.colorTextSecondary} fontSize={12} style={font}>{edge.detail}</text>
+              <text x={lx} y={ly + 18} textAnchor={anchor} fill={token.colorTextSecondary} fontSize={token.fontSizeSM} style={font}>{edge.detail}</text>
             )}
           </g>
         )
@@ -101,11 +101,11 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
               stroke={node.accent ? token.colorPrimary : token.colorBorderSecondary}
               strokeWidth={node.accent ? 1.5 : 1}
             />
-            <text x={box.x + 16} y={box.y + 30} fill={node.accent ? token.colorPrimary : token.colorText} fontSize={16} fontWeight={700} style={font}>
+            <text x={box.x + 18} y={box.y + 36} fill={node.accent ? token.colorPrimary : token.colorText} fontSize={token.fontSizeLG} fontWeight={token.fontWeightStrong} style={font}>
               {node.title}
             </text>
             {node.lines.map((line, index) => (
-              <text key={line} x={box.x + 16} y={box.y + 58 + index * 22} fill={token.colorTextSecondary} fontSize={13} style={font}>
+              <text key={line} x={box.x + 18} y={box.y + 68 + index * 26} fill={token.colorTextSecondary} fontSize={token.fontSize} style={font}>
                 {node.accent ? `✓ ${line}` : line}
               </text>
             ))}

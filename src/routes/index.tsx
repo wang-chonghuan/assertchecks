@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
 import { getMe } from '../server/fns'
+import { ASSERTCHECKS_STYLE } from '../theme'
 import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
 import { CheckStatusTag, ThenTag } from '../components/status'
@@ -115,9 +116,9 @@ function HomePage() {
                   level={1}
                   style={{
                     margin: 0,
-                    fontSize: `clamp(${token.fontSizeHeading2}px, 4vw, ${Number(token.fontSizeHeading1) * 1.15}px)`,
-                    lineHeight: 1.12,
-                    letterSpacing: '-0.025em',
+                    fontSize: `clamp(${token.fontSizeHeading2}px, 5.3vw, ${token.fontSizeHeading1}px)`,
+                    fontWeight: ASSERTCHECKS_STYLE.fontWeightDisplay,
+                    lineHeight: 1.05,
                   }}
                 >
                   Know every assertion still holds.
@@ -271,11 +272,11 @@ function ExampleCard() {
 function SectionTitle({ eyebrow, title, text }: { eyebrow: string; title: string; text?: string }) {
   const { token } = theme.useToken()
   return (
-    <Flex vertical gap={token.marginXXS} style={{ marginBottom: token.marginLG, maxWidth: 720 }}>
+    <Flex vertical gap={token.marginXXS} style={{ marginBottom: token.marginLG, maxWidth: token.screenLG }}>
       <Typography.Text strong style={{ color: token.colorPrimary, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: token.fontSizeSM }}>
         {eyebrow}
       </Typography.Text>
-      <Typography.Title level={3} style={{ margin: 0, letterSpacing: '-0.015em' }}>{title}</Typography.Title>
+      <Typography.Title level={2} style={{ margin: 0 }}>{title}</Typography.Title>
       {text && <Typography.Paragraph type="secondary" style={{ margin: 0 }}>{text}</Typography.Paragraph>}
     </Flex>
   )

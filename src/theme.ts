@@ -26,11 +26,25 @@ export const ASSERTCHECKS_STYLE = {
   cardPadding: 16,
   cardHeaderHeight: 44,
   headerHeight: 52,
-  statisticValue: 20,
-  statisticTitle: 12,
-  // Ant's default control height. The compact algorithm turns it into 28 px; Button needs it again
+  // Type, all measured on adsy.com: Space Grotesk (self-hosted in public/fonts/space-grotesk/).
+  fontFamily: "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+  fontSize: 16, // body, navigation, buttons
+  fontSizeSM: 14, // card descriptions
+  fontSizeLG: 20, // emphasised lead text, card titles
+  fontSizeHeading1: 76, // hero headline
+  fontSizeHeading2: 40, // section titles
+  fontSizeHeading3: 30, // card headings
+  fontSizeHeading4: 26, // block titles
+  fontSizeHeading5: 20,
+  lineHeight: 1.27,
+  fontWeightHeading: 500, // headings and emphasis
+  fontWeightDisplay: 400, // the hero headline
+  fontWeightButton: 600,
+  statisticValue: 30,
+  statisticTitle: 14,
+  // The control height before the compact algorithm, which turns it into 32 px. Button needs it again
   // because its own algorithm would otherwise compact the already-compact height a second time.
-  controlHeightSeed: 32,
+  controlHeightSeed: 36,
   pillRadius: 999,
 } as const
 
@@ -54,11 +68,28 @@ export const theme: ThemeConfig = {
     colorBgContainer: style.cardBg,
     borderRadius: style.radius,
     borderRadiusLG: style.cardRadius,
+    fontFamily: style.fontFamily,
+    fontSize: style.fontSize,
+    fontSizeSM: style.fontSizeSM,
+    fontSizeLG: style.fontSizeLG,
+    fontSizeHeading1: style.fontSizeHeading1,
+    fontSizeHeading2: style.fontSizeHeading2,
+    fontSizeHeading3: style.fontSizeHeading3,
+    fontSizeHeading4: style.fontSizeHeading4,
+    fontSizeHeading5: style.fontSizeHeading5,
+    lineHeight: style.lineHeight,
+    fontWeightStrong: style.fontWeightHeading,
+    controlHeight: style.controlHeightSeed,
   },
   components: {
     Button: {
       algorithm: true,
       controlHeight: style.controlHeightSeed,
+      fontWeight: style.fontWeightButton,
+      // Re-derived from Ant's 14 px seed otherwise; adsy's buttons are 16 px at every size.
+      contentFontSize: style.fontSize,
+      contentFontSizeLG: style.fontSize,
+      contentFontSizeSM: style.fontSizeSM,
       colorPrimary: style.button,
       // The button algorithm re-derives text from Ant's black seed; default and text buttons keep body text.
       colorText: style.text,

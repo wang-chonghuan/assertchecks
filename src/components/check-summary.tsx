@@ -32,7 +32,7 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
           </Flex>
           <Flex wrap style={{ gap: `${token.marginXS}px ${compact ? token.marginLG : token.marginXL}px` }}>
             {stats.map((item) => (
-              <Statistic key={item.key} title={item.title} value={item.value} styles={{ content: item.color ? { color: item.color } : undefined }} />
+              <Statistic key={item.key} title={item.title} value={item.value} styles={{ content: { fontWeight: token.fontWeightStrong, color: item.color } }} />
             ))}
           </Flex>
           {/* Failed cases are listed on the check page; only an incomplete run needs its reason here. */}
