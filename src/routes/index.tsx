@@ -215,8 +215,9 @@ function HomePage() {
       </main>
 
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
-        <Flex justify="center" align="center" style={{ ...container, paddingBlock: token.padding }}>
+        <Flex justify="center" align="center" wrap gap="small" style={{ ...container, paddingBlock: token.padding }}>
           <Typography.Text type="secondary">© {new Date().getUTCFullYear()} {PRODUCT_NAME}. All rights reserved.</Typography.Text>
+          <Typography.Link href="/privacy">Privacy</Typography.Link>
         </Flex>
       </footer>
     </div>

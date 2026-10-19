@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-20",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-20",
+  "branch": "ASSERT-20-google-sign-in",
+  "base": "02cb28f2741b31cd64a72801e4a13b8e7b6e4431",
+  "ports": {
+    "web": 63020
+  }
+}

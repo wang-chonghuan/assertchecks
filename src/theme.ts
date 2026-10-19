@@ -183,6 +183,8 @@ export const clerkAppearance = {
       fontSize: px(style.fontSize),
       lineHeight: px(style.lineHeightBase),
     },
+    socialButtonsBlockButton: { borderRadius: `${style.pillRadius}px`, boxShadow: style.noShadow },
+    socialButtonsBlockButtonText: { fontSize: px(style.fontSize), lineHeight: px(style.lineHeightBase), fontWeight: style.fontWeightButton },
     footerActionText: clerkText,
     footerActionLink: clerkText,
   },
