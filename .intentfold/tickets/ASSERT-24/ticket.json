@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-24",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-24",
+  "branch": "ASSERT-24-oracles",
+  "base": "a59c91d03537364c4d0b3cfc7816268cde9ee6cc",
+  "ports": {
+    "web": 63024
+  }
+}
