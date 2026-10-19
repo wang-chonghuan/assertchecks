@@ -130,11 +130,19 @@ function outsideRun(latest: LatestDbRow | null, selection: Selection): OutsideCa
     }))
 }
 
-// Every non-retired catalog case falls in exactly one bucket: passed, failed, draft or manual.
-function counts(latest: LatestDbRow, failed: CaseResult[], outside: OutsideCase[]): CaseCounts {
+// Every non-retired catalog case falls in exactly one bucket: passed, failed, not run, draft or manual.
+function counts(latest: LatestDbRow, notPassedCases: CaseResult[], outside: OutsideCase[]): CaseCounts {
   const ran = latest.summary?.length ?? 0
   const draft = outside.filter((item) => item.status === 'draft').length
-  return { total: ran + outside.length, passed: ran - failed.length, failed: failed.length, draft, manual: outside.length - draft }
+  const failed = notPassedCases.filter((item) => item.status === 'failed' || item.thens.some((then) => then.status === 'failed')).length
+  return {
+    total: ran + outside.length,
+    passed: ran - notPassedCases.length,
+    failed,
+    notRun: notPassedCases.length - failed,
+    draft,
+    manual: outside.length - draft,
+  }
 }
 
 function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {

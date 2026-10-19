@@ -69,6 +69,8 @@ export interface CaseCounts {
   total: number
   passed: number
   failed: number
+  // Selected cases that ran but did not finish: interrupted, skipped, flaky or missing from the report.
+  notRun: number
   draft: number
   manual: number
 }

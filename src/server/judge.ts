@@ -3,7 +3,8 @@
 
 export type Outcome = 'running' | 'passed' | 'failed' | 'incomplete'
 export type ThenStatus = 'passed' | 'failed' | 'not_run'
-export type CaseStatus = 'passed' | 'failed' | 'skipped' | 'flaky' | 'missing'
+// `interrupted`: the run's time limit stopped the case before it finished.
+export type CaseStatus = 'passed' | 'failed' | 'skipped' | 'flaky' | 'interrupted' | 'missing'
 export type Trigger = 'schedule' | 'manual'
 
 export interface ThenResult {
@@ -57,6 +58,8 @@ interface ReportedCase {
 interface ParsedResult {
   cases: Map<string, ReportedCase>
   runErrors: number
+  // Seconds of the time limit that stopped the run, when the runner reported one.
+  timeLimit: number | null
 }
 
 const CASE_ID = /^[A-Z0-9]+(?:-[A-Z0-9]+)*$/
@@ -89,6 +92,8 @@ interface PwSuite { specs?: PwSpec[]; suites?: PwSuite[] }
 
 const PW_CASE_TITLE = /^([A-Z0-9]+(?:-[A-Z0-9]+)*):/
 const PW_THEN_TITLE = /^Then ([A-Za-z0-9]+):/
+// Playwright's run-level error when `globalTimeout` stops the run.
+const PW_TIME_LIMIT = /Timed out waiting (\d+(?:\.\d+)?)s for the .+ to run/
 
 function collectThens(steps: PwStep[] | undefined, found: Map<string, 'passed' | 'failed'>): void {
   for (const step of steps ?? []) {
@@ -118,9 +123,12 @@ function parsePlaywright(report: unknown): ParsedResult {
         const result = test.results.at(-1)
         const thens = new Map<string, 'passed' | 'failed'>()
         collectThens(result?.steps, thens)
+        // A stopped case did not fail: the Then that was running when the time limit hit did not finish.
+        const interrupted = result?.status === 'interrupted'
+        if (interrupted) for (const [id, status] of thens) if (status === 'failed') thens.delete(id)
         cases.set(match[1], {
           title: spec.title.slice(match[0].length).trim(),
-          status: pwStatus(test.status),
+          status: interrupted ? 'interrupted' : pwStatus(test.status),
           ms: result ? Math.round(result.duration) : null,
           thens,
           error: cleanError(result?.error?.message ?? result?.errors?.[0]?.message),
@@ -131,7 +139,13 @@ function parsePlaywright(report: unknown): ParsedResult {
   }
   for (const suite of suites as PwSuite[]) walk(suite)
   const errors = (report as { errors?: unknown }).errors
-  return { cases, runErrors: Array.isArray(errors) ? errors.length : 0 }
+  const messages = Array.isArray(errors) ? errors.map((error) => cleanError((error as { message?: unknown })?.message) ?? '') : []
+  const limits = messages.map((message) => PW_TIME_LIMIT.exec(message)).filter((match) => match !== null)
+  return {
+    cases,
+    runErrors: messages.length - limits.length,
+    timeLimit: limits.length ? Number(limits[0][1]) : null,
+  }
 }
 
 // ---- format: cases (written directly by producers that are not test runners) ----
@@ -162,7 +176,7 @@ function parseCases(value: unknown, errors: unknown): ParsedResult {
       error: cleanError(item.error),
     })
   }
-  return { cases, runErrors: Array.isArray(errors) ? errors.length : 0 }
+  return { cases, runErrors: Array.isArray(errors) ? errors.length : 0, timeLimit: null }
 }
 
 export function parseResult(result: unknown): ParsedResult {
@@ -248,6 +262,8 @@ export function judge(input: {
     }
     if (item.status === 'failed' || thens.some((then) => then.status === 'failed')) {
       failures.push(`${spec.id} failed`)
+    } else if (item.status === 'interrupted') {
+      gaps.push(`${spec.id} interrupted by the time limit`)
     } else if (item.status === 'skipped') {
       gaps.push(`${spec.id} skipped`)
     } else if (item.status === 'flaky') {
@@ -262,6 +278,7 @@ export function judge(input: {
   for (const id of parsed.cases.keys()) {
     if (!expected.some((spec) => spec.id === id)) gaps.push(`${id} is not in ${scope}`)
   }
+  if (parsed.timeLimit !== null) gaps.push(`the run stopped at its ${Math.round(parsed.timeLimit / 60)}-minute time limit`)
   if (parsed.runErrors) gaps.push(`${parsed.runErrors} run-level error(s)`)
   if (expected.length === 0) gaps.push(`${scope} is empty`)
   const versionGap = input.skipVersions ? null : versionsMatch(input.deployedStart, input.deployedEnd)

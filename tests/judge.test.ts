@@ -149,6 +149,26 @@ test('flaky, run-level errors, nonzero exit and unparseable results are incomple
   assert.equal(judge({ ...base, catalog: {}, result: playwright(allPassing) }).outcome, 'incomplete')
 })
 
+test('a run stopped by its time limit is incomplete, and the stopped case is interrupted, not failed', () => {
+  // As Playwright reports globalTimeout: the running test's result is interrupted (its in-flight Then
+  // carries an error), later tests did not run, and a run-level error names the limit.
+  const stopped = playwright(
+    [{ id: 'E2E-001', thens: { A1: true, A2: true } }, { id: 'E2E-002', status: 'skipped', result: 'interrupted', thens: { A1: false } }],
+    [{ message: '\u001b[31mTimed out waiting 3600s for the entire run to run\u001b[39m' }],
+  )
+  const report = stopped.report.suites[0].suites[1].specs[0].tests[0]
+  report.results = [{ status: 'interrupted', duration: 5000, error: undefined, steps: [{ title: 'fixture', steps: [{ title: 'Then A1: expectation', error: { message: 'Test was interrupted.' } }] }] }]
+  const judged = judge({ ...base, exitCode: 1, result: stopped })
+  assert.equal(judged.outcome, 'incomplete')
+  assert.match(judged.reason ?? '', /E2E-002 interrupted by the time limit/)
+  assert.match(judged.reason ?? '', /stopped at its 60-minute time limit/)
+  assert.doesNotMatch(judged.reason ?? '', /run-level error/)
+  const second = judged.summary.find((item) => item.case === 'E2E-002')
+  assert.equal(second?.status, 'interrupted')
+  assert.deepEqual(second?.thens, [{ id: 'A1', status: 'not_run' }])
+  assert.equal(judged.summary.find((item) => item.case === 'E2E-001')?.status, 'passed')
+})
+
 test('sensitive patterns are detected', () => {
   assert.equal(containsSensitive('{"Authorization":"x"}'), true)
   assert.equal(containsSensitive('header Bearer abc'), true)
