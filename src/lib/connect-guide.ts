@@ -31,7 +31,7 @@ export const CONNECT_STEPS: ConnectStep[] = [
   },
   {
     title: 'Write the catalog and name your tests by it',
-    text: 'The catalog says what must hold, in the published catalog format. `active` cases are required; `draft` cases are listed but not run. `nightly` cases belong to every full run; `manual` cases run only when named. Projects may add their own fields. Start each test title with its case ID and each Then step with its Then ID.',
+    text: 'The catalog says what must hold, in the published catalog format. `active` cases are required; `draft` cases are listed but not run. `nightly` cases belong to every full run; `manual` cases run only when named. Optionally give a case one free-form `group` and comma-separated `tags`; they only organize and filter the results page. Projects may add their own fields. Start each test title with its case ID and each Then step with its Then ID.',
     samples: [
       {
         label: 'e2e.json',
@@ -44,6 +44,8 @@ export const CONNECT_STEPS: ConnectStep[] = [
       "title": "Sign in with a saved account",
       "status": "active",
       "run": "nightly",
+      "group": "Sign-in",
+      "tags": "smoke,auth",
       "given": ["A registered account"],
       "when": ["Sign in through the login page"],
       "then": [

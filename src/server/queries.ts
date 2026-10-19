@@ -3,6 +3,7 @@
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import { catalogChanges } from './catalog-changes'
+import { caseMeta, type CaseMeta } from '../lib/organize'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type { CaseCounts, CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview, PartialRun, RunRow } from '../lib/types'
 
@@ -210,7 +211,9 @@ export async function checkDetail(userId: string, projectSlug: string, checkSlug
   const now = new Date()
   const { card: checkCard, latest } = await card(check, now)
   let latestRun: LatestRun | null = null
+  const meta: Record<string, CaseMeta> = {}
   if (latest) {
+    for (const [id, spec] of catalogCases(latest)) meta[id] = caseMeta(spec)
     const specs = catalogCases(latest)
     latestRun = {
       ...toRun(latest, check.grace_seconds, now),
@@ -222,7 +225,7 @@ export async function checkDetail(userId: string, projectSlug: string, checkSlug
       summary: latest.summary?.map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title })) ?? null,
     }
   }
-  return { project: { slug: found.slug, name: found.name }, check: checkCard, latest: latestRun }
+  return { project: { slug: found.slug, name: found.name }, check: checkCard, latest: latestRun, caseMeta: meta }
 }
 
 export async function caseDetail(

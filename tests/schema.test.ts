@@ -70,3 +70,21 @@ test('a wrong result is named against the format it declares', () => {
     'result.cases[0]: unexpected field extra',
   ])
 })
+
+test('group and tags are optional organizing fields', () => {
+  const organized = catalog()
+  Object.assign(organized.cases[0], { group: 'Sign-in', tags: 'smoke, permissions,smoke,' })
+  assert.deepEqual(catalogErrors(organized), [])
+
+  const untagged = catalog()
+  Object.assign(untagged.cases[0], { tags: '' })
+  assert.deepEqual(catalogErrors(untagged), [])
+
+  const blank = catalog()
+  Object.assign(blank.cases[0], { group: '' })
+  assert.deepEqual(catalogErrors(blank), ['catalog.cases[0].group: must not be empty'])
+
+  const listed = catalog()
+  Object.assign(listed.cases[0], { tags: ['smoke'] })
+  assert.deepEqual(catalogErrors(listed), ['catalog.cases[0].tags: must be string'])
+})

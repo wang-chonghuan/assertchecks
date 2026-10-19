@@ -33,6 +33,14 @@
           "enum": ["nightly", "manual"],
           "description": "nightly: part of every full run. manual: runs only when named with --cases."
         },
+        "group": {
+          "$ref": "#/$defs/text",
+          "description": "Optional. The one group this case belongs to, named freely by the project, for example a page or a journey. Cases without a group are shown as Ungrouped. Only for organizing and filtering: it never selects, permits or judges anything."
+        },
+        "tags": {
+          "type": "string",
+          "description": "Optional. Comma-separated labels kept as one string, for example \"smoke,permissions\". Labels are split on commas and trimmed; empty and repeated labels are ignored. Only for organizing and filtering: it never selects, permits or judges anything."
+        },
         "failure": { "$ref": "#/$defs/text", "description": "Optional known, investigated failure note, shown next to the case." },
         "given": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
         "when": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },

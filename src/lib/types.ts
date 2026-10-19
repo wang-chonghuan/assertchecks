@@ -1,6 +1,7 @@
 // View models shared by server functions and pages. Timestamps are ISO strings in UTC.
 import type { CaseResult, Outcome, Trigger, Versions } from '../server/judge'
 import type { CheckStatus } from '../server/status'
+import type { CaseMeta } from './organize'
 
 export type { CaseResult, CaseStatus, Outcome, ThenResult, ThenStatus, Trigger, Versions } from '../server/judge'
 export type { CheckStatus } from '../server/status'
@@ -97,6 +98,8 @@ export interface CheckDetail {
   project: { slug: string; name: string }
   check: CheckCard
   latest: LatestRun | null
+  // Group and tags of every case in the latest full run's catalog, keyed by case ID.
+  caseMeta: Record<string, CaseMeta>
 }
 
 export interface CaseSpec {
@@ -107,6 +110,9 @@ export interface CaseSpec {
   run: string
   status: string
   failure?: string
+  // Optional organizing fields: one free-form group, and comma-separated tags kept as a string.
+  group?: string
+  tags?: string
   given: string[]
   when: string[]
   then: { id: string; expect: string }[]

@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-13",
+  "mode": "open",
+  "stage": "setup-complete",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-13",
+  "branch": "ASSERT-13-group-tags",
+  "base": "93f06dd2f7b7af7d0e61c1c3b2c880d05199d98b",
+  "ports": {
+    "web": 63013
+  }
+}
