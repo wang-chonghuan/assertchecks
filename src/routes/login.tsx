@@ -1,7 +1,7 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
-import { Alert, Button, Card, Flex, Form, Input, Typography, theme } from 'antd'
-import { useState } from 'react'
-import { getMe, login } from '../server/fns'
+import { SignIn } from '@clerk/tanstack-react-start'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Flex, Typography, theme } from 'antd'
+import { getMe } from '../server/fns'
 import { Brand } from '../components/brand'
 import { pageGutter } from '../components/page-frame'
 
@@ -12,48 +12,14 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
+// Clerk signs people in with a code sent to their email; what they can see is set by the operator CLI.
 function LoginPage() {
-  const router = useRouter()
   const { token } = theme.useToken()
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-
-  const submit = async (values: { email: string; password: string }) => {
-    setPending(true)
-    setError(null)
-    try {
-      const result = await login({ data: values })
-      if (!result.ok) {
-        setError('Email or password is incorrect.')
-        return
-      }
-      await router.invalidate()
-      await router.navigate({ to: '/p' })
-    } catch {
-      setError('Sign-in failed. Try again.')
-    } finally {
-      setPending(false)
-    }
-  }
-
   return (
-    <Flex justify="center" align="center" style={{ minHeight: '100vh', paddingInline: pageGutter, background: token.colorBgLayout }}>
-      <Card style={{ width: '100%', maxWidth: token.screenXS }}>
-        <a href="/" aria-label="AssertChecks home" style={{ display: 'inline-block', marginBottom: token.marginLG }}><Brand size="large" /></a>
-        <Typography.Paragraph type="secondary">Sign in to see your projects' checks.</Typography.Paragraph>
-        {error && <Alert type="error" showIcon title={error} style={{ marginBottom: token.margin }} />}
-        <Form layout="vertical" onFinish={submit} requiredMark={false}>
-          <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email' }]}>
-            <Input autoComplete="username" />
-          </Form.Item>
-          <Form.Item label="Password" name="password" rules={[{ required: true }]}>
-            <Input.Password autoComplete="current-password" />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block loading={pending}>
-            Sign in
-          </Button>
-        </Form>
-      </Card>
+    <Flex vertical justify="center" align="center" gap={token.marginLG} style={{ minHeight: '100vh', paddingInline: pageGutter, background: token.colorBgLayout }}>
+      <a href="/" aria-label="AssertChecks home"><Brand size="large" /></a>
+      <Typography.Text type="secondary">Sign in with your email to see your projects' checks.</Typography.Text>
+      <SignIn routing="hash" withSignUp fallbackRedirectUrl="/p" signUpFallbackRedirectUrl="/p" />
     </Flex>
   )
 }

@@ -31,7 +31,7 @@ point. Judgement, ingestion and status are untouched.
 
 Preview on port 63009. The checks used a throwaway project `ac9-temp`, a scheduled check `nightly`
 and member `ac9-tester@example.test`, all removed afterwards with runs 36–39. The database again
-holds only support@, projects nsdk and bf, and 5 runs. Runs were reported through the real
+holds only the owner account, projects nsdk and bf, and 5 runs. Runs were reported through the real
 `start`/`report` API in the cases format.
 
 1. **Removed required case — passed.** Run 36 had E2E-001..004, all active nightly. Run 37 had a

@@ -182,8 +182,8 @@ async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; late
   }
 }
 
-export async function me(user: { id: string; email: string }, remembered: string | null): Promise<Me> {
-  const projects = await sql()<{ slug: string; name: string }[]>`
+export async function me(user: { id: string | null; email: string }, remembered: string | null): Promise<Me> {
+  const projects = user.id === null ? [] : await sql()<{ slug: string; name: string }[]>`
     SELECT p.slug, p.name FROM projects p JOIN memberships m ON m.project_id = p.id
     WHERE m.user_id = ${user.id} ORDER BY p.name
   `

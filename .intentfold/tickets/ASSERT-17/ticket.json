@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-17",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-17",
+  "branch": "ASSERT-17-clerk-login",
+  "base": "3a40b08dd62b0aac677f82746ada4bee9febdf6f",
+  "ports": {
+    "web": 63017
+  }
+}

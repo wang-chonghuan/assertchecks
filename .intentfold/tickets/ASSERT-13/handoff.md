@@ -62,7 +62,7 @@ verified, not which tool produced each edit. No NSDK or other connected-project 
 Preview on port 63013. The tests used a throwaway project `assert-13-test` with checks `plain` and
 `grouped` and member `assert-13-tester@example.test`. These were removed with
 `pnpm admin project:remove` / `user:remove`: 2 checks, 2 runs and 1 membership. The data is back to
-support@ and projects nsdk and bf.
+the owner account and projects nsdk and bf.
 
 1. **Old and new catalogs valid — passed.** With the official client from the preview,
    `check --catalog` printed "valid" for the plain 5-case catalog and for the same catalog with

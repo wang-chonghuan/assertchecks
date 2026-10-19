@@ -27,7 +27,7 @@ verified, not which tool produced each edit.
 
 Preview on port 63007 against the shared database. AC1, AC2 and AC4 ran in an isolated headless
 Chromium with a throwaway user and project (`ac7-tester@example.test`, `ac7-temp`), both deleted
-afterwards; the database again holds only support@ and projects nsdk and bf.
+afterwards; the database again holds only the owner account and projects nsdk and bf.
 
 1. **Signed-out homepage — passed.** With no session, `/` stayed `/`; Hero, "Three questions after
    every run", "Connect a project in four steps", "One fixed format, three calls" and "What it does
@@ -35,7 +35,7 @@ afterwards; the database again holds only support@ and projects nsdk and bf.
 2. **Entry button — passed.** Signed out, the hero button's href is `/login` and clicking it opened
    `/login`. Signing in there landed on `/p/ac7-temp`. Opening `/` while signed in still showed the
    homepage, and "Open my projects" opened `/p/ac7-temp`. The in-app browser, signed in as
-   support@, likewise went `/` → Open my projects → `/p/nsdk`.
+   the owner account, likewise went `/` → Open my projects → `/p/nsdk`.
 3. **Commands accepted by the client — passed.** With the client downloaded from the preview, a fake
    token and `ASSERTCHECKS_ORIGIN` set to the preview, the four commands shown (`start --version`,
    `report --playwright --catalog --version`, `start --cases`, `report --error`) each ended with
