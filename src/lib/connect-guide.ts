@@ -21,7 +21,7 @@ export const FORMAT_LINKS = [
 export const CONNECT_STEPS: ConnectStep[] = [
   {
     title: 'Create a check and keep its token',
-    text: 'One check per environment, for example Staging. An AssertChecks administrator creates it; use `--period none` for a check that only runs on demand. The ping token is printed once: store it as the CI secret `ASSERTCHECKS_PING_TOKEN`, never in the repository.',
+    text: 'An AssertChecks administrator creates one check per environment; `--period none` makes it run on demand only. Store its ping token as the CI secret `ASSERTCHECKS_PING_TOKEN`, never in the repository.',
     samples: [{
       label: 'Administrator',
       lang: 'bash',
@@ -31,7 +31,7 @@ export const CONNECT_STEPS: ConnectStep[] = [
   },
   {
     title: 'Write the catalog and name your tests by it',
-    text: 'The catalog says what must hold, in the published catalog format. `active` cases are required; `draft` cases are listed but not run. `nightly` cases belong to every full run; `manual` cases run only when named. Optionally give a case one free-form `group` and comma-separated `tags`; they only organize and filter the results page. Projects may add their own fields. Start each test title with its case ID and each Then step with its Then ID.',
+    text: 'Each case states its Given, When and Then. `active` `nightly` cases run in every full run, `manual` ones only when named, and `draft` ones not at all. An optional `group` and comma-separated `tags` sort the results page. Start each test title with its case ID and each Then step with its Then ID.',
     samples: [
       {
         label: 'e2e.json',
@@ -69,7 +69,7 @@ export const CONNECT_STEPS: ConnectStep[] = [
   },
   {
     title: 'Check it with a dry run',
-    text: 'The dry run validates the catalog, and a result when given, against the published format and shows the outcome the check would give. It records nothing. Each wrong field is printed with its path.',
+    text: 'Validate the catalog, and a report if you have one, before the first real run. Wrong fields are printed with their path, and nothing is recorded.',
     samples: [{
       label: 'Dry run',
       lang: 'bash',
@@ -80,7 +80,7 @@ node assertchecks.mjs check --catalog e2e.json --playwright results.json --exit-
   },
   {
     title: 'Report every run from CI',
-    text: 'Download the client on every run so it always matches the server. Pass each tested component\'s version URL (JSON with a 40-character `sha`) to both calls: a run passes only when every version was recorded and unchanged. In GitHub Actions the client records the run link and whether the run was scheduled.',
+    text: 'Download the client on every run. Pass each tested component\'s version URL (JSON with a 40-character `sha`) to both calls: a run passes only when every version was recorded and unchanged.',
     samples: [
       {
         label: 'CI step',
@@ -94,23 +94,27 @@ node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \\
   --playwright results.json --catalog e2e.json \\
   --version web=https://staging.example.com/version.json`,
       },
-      { label: 'Partial run of named cases', lang: 'bash', code: 'node assertchecks.mjs start --cases E2E-014,E2E-031' },
-      {
-        label: 'No results',
-        lang: 'bash',
-        code: `node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \\
-  --error "The browser could not start"`,
-      },
     ],
   },
   {
     title: 'Open your project',
-    text: 'Each environment card shows the last run, its counts and when the next run is due. Open an environment and it starts on the failed cases.',
+    text: 'Each environment shows its last run and opens on the failed cases.',
     samples: [],
   },
 ]
 
-export const FORMAT_INTRO = 'The client makes these calls for you. Any producer that is not a test runner can send the same JSON to `/api/ping/<token>/…` directly. A report that does not match the format is recorded as Incomplete, with every wrong field named.'
+export const FORMAT_INTRO = 'The client makes these calls. A producer that is not a test runner can send the same JSON to `/api/ping/<token>/…`. A report in the wrong format is recorded as Incomplete, naming each wrong field.'
+
+// Less common client commands, shown in the reference and copied for agents.
+export const FORMAT_SAMPLES: CodeSample[] = [
+  { label: 'Partial run of named cases', lang: 'bash', code: 'node assertchecks.mjs start --cases E2E-014,E2E-031' },
+  {
+    label: 'No results',
+    lang: 'bash',
+    code: `node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \\
+  --error "The browser could not start"`,
+  },
+]
 
 export const FORMAT_CALLS = [
   { method: 'start', title: 'A run began', text: 'The trigger, the named cases of a partial run, and each tested component\'s deployed SHA. Returns the run ID.' },
@@ -158,6 +162,7 @@ export function agentPrompt(): string {
     ...FORMAT_LINKS.map((link) => `- ${link.label}: ${ORIGIN}${link.path}`),
     ...FORMAT_CALLS.map((call) => `- \`POST /api/ping/<token>/${call.method}\` — ${call.title}: ${call.text}`),
     '',
+    ...FORMAT_SAMPLES.flatMap((sample) => [fence(sample), '']),
     fence(CASES_FORMAT),
     '',
     PASS_RULE,
