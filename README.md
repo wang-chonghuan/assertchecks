@@ -51,7 +51,11 @@ are not compared), and records nothing. The client runs it with
 from the test title prefix `E2E-001: …`, Then IDs from step titles `Then A1: …`), or
 `{"format": "cases", "cases": [{id, title?, status, ms?, thens: [{id, status}], error?}]}` for producers
 that are not test runners. `catalog` is the AssertChecks case catalog (`version: 1` and `cases[]` with
-`id`, `title`, `status`, `run`, `given`, `when`, `then[]` of `{id, expect}`, and an optional `failure`).
+`id`, `title`, `status`, `run`, `given`, `when`, `then[]` of `{id, expect}`, and optional `failure`,
+`group` and `tags`). `group` is one free-form name and `tags` a comma-separated string such as
+`"smoke,permissions"`; the check page groups cases by `group` and filters by group or a single tag.
+Neither selects, permits or judges anything: runs are still selected by `status`, `run` and named
+case IDs.
 
 A full run is judged against the catalog cases in the check's selection (default: status `active`,
 run `nightly`); a run that names `cases` is partial and judged against exactly those. A run is

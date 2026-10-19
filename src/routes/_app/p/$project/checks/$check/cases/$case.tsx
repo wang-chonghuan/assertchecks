@@ -3,6 +3,7 @@ import { Breadcrumb, Card, Descriptions, Flex, Tag, Typography } from 'antd'
 import { CaseStatusTag, OutcomeTag, ThenTag, utc } from '../../../../../../../components/status'
 import { getCase } from '../../../../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
+import { UNGROUPED, caseMeta } from '../../../../../../../lib/organize'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/cases/$case')({
   loader: ({ params }) => getCase({ data: { project: params.project, check: params.check, case: params.case } }),
@@ -21,6 +22,7 @@ function Steps({ items }: { items: string[] }) {
 function CasePage() {
   const { project, check, spec, run, result } = Route.useLoaderData()
   const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
+  const meta = caseMeta(spec)
 
   return (
     <Flex vertical gap="middle">
@@ -40,6 +42,10 @@ function CasePage() {
           bordered
           size="small"
           items={[
+            { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text type="secondary">{UNGROUPED}</Typography.Text> },
+            ...(meta.tags.length
+              ? [{ key: 'tags', label: 'Tags', children: <Flex gap="small" wrap>{meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex> }]
+              : []),
             { key: 'given', label: 'Given', children: <Steps items={spec.given} /> },
             { key: 'when', label: 'When', children: <Steps items={spec.when} /> },
             {
