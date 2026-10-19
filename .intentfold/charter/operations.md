@@ -21,8 +21,12 @@ local database.
 **Environments**
 
 - Production: easy-app Container App `ca-assertchecks` in `rg-easyapp-shared` /
-  `cae-easyapp-shared`, `https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io`,
-  one replica, schema `assertchecks-schema` on `pg-easyapp-shared`.
+  `cae-easyapp-shared`, one replica, schema `assertchecks-schema` on `pg-easyapp-shared`. Public
+  address `https://assertchecks.com`: Cloudflare zone `assertchecks.com` with the apex A record DNS-only
+  to the environment's static IP, the `asuid` ownership TXT, and `www` proxied with a 301 redirect rule
+  to the apex; the certificate is an Azure managed certificate (HTTP validation, auto-renewing). The
+  default hostname `https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io` stays in service for
+  clients configured with it.
 - Local: the dev server on the main or ticket port, using the same database.
 
 **Evidence**
@@ -107,7 +111,8 @@ python3 <n-easyapp-skill>/scripts/redeploy_current_repo.py --project assertcheck
 **Post-deploy check**
 
 ```bash
-for page in / /login /schemas/catalog.schema.json /client/assertchecks.mjs; do curl -fsS -o /dev/null -w "$page %{http_code}\n" "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io$page"; done
+for page in / /login /schemas/catalog.schema.json /client/assertchecks.mjs; do curl -fsS -o /dev/null -w "$page %{http_code}\n" "https://assertchecks.com$page"; done
+curl -fsS -o /dev/null -w "default hostname %{http_code}\n" "https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/client/assertchecks.mjs"
 az containerapp show -g rg-easyapp-shared -n ca-assertchecks --query 'tags."easyapp.commit"' -o tsv
 git rev-parse origin/main
 ```

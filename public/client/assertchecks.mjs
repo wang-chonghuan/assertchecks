@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
-export const DEFAULT_ORIGIN = 'https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io'
+export const DEFAULT_ORIGIN = 'https://assertchecks.com'
 const TIMEOUT_MS = 30_000
 const SENSITIVE = [/\bAuthorization\b/, /Bearer\s/, /eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}/]
 

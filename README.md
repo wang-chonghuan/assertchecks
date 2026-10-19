@@ -13,7 +13,7 @@ button that copies the whole guide (`src/lib/connect-guide.ts`). The report form
 Each project runs its own tests and reports them with the AssertChecks client, served by the site:
 
 ```bash
-curl -fsSO https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io/client/assertchecks.mjs
+curl -fsSO https://assertchecks.com/client/assertchecks.mjs
 export ASSERTCHECKS_PING_TOKEN=<the check's ping token>
 run_id="$(node assertchecks.mjs start --version web=https://app.example/version.json --version api=https://app.example/api/version)"
 npx playwright test ...; code=$?
@@ -112,4 +112,5 @@ pnpm admin check:token <project-slug> <check-slug>
 ## Deployment
 
 Built as a Node container (`node .output/server/index.mjs` on port 3000) and deployed to Azure
-Container Apps with the n-easyapp substrate.
+Container Apps with the n-easyapp substrate. It is served at https://assertchecks.com; the Container
+App's default hostname keeps working for clients configured with it.

@@ -3,7 +3,7 @@
 // Text uses `backticks` for inline code, which the page renders as code and Markdown keeps as is.
 
 // The production origin, as in the client's default and the README.
-export const ORIGIN = 'https://ca-assertchecks.kindsmoke-4d84c417.northeurope.azurecontainerapps.io'
+export const ORIGIN = 'https://assertchecks.com'
 
 export interface CodeSample { label: string; code: string; lang: string }
 
