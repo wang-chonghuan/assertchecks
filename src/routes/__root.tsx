@@ -3,7 +3,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { App, ConfigProvider, Result } from 'antd'
 import antdCss from '#antd-css?url'
 import appCss from '../styles.css?url'
-import { ASSERTCHECKS_STYLE, clerkAppearance, theme } from '../theme'
+import { ASSERTCHECKS_STYLE, buttonConfig, cardConfig, clerkAppearance, theme } from '../theme'
 import { PRODUCT_NAME } from '../components/brand'
 
 export const Route = createRootRoute({
@@ -36,7 +36,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <ClerkProvider appearance={clerkAppearance} signInUrl="/login" afterSignOutUrl="/login">
-          <ConfigProvider theme={theme}>
+          <ConfigProvider theme={theme} card={cardConfig} button={buttonConfig}>
             <App>{children}</App>
           </ConfigProvider>
         </ClerkProvider>

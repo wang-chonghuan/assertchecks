@@ -31,7 +31,17 @@ component, each listed here.
 the page width and gutter) is declared once in the `ASSERTCHECKS_STYLE` table at the top of that file; the exported theme takes its
 values only from that table, and no colour literal appears outside it.
 Components read values with `theme.useToken()`; colours, spacing, radii and sizes come from tokens,
-not literals. The product mark and name live only in `src/components/brand.tsx`.
+not literals.
+
+**Line height**
+
+Every type size has one line height, declared in px in the same table and all multiples of 4:
+14→20, 16→24, 20→28, 26→32, 30→36, 40→48, 76→80. Single-line display text (the pass count, the
+wordmark) uses `lineHeightSingle`. Ant receives them as ratios (`lineHeight`, `lineHeightSM`,
+`lineHeightLG`, `lineHeightHeading1`–`5`), and the card title, the button label and the Clerk sign-in
+card get theirs through the configs exported next to the theme. A component that sets its own
+`fontSize` sets the matching line height from the scale in the same style; no numeric line height
+appears outside the table. The product mark and name live only in `src/components/brand.tsx`.
 
 **Layout and responsive**
 

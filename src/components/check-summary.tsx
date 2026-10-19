@@ -1,6 +1,7 @@
 import { Alert, Flex, Typography, theme } from 'antd'
 import { ActiveRunNotice, OutcomeTag, PartialRunNotice, duration, utc } from './status'
 import type { CatalogChange, CheckCard } from '../lib/types'
+import { ASSERTCHECKS_STYLE } from '../theme'
 
 // The overview of one environment's latest results, shared by the project page cards, the check page
 // and the homepage example, so all three always look the same. Three levels: the result (passed out of
@@ -20,6 +21,7 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
   // Only an unusual outcome needs its own tag; a plain pass or fail is already the card's status.
   const unusual = latest && (latest.timedOut || latest.outcome === 'incomplete')
   const small = { fontSize: token.fontSizeSM }
+  const lead = { fontSize: token.fontSizeLG, lineHeight: token.lineHeightLG }
   // Vertical rhythm in grid units (4 px), independent of the compact algorithm's smaller margins.
   const unit = token.sizeUnit
 
@@ -40,10 +42,10 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
         <>
           <Flex align="baseline" justify="space-between" gap="small" wrap style={{ marginBottom: unit * 3 }}>
             <Flex align="baseline" gap={token.marginXS}>
-              <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: 1, color: token.colorText }}>
+              <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: token.colorText }}>
                 {counts.passed}
               </span>
-              <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>/ {ran} passed</Typography.Text>
+              <Typography.Text type="secondary" style={lead}>/ {ran} passed</Typography.Text>
             </Flex>
             <Flex align="center" gap="small">
               {unusual && <OutcomeTag run={latest} />}
@@ -73,7 +75,7 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
           )}
         </>
       ) : (
-        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>No runs yet</Typography.Text>
+        <Typography.Text type="secondary" style={lead}>No runs yet</Typography.Text>
       )}
 
       <Flex
@@ -85,7 +87,6 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
           marginTop: unit * 4,
           paddingTop: unit * 3,
           borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}`,
-          lineHeight: 1,
         }}
       >
         {latest && (

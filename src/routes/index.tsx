@@ -115,12 +115,13 @@ function HomePage() {
                       margin: 0,
                       fontSize: `clamp(${token.fontSizeHeading2}px, 5.3vw, ${token.fontSizeHeading1}px)`,
                       fontWeight: ASSERTCHECKS_STYLE.fontWeightDisplay,
-                      lineHeight: 1.05,
+                      // Heading 1's ratio at full size; never tighter than Heading 2's line as it shrinks.
+                      lineHeight: `max(${ASSERTCHECKS_STYLE.lineHeightHeading2}px, ${token.lineHeightHeading1}em)`,
                     }}
                   >
                     Know every assertion still holds.
                   </Typography.Title>
-                  <Typography.Paragraph style={{ margin: 0, fontSize: token.fontSizeLG, color: token.colorTextSecondary, maxWidth: 560 }}>
+                  <Typography.Paragraph style={{ margin: 0, fontSize: token.fontSizeLG, lineHeight: token.lineHeightLG, color: token.colorTextSecondary, maxWidth: 560 }}>
                     Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
                     arrived on time, ran in full, and which assertion failed.
                   </Typography.Paragraph>

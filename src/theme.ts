@@ -1,4 +1,4 @@
-import { theme as antdTheme, type ThemeConfig } from 'antd'
+import { theme as antdTheme, type ConfigProviderProps, type ThemeConfig } from 'antd'
 
 // The only place custom theme values are declared (charter/ui.md). Colours follow the adsy.com palette
 // measured in ASSERT-16, with the roles the owner confirmed; everything not listed is Ant's default.
@@ -36,7 +36,17 @@ export const ASSERTCHECKS_STYLE = {
   fontSizeHeading3: 30, // card headings
   fontSizeHeading4: 26, // block titles
   fontSizeHeading5: 20,
-  lineHeight: 1.27,
+  // Line height for each type size, in px, every one a multiple of 4: text at 1.4–1.5 times its size,
+  // headings tightening as they grow. Ant takes ratios, derived in `theme` below.
+  lineHeightSM: 20, // 14 px: body text (the compact algorithm sets body to 14), captions, tags
+  lineHeightBase: 24, // 16 px: button and navigation labels
+  lineHeightLG: 28, // 20 px: lead text, card titles, Heading 5
+  lineHeightHeading4: 32, // 26 px
+  lineHeightHeading3: 36, // 30 px
+  lineHeightHeading2: 48, // 40 px
+  lineHeightHeading1: 80, // 76 px
+  // Single-line display text, where line spacing never shows: the big pass count and the wordmark.
+  lineHeightSingle: 1,
   fontWeightHeading: 500, // headings and emphasis
   fontWeightDisplay: 400, // the hero headline
   fontWeightButton: 600,
@@ -80,7 +90,15 @@ export const theme: ThemeConfig = {
     fontSizeHeading3: style.fontSizeHeading3,
     fontSizeHeading4: style.fontSizeHeading4,
     fontSizeHeading5: style.fontSizeHeading5,
-    lineHeight: style.lineHeight,
+    // Body text renders at fontSizeSM under the compact algorithm, so it shares the small line height.
+    lineHeight: style.lineHeightSM / style.fontSizeSM,
+    lineHeightSM: style.lineHeightSM / style.fontSizeSM,
+    lineHeightLG: style.lineHeightLG / style.fontSizeLG,
+    lineHeightHeading1: style.lineHeightHeading1 / style.fontSizeHeading1,
+    lineHeightHeading2: style.lineHeightHeading2 / style.fontSizeHeading2,
+    lineHeightHeading3: style.lineHeightHeading3 / style.fontSizeHeading3,
+    lineHeightHeading4: style.lineHeightHeading4 / style.fontSizeHeading4,
+    lineHeightHeading5: style.lineHeightLG / style.fontSizeHeading5,
     fontWeightStrong: style.fontWeightHeading,
     controlHeight: style.controlHeightSeed,
   },
@@ -93,6 +111,9 @@ export const theme: ThemeConfig = {
       contentFontSize: style.fontSize,
       contentFontSizeLG: style.fontSize,
       contentFontSizeSM: style.fontSizeSM,
+      contentLineHeight: style.lineHeightBase / style.fontSize,
+      contentLineHeightLG: style.lineHeightBase / style.fontSize,
+      contentLineHeightSM: style.lineHeightSM / style.fontSizeSM,
       colorPrimary: style.button,
       // The button algorithm re-derives text from Ant's black seed; default and text buttons keep body text.
       colorText: style.text,
@@ -126,7 +147,19 @@ export const theme: ThemeConfig = {
   },
 }
 
-// Clerk's sign-in card takes the same values, so it reads as part of the site.
+// Card titles (fontSizeLG) and button labels (16 px) set their own font size but inherit the body line
+// height, and no theme token reaches them; ConfigProvider gives them their lines on the scale.
+export const cardConfig: ConfigProviderProps['card'] = {
+  styles: { header: { lineHeight: style.lineHeightLG / style.fontSizeLG } },
+}
+export const buttonConfig: ConfigProviderProps['button'] = {
+  styles: { root: { lineHeight: style.lineHeightBase / style.fontSize } },
+}
+
+// Clerk's sign-in card takes the same values, so it reads as part of the site. Clerk has no line-height
+// variable, so its text is put on the scale element by element.
+const px = (value: number) => `${value}px`
+const clerkText = { fontSize: px(style.fontSizeSM), lineHeight: px(style.lineHeightSM) }
 export const clerkAppearance = {
   variables: {
     colorPrimary: style.button,
@@ -139,7 +172,18 @@ export const clerkAppearance = {
   },
   elements: {
     cardBox: { borderRadius: `${style.cardRadius}px`, boxShadow: style.noShadow },
-    formButtonPrimary: { borderRadius: `${style.pillRadius}px`, fontWeight: style.fontWeightButton, boxShadow: style.noShadow },
-    formFieldInput: { borderRadius: `${style.pillRadius}px` },
+    headerTitle: { fontSize: px(style.fontSizeLG), lineHeight: px(style.lineHeightLG) },
+    headerSubtitle: clerkText,
+    formFieldLabel: clerkText,
+    formFieldInput: { borderRadius: `${style.pillRadius}px`, fontSize: px(style.fontSize), lineHeight: px(style.lineHeightBase) },
+    formButtonPrimary: {
+      borderRadius: `${style.pillRadius}px`,
+      fontWeight: style.fontWeightButton,
+      boxShadow: style.noShadow,
+      fontSize: px(style.fontSize),
+      lineHeight: px(style.lineHeightBase),
+    },
+    footerActionText: clerkText,
+    footerActionLink: clerkText,
   },
 }
