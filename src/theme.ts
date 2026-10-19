@@ -44,6 +44,11 @@ export const ASSERTCHECKS_STYLE = {
   // because its own algorithm would otherwise compact the already-compact height a second time.
   controlHeightSeed: 36,
   pillRadius: 999,
+  // Page frame, shared by every page and section through src/components/page-frame.ts: the content
+  // column's maximum width and its side gutter, 16 px on phones growing to 32 px on wide screens.
+  pageWidth: 1200,
+  pageGutterMin: 16,
+  pageGutterMax: 32,
 } as const
 
 const style = ASSERTCHECKS_STYLE

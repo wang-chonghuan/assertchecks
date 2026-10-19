@@ -15,6 +15,7 @@ import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
 import { CheckStatusTag } from '../components/status'
 import { HowItWorks } from '../components/how-it-works'
+import { pageFrame } from '../components/page-frame'
 import { FORMAT_LINKS, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
 
@@ -63,8 +64,8 @@ function HomePage() {
     </Button>
   )
 
-  const container = { boxSizing: 'border-box' as const, width: '100%', maxWidth: token.screenXL, marginInline: 'auto', paddingInline: token.padding }
-  const section = { ...container, paddingBlock: token.paddingXL }
+  const container = pageFrame
+  const section = { ...pageFrame, paddingBlock: token.paddingXL }
 
   return (
     <div style={{ minHeight: '100vh', background: token.colorBgLayout }}>
@@ -104,42 +105,44 @@ function HomePage() {
             borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
           }}
         >
-          <Row gutter={[token.marginXL, token.marginLG]} align="middle" style={{ ...section, marginInline: 'auto' }}>
-            <Col xs={24} lg={13}>
-              <Flex vertical gap="middle" align="start">
-                <Typography.Title
-                  level={1}
-                  style={{
-                    margin: 0,
-                    fontSize: `clamp(${token.fontSizeHeading2}px, 5.3vw, ${token.fontSizeHeading1}px)`,
-                    fontWeight: ASSERTCHECKS_STYLE.fontWeightDisplay,
-                    lineHeight: 1.05,
-                  }}
-                >
-                  Know every assertion still holds.
-                </Typography.Title>
-                <Typography.Paragraph style={{ margin: 0, fontSize: token.fontSizeLG, color: token.colorTextSecondary, maxWidth: 560 }}>
-                  Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
-                  arrived on time, ran in full, and which assertion failed.
-                </Typography.Paragraph>
-                <Flex gap="small" wrap>
-                  {primary}
-                  <CopyForAgent />
+          <div style={section}>
+            <Row gutter={[token.marginXL, token.marginLG]} align="middle">
+              <Col xs={24} lg={13}>
+                <Flex vertical gap="middle" align="start">
+                  <Typography.Title
+                    level={1}
+                    style={{
+                      margin: 0,
+                      fontSize: `clamp(${token.fontSizeHeading2}px, 5.3vw, ${token.fontSizeHeading1}px)`,
+                      fontWeight: ASSERTCHECKS_STYLE.fontWeightDisplay,
+                      lineHeight: 1.05,
+                    }}
+                  >
+                    Know every assertion still holds.
+                  </Typography.Title>
+                  <Typography.Paragraph style={{ margin: 0, fontSize: token.fontSizeLG, color: token.colorTextSecondary, maxWidth: 560 }}>
+                    Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
+                    arrived on time, ran in full, and which assertion failed.
+                  </Typography.Paragraph>
+                  <Flex gap="small" wrap>
+                    {primary}
+                    <CopyForAgent />
+                  </Flex>
+                  <Flex gap="middle" wrap>
+                    {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
+                      <Typography.Text key={item} type="secondary">
+                        <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: token.marginXXS }} />
+                        {item}
+                      </Typography.Text>
+                    ))}
+                  </Flex>
                 </Flex>
-                <Flex gap="middle" wrap>
-                  {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
-                    <Typography.Text key={item} type="secondary">
-                      <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: token.marginXXS }} />
-                      {item}
-                    </Typography.Text>
-                  ))}
-                </Flex>
-              </Flex>
-            </Col>
-            <Col xs={24} lg={11} style={{ minWidth: 0 }}>
-              <ExampleCard />
-            </Col>
-          </Row>
+              </Col>
+              <Col xs={24} lg={11} style={{ minWidth: 0 }}>
+                <ExampleCard />
+              </Col>
+            </Row>
+          </div>
         </div>
 
         {/* What it checks */}

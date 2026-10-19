@@ -3,6 +3,7 @@ import { Button, Flex, Grid, Layout, Select, Typography, theme } from 'antd'
 import { HomeOutlined, LogoutOutlined } from '@ant-design/icons'
 import { getMe, logout } from '../server/fns'
 import { Brand, PRODUCT_NAME } from '../components/brand'
+import { pageFrame } from '../components/page-frame'
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
@@ -31,11 +32,11 @@ function AppLayout() {
     <Layout style={{ minHeight: '100vh' }}>
       <Layout.Header
         style={{
-          paddingInline: token.padding,
+          paddingInline: 0,
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
-        <Flex align="center" gap={token.marginSM} style={{ height: '100%', maxWidth: token.screenXL - token.padding * 2, marginInline: 'auto' }}>
+        <Flex align="center" gap={token.marginSM} style={{ ...pageFrame, height: '100%' }}>
           <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
           {me.projects.length > 0 && (
             <Select
@@ -58,7 +59,7 @@ function AppLayout() {
           </Flex>
         </Flex>
       </Layout.Header>
-      <Layout.Content style={{ padding: token.padding, width: '100%', maxWidth: token.screenXL, marginInline: 'auto' }}>
+      <Layout.Content style={{ ...pageFrame, paddingBlock: token.padding }}>
         <Outlet />
       </Layout.Content>
     </Layout>
