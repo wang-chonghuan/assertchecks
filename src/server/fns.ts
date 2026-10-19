@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { notFound, redirect } from '@tanstack/react-router'
-import { currentUser, lastProject, rememberProject, signIn, signOut } from './session'
+import { currentUser, lastProject, rememberProject } from './session'
 import { caseDetail, checkDetail, me, overview } from './queries'
 
 const text = (value: unknown, field: string): string => {
@@ -8,10 +8,12 @@ const text = (value: unknown, field: string): string => {
   return value
 }
 
+// The operator-created user behind the signed-in email; an email without one can see no project.
 async function requireUser() {
   const user = await currentUser()
   if (!user) throw redirect({ to: '/login' })
-  return user
+  if (!user.id) throw notFound()
+  return { id: user.id, email: user.email }
 }
 
 function found<T>(value: T | null): T {
@@ -29,18 +31,6 @@ function remembered<T extends { project: { slug: string } }>(value: T | null): T
 export const getMe = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await currentUser()
   return user ? me(user, lastProject()) : null
-})
-
-export const login = createServerFn({ method: 'POST' })
-  .validator((data: { email: unknown; password: unknown }) => ({
-    email: text(data.email, 'email'),
-    password: text(data.password, 'password'),
-  }))
-  .handler(async ({ data }) => ({ ok: await signIn(data.email, data.password) }))
-
-export const logout = createServerFn({ method: 'POST' }).handler(async () => {
-  await signOut()
-  return { ok: true }
 })
 
 export const getOverview = createServerFn({ method: 'GET' })

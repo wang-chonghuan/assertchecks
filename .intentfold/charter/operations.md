@@ -79,9 +79,10 @@ pnpm build
 
 **Acceptance**
 
-- Browser: the built-in or headed Chrome at 1440×900 and 390×844, signed in as a ticket-scoped test
-  user created with `pnpm admin user:add`; its generated password is stored only in the git-ignored
-  `.credentials.local`.
+- Browser: the built-in or headed Chrome at 1440×900 and 390×844, signed in locally as a
+  ticket-scoped Clerk test email (`<ticket>+clerk_test@example.com`, which the Clerk development
+  instance accepts with code `424242` and sends no mail) added with `pnpm admin user:add`. Delete
+  that Clerk test user from the development instance's Users page with the rest of the test data.
 - Push API: `curl` against the local or production origin with a ticket-scoped check's token.
 - Data: `psql "$DATABASE_URL"` with `set search_path to "assertchecks-schema"` for read-only checks.
 - Ticket-scoped test data: create it with `pnpm admin project:add`, `check:add`, `user:add` and
@@ -94,8 +95,11 @@ pnpm admin user:remove <email> --confirm <email>
 
 **Environment**
 
-`.env` (git-ignored, copy it into each worktree): `DATABASE_URL`, `DATABASE_SCHEMA`. Production
-receives the same keys from the Container App (`DATABASE_URL` as secret `database-url`) plus `PORT`.
+`.env` (git-ignored, copy it into each worktree): `DATABASE_URL`, `DATABASE_SCHEMA`, and the Clerk
+development instance's `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`. Production receives the same
+keys from the Container App (`DATABASE_URL` as secret `database-url`, `CLERK_SECRET_KEY` as secret
+`clerk-secret-key`, both Clerk keys from the production instance) plus `PORT`. Clerk reads both keys
+at runtime; nothing is baked in at build time.
 Operator secrets created by the CLI are written to the git-ignored `.credentials.local`.
 
 **Deploy**
@@ -174,5 +178,5 @@ them to a real user, and removes them with the CLI as soon as the evidence is re
    are part of that ticket's approval.
 6. **Pointing a production domain at a new target** — not without the human's explicit approval.
 7. **Reporting a deploy as complete without running the post-deploy check** — forbidden outright.
-8. **Rotating or replacing an existing check's ping token, or a real user's password** — not without
-   the human's explicit approval; other repositories depend on them.
+8. **Rotating or replacing an existing check's ping token, or the Clerk secret key** — not without
+   the human's explicit approval; other repositories and the running site depend on them.

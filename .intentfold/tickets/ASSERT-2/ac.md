@@ -22,5 +22,5 @@ The `manual` check with old runs only shows Up/Failing, never Late, and "manual 
 
 ## AC 4 — NSDK has local, dev and prod
 
-After deployment, signed in as `support@narrativebanking.com`, project NSDK lists Local, DEV and
+After deployment, signed in as the owner account, project NSDK lists Local, DEV and
 PROD; DEV keeps the existing token (a start/report with it is accepted).

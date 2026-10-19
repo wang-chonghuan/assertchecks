@@ -1,17 +1,17 @@
 // Operator CLI. Users, memberships and checks are managed only here; the web UI is read-only.
-// Generated passwords and ping tokens are printed once and stored only as hashes.
+// People sign in with Clerk email codes; a user here is the email that grants access through memberships.
+// Generated ping tokens are printed once and stored only as hashes.
 import { parseArgs } from 'node:util'
 import { sql } from '../src/server/db'
-import { hashPassword, hashToken, randomToken } from '../src/server/crypto'
+import { hashToken, randomToken } from '../src/server/crypto'
 
 const USAGE = `usage: pnpm admin <command>
-  user:add <email>                      create a user with a generated password
-  user:password <email>                 replace a user's password with a generated one
+  user:add <email>                      allow an email; it sees the projects it is a member of
   project:add <slug> <name>             create a project
   member:add <email> <project-slug>     grant a user access to a project
   member:remove <email> <project-slug>  revoke a user's access to a project
   project:remove <slug> --confirm <slug>     delete a project with its checks, runs and memberships
-  user:remove <email> --confirm <email>      delete a user with its sessions and memberships
+  user:remove <email> --confirm <email>      delete a user with its memberships
   check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds>
             [--select-status active] [--select-run nightly]
   check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace]
@@ -75,17 +75,8 @@ async function main(): Promise<void> {
   switch (command) {
     case 'user:add': {
       const [email] = need(1)
-      const password = randomToken().slice(0, 20)
-      await db`INSERT INTO users (email, password_hash) VALUES (${email.toLowerCase()}, ${await hashPassword(password)})`
-      console.log(`created ${email.toLowerCase()}\npassword (shown once): ${password}`)
-      return
-    }
-    case 'user:password': {
-      const [email] = need(1)
-      const password = randomToken().slice(0, 20)
-      await one(db`UPDATE users SET password_hash = ${await hashPassword(password)} WHERE email = ${email.toLowerCase()} RETURNING id`, 'unknown user')
-      await db`DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE email = ${email.toLowerCase()})`
-      console.log(`password reset for ${email.toLowerCase()}; existing sessions ended\npassword (shown once): ${password}`)
+      await db`INSERT INTO users (email) VALUES (${email.toLowerCase()})`
+      console.log(`created ${email.toLowerCase()}; it signs in with an email code`)
       return
     }
     case 'project:add': {
@@ -131,7 +122,7 @@ async function main(): Promise<void> {
       const [email] = need(1)
       if (values.confirm?.toLowerCase() !== email.toLowerCase()) throw new Error(`refusing: repeat the email with --confirm ${email}`)
       await one(db`DELETE FROM users WHERE email = ${email.toLowerCase()} RETURNING id`, 'unknown user')
-      console.log(`removed ${email.toLowerCase()} with its sessions and memberships`)
+      console.log(`removed ${email.toLowerCase()} with its memberships`)
       return
     }
     case 'check:add': {

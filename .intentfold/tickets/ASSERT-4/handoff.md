@@ -19,7 +19,7 @@ In `finoge-app/narrative-skills`, branch `ASSERT-4-assertchecks-publish` (commit
    ticket-scoped check (`assert-4-test/cap3`, manual only), the client was downloaded from production
    and `start`/`report` run exactly as written with a real NSDK Playwright report (ENG-1632, 92/92)
    and its catalog: run 24 `passed`. The check page (local server on the same database, signed in as
-   support@narrativebanking.com) shows run 24 with all cases and Then results. The first attempt
+   the owner account) shows run 24 with all cases and Then results. The first attempt
    (run 23) was `incomplete` because one DEV version read failed transiently, as the rules require.
 3. **Existing skill tests and cap1/cap2 unchanged — passed.** `node --test
    assertchecks/tests/catalog-changes.test.mjs`: 30 passed; the only cap2 change is the pointer line.

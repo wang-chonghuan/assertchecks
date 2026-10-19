@@ -125,3 +125,21 @@ export const theme: ThemeConfig = {
     Menu: { itemColor: style.textSecondary },
   },
 }
+
+// Clerk's sign-in card takes the same values, so it reads as part of the site.
+export const clerkAppearance = {
+  variables: {
+    colorPrimary: style.button,
+    colorForeground: style.text,
+    colorMutedForeground: style.textSecondary,
+    colorBackground: style.cardBg,
+    fontFamily: style.fontFamily,
+    fontSize: `${style.fontSize}px`,
+    borderRadius: `${style.radius}px`,
+  },
+  elements: {
+    cardBox: { borderRadius: `${style.cardRadius}px`, boxShadow: style.noShadow },
+    formButtonPrimary: { borderRadius: `${style.pillRadius}px`, fontWeight: style.fontWeightButton, boxShadow: style.noShadow },
+    formFieldInput: { borderRadius: `${style.pillRadius}px` },
+  },
+}

@@ -1,7 +1,8 @@
-import { Outlet, createFileRoute, redirect, useNavigate, useParams, useRouter } from '@tanstack/react-router'
+import { useClerk } from '@clerk/tanstack-react-start'
+import { Outlet, createFileRoute, redirect, useNavigate, useParams } from '@tanstack/react-router'
 import { Button, Flex, Grid, Layout, Select, Typography, theme } from 'antd'
 import { HomeOutlined, LogoutOutlined } from '@ant-design/icons'
-import { getMe, logout } from '../server/fns'
+import { getMe } from '../server/fns'
 import { Brand, PRODUCT_NAME } from '../components/brand'
 import { pageFrame } from '../components/page-frame'
 
@@ -18,15 +19,9 @@ function AppLayout() {
   const { me } = Route.useRouteContext()
   const { token } = theme.useToken()
   const screens = Grid.useBreakpoint()
-  const router = useRouter()
+  const { signOut } = useClerk()
   const navigate = useNavigate()
   const params = useParams({ strict: false }) as { project?: string }
-
-  const signOut = async () => {
-    await logout()
-    await router.invalidate()
-    await navigate({ to: '/login' })
-  }
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -55,7 +50,7 @@ function AppLayout() {
                 {me.email}
               </Typography.Text>
             )}
-            <Button icon={<LogoutOutlined />} onClick={signOut} aria-label={`Sign out ${me.email}`} title={me.email} />
+            <Button icon={<LogoutOutlined />} onClick={() => signOut()} aria-label={`Sign out ${me.email}`} title={me.email} />
           </Flex>
         </Flex>
       </Layout.Header>

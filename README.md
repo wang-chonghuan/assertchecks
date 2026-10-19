@@ -74,7 +74,8 @@ read-only; times are shown in UTC.
 
 ## Development
 
-Requires Node 24 and pnpm. Create `.env` (git-ignored) with `DATABASE_URL` and `DATABASE_SCHEMA`.
+Requires Node 24 and pnpm. Create `.env` (git-ignored) with `DATABASE_URL`, `DATABASE_SCHEMA`, and the
+Clerk development instance's `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`.
 
 ```bash
 pnpm install
@@ -92,13 +93,13 @@ Migrations in `db/migrations/` are additive only and run with `pnpm migrate`.
 
 ## Administration
 
-Users, project memberships and checks are managed only with the CLI. Generated passwords and ping
-tokens are printed once and stored only as hashes.
+Users, project memberships and checks are managed only with the CLI. People sign in with a code sent
+to their email (Clerk); a user here is an email that is allowed in, and it sees only the projects it
+is a member of. Generated ping tokens are printed once and stored only as hashes.
 
 ```bash
 pnpm admin list
 pnpm admin user:add <email>
-pnpm admin user:password <email>
 pnpm admin project:add <slug> <name>
 pnpm admin member:add <email> <project-slug>
 pnpm admin member:remove <email> <project-slug>

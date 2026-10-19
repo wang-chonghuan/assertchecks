@@ -21,10 +21,12 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 
 **Structure**
 
-- `src/routes/` — the public homepage (`index`), `login`, the signed-in pages (`_app/...`) and the push
-  API server routes (`api/ping/$token/start`, `report`, and the dry run `check`).
-- `src/server/` — server-only code: `db` (pool), `session` (cookie sessions), `crypto`
-  (password and token hashing), `schema` (report-format validation), `judge` and `status` (pure run
+- `src/start.ts` — request middleware: Clerk, and TanStack Start's CSRF check for server functions.
+- `src/routes/` — the public homepage (`index`), `login` (Clerk sign-in), the signed-in pages
+  (`_app/...`) and the push API server routes (`api/ping/$token/start`, `report`, and the dry run
+  `check`).
+- `src/server/` — server-only code: `db` (pool), `session` (the signed-in Clerk user's verified email
+  mapped to its CLI-created user), `crypto` (token hashing), `schema` (report-format validation), `judge` and `status` (pure run
   judgement and check-state derivation), `catalog-changes` (pure comparison of two full runs'
   catalogs), `ingest` (push API writes and the dry run), `queries` (membership-scoped reads), `fns`
   (server functions used by routes).
@@ -41,10 +43,13 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 - Push model: projects call the API; AssertChecks never executes tests.
 - The report format is fixed. `public/schemas/*.json` is its single definition: the server validates
   against those files, the site serves them unchanged, and the homepage and client point to them.
-- The homepage is public and shows no project data; everything else requires a session.
+- The homepage is public and shows no project data; everything else requires signing in.
+- Identity comes from Clerk (application `assertchecks`, email verification code only). Access comes
+  only from users and memberships created with the CLI, matched by the verified email; an email the
+  CLI never added can sign in but sees no project.
 - Check state is derived on read; no stored status table.
 - Every read is scoped by the signed-in user's memberships; a miss is a 404.
-- Ping tokens, passwords and sessions are stored only as hashes or random IDs.
+- Ping tokens are stored only as hashes; passwords and sessions are not stored (Clerk holds sessions).
 - One database: the easy-app PostgreSQL schema serves production and local development alike, so
   migrations are additive only (add tables or nullable columns; drop/rename only in a later
   migration after the new code is deployed).

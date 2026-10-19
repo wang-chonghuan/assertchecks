@@ -61,7 +61,7 @@ In this repository: the ticket records and `nsdk-brief.md`, the brief for Codex.
      when present), since ASSERT-8 is the ticket whose published format makes `type` a project
      field. NSDK's case page still shows its "UI" tag.
    - All throwaway data was removed: runs 34–35, the check, the membership, the user and the
-     project. The database again holds only support@, projects nsdk and bf, and 5 runs.
+     project. The database again holds only the owner account, projects nsdk and bf, and 5 runs.
 3. **Complete NSDK brief — passed.** Every NSDK-specific line removed from the skill (from
    `git diff`) is either already in NSDK's `system-design.md` or named in `nsdk-brief.md`'s eight
    items: authentication, one-time codes, environments, the run-permission switch, onboarding

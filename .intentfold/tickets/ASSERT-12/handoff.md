@@ -52,7 +52,7 @@ verified, not which tool produced each edit. The owner asked for the Charter cha
      confirmation each printed "refusing: …", exited 1 and changed nothing.
    - With confirmation, the project removal printed "removed project assert-12-test with 1 check(s),
      1 run(s) and 1 membership(s)" and the user removal took its session. Counts returned exactly to
-     the baseline; the remaining data is support@, projects nsdk and bf, and checks
+     the baseline; the remaining data is the owner account, projects nsdk and bf, and checks
      nsdk/dev, local and prod.
 3. **Post-deploy check — passed.** The command from `operations.md`, run against production in zsh
    and bash, returned 200 for `/`, `/login`, `/schemas/catalog.schema.json` and

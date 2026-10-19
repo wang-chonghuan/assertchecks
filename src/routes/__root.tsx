@@ -1,8 +1,9 @@
+import { ClerkProvider } from '@clerk/tanstack-react-start'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { App, ConfigProvider, Result } from 'antd'
 import antdCss from '#antd-css?url'
 import appCss from '../styles.css?url'
-import { ASSERTCHECKS_STYLE, theme } from '../theme'
+import { ASSERTCHECKS_STYLE, clerkAppearance, theme } from '../theme'
 import { PRODUCT_NAME } from '../components/brand'
 
 export const Route = createRootRoute({
@@ -34,9 +35,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <ConfigProvider theme={theme}>
-          <App>{children}</App>
-        </ConfigProvider>
+        <ClerkProvider appearance={clerkAppearance} signInUrl="/login" afterSignOutUrl="/login">
+          <ConfigProvider theme={theme}>
+            <App>{children}</App>
+          </ConfigProvider>
+        </ClerkProvider>
         <Scripts />
       </body>
     </html>

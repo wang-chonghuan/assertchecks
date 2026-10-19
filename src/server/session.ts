@@ -1,50 +1,37 @@
-import { deleteCookie, getCookie, setCookie } from '@tanstack/react-start/server'
+import { getCookie, setCookie } from '@tanstack/react-start/server'
+import { auth, clerkClient } from '@clerk/tanstack-react-start/server'
 import { sql } from './db'
-import { randomToken, verifyPassword } from './crypto'
 
-const COOKIE = 'ac_session'
 const PROJECT_COOKIE = 'ac_project'
-const SESSION_DAYS = 30
 
+// Clerk proves who is signed in; access comes only from the operator-created user with that email and
+// its memberships. An email the CLI never added signs in but has no user, so it sees no projects.
 export interface SessionUser {
-  id: string
+  id: string | null
   email: string
 }
 
+// Clerk user ID -> verified primary email. The users table is still read on every request, so access
+// changes apply at once; the cache only saves a Clerk API call.
+const emails = new Map<string, string>()
+
+async function verifiedEmail(clerkUserId: string): Promise<string> {
+  const cached = emails.get(clerkUserId)
+  if (cached) return cached
+  const primary = (await clerkClient().users.getUser(clerkUserId)).primaryEmailAddress
+  // The Clerk application signs in by email code only, so the primary email is always verified.
+  if (primary?.verification?.status !== 'verified') throw new Error(`Clerk user ${clerkUserId} has no verified primary email`)
+  const email = primary.emailAddress.toLowerCase()
+  emails.set(clerkUserId, email)
+  return email
+}
+
 export async function currentUser(): Promise<SessionUser | null> {
-  const id = getCookie(COOKIE)
-  if (!id) return null
-  const [user] = await sql()<SessionUser[]>`
-    SELECT u.id, u.email FROM sessions s JOIN users u ON u.id = s.user_id
-    WHERE s.id = ${id} AND s.expires_at > now()
-  `
-  return user ?? null
-}
-
-export async function signIn(email: string, password: string): Promise<boolean> {
-  const [user] = await sql()<{ id: string; password_hash: string }[]>`
-    SELECT id, password_hash FROM users WHERE email = ${email.trim().toLowerCase()}
-  `
-  if (!user || !(await verifyPassword(password, user.password_hash))) return false
-  const id = randomToken()
-  await sql()`
-    INSERT INTO sessions (id, user_id, expires_at)
-    VALUES (${id}, ${user.id}, now() + make_interval(days => ${SESSION_DAYS}))
-  `
-  setCookie(COOKIE, id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
-  })
-  return true
-}
-
-export async function signOut(): Promise<void> {
-  const id = getCookie(COOKIE)
-  if (id) await sql()`DELETE FROM sessions WHERE id = ${id}`
-  deleteCookie(COOKIE, { path: '/' })
+  const { userId } = await auth()
+  if (!userId) return null
+  const email = await verifiedEmail(userId)
+  const [user] = await sql()<{ id: string }[]>`SELECT id FROM users WHERE email = ${email}`
+  return { id: user?.id ?? null, email }
 }
 
 // The last project the user opened; only a hint, always re-checked against memberships.
