@@ -40,8 +40,6 @@ export const ASSERTCHECKS_STYLE = {
   fontWeightHeading: 500, // headings and emphasis
   fontWeightDisplay: 400, // the hero headline
   fontWeightButton: 600,
-  statisticValue: 30,
-  statisticTitle: 14,
   // The control height before the compact algorithm, which turns it into 32 px. Button needs it again
   // because its own algorithm would otherwise compact the already-compact height a second time.
   controlHeightSeed: 36,
@@ -112,7 +110,6 @@ export const theme: ThemeConfig = {
       headerPadding: style.cardPadding,
       bodyPadding: style.cardPadding,
     },
-    Statistic: { contentFontSize: style.statisticValue, titleFontSize: style.statisticTitle },
     // Fields share the pill shape so controls in one form match.
     Input: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius },
     Select: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius },

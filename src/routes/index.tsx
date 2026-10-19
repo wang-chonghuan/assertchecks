@@ -13,7 +13,7 @@ import { getMe } from '../server/fns'
 import { ASSERTCHECKS_STYLE } from '../theme'
 import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
-import { CheckStatusTag, ThenTag } from '../components/status'
+import { CheckStatusTag } from '../components/status'
 import { HowItWorks } from '../components/how-it-works'
 import { FORMAT_LINKS, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
@@ -52,11 +52,6 @@ const EXAMPLE: CheckCard = {
   counts: { total: 48, passed: 41, failed: 2, draft: 4, manual: 1 },
   catalogChanges: [],
 }
-
-const EXAMPLE_FAILURES = [
-  { id: 'E2E-014', title: 'Refund a card payment', then: 'A2' },
-  { id: 'E2E-031', title: 'Export statements as CSV', then: 'A1' },
-]
 
 function HomePage() {
   const { me } = Route.useLoaderData()
@@ -250,17 +245,6 @@ function ExampleCard() {
         style={{ position: 'relative', boxShadow: token.boxShadowSecondary }}
       >
         <CheckSummary check={EXAMPLE} compact />
-        <Flex vertical gap="small" style={{ marginTop: token.margin }}>
-          <Typography.Text type="secondary">Failed cases</Typography.Text>
-          {EXAMPLE_FAILURES.map((item) => (
-            <Flex key={item.id} justify="space-between" align="center" gap="small" wrap>
-              <Typography.Text>
-                <Typography.Text code>{item.id}</Typography.Text> {item.title}
-              </Typography.Text>
-              <ThenTag id={item.then} status="failed" />
-            </Flex>
-          ))}
-        </Flex>
       </Card>
     </div>
   )

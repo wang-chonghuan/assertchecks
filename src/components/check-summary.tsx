@@ -1,56 +1,87 @@
-import { Alert, Descriptions, Empty, Flex, Statistic, Typography, theme } from 'antd'
-import { ActiveRunNotice, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from './status'
+import { Alert, Flex, Typography, theme } from 'antd'
+import { ActiveRunNotice, OutcomeTag, PartialRunNotice, duration, utc } from './status'
 import type { CatalogChange, CheckCard } from '../lib/types'
 
-// The overview of one environment's latest results, shared by the project page cards and the
-// check page so both always show the same numbers.
+// The overview of one environment's latest results, shared by the project page cards, the check page
+// and the homepage example, so all three always look the same. Three levels: the result (passed out of
+// ran), the spread of the catalog (bar and legend), then when it ran and when it runs next.
 export function CheckSummary({ check, compact = false }: { check: CheckCard; compact?: boolean }) {
   const { token } = theme.useToken()
   const { latest, counts } = check
-  const stats = counts
+  const ran = counts ? counts.passed + counts.failed : 0
+  const segments = counts
     ? [
-        { key: 'total', title: 'Total cases', value: counts.total },
-        { key: 'passed', title: 'Passed', value: counts.passed, color: token.colorSuccess },
-        { key: 'failed', title: 'Failed', value: counts.failed, color: counts.failed ? token.colorError : undefined },
-        { key: 'draft', title: 'Draft', value: counts.draft, color: counts.draft ? token.orange : undefined },
-        { key: 'manual', title: 'Manual', value: counts.manual },
-      ]
+        { key: 'passed', label: 'passed', value: counts.passed, color: token.colorSuccess, always: true },
+        { key: 'failed', label: 'failed', value: counts.failed, color: token.colorError, always: true },
+        { key: 'draft', label: 'draft', value: counts.draft, color: token.orange, always: false },
+        { key: 'manual', label: 'manual', value: counts.manual, color: token.colorTextQuaternary, always: false },
+      ].filter((segment) => segment.always || segment.value > 0)
     : []
+  // Only an unusual outcome needs its own tag; a plain pass or fail is already the card's status.
+  const unusual = latest && (latest.timedOut || latest.outcome === 'incomplete')
+  const small = { fontSize: token.fontSizeSM }
 
   return (
-    <Flex vertical gap="middle">
+    <Flex vertical gap={compact ? 'small' : 'middle'}>
       <CatalogChangeNotice changes={check.catalogChanges} compact={compact} />
       <ActiveRunNotice active={check.active} />
       <PartialRunNotice partial={check.partial} />
-      {latest ? (
+
+      {latest && counts ? (
         <>
-          <Flex gap="small" align="center" wrap>
-            <Typography.Text type="secondary">Last run</Typography.Text>
-            <Typography.Text strong>{utc(latest.finishedAt)}</Typography.Text>
-            <OutcomeTag run={latest} />
-            <TriggerTag trigger={latest.trigger} />
+          <Flex align="baseline" justify="space-between" gap="small" wrap>
+            <Flex align="baseline" gap={token.marginXS}>
+              <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: 1, color: token.colorText }}>
+                {counts.passed}
+              </span>
+              <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>/ {ran} passed</Typography.Text>
+            </Flex>
+            <Flex align="center" gap="small">
+              {unusual && <OutcomeTag run={latest} />}
+              <Typography.Text type="secondary">{counts.total} cases</Typography.Text>
+            </Flex>
           </Flex>
-          <Flex wrap style={{ gap: `${token.marginXS}px ${compact ? token.marginLG : token.marginXL}px` }}>
-            {stats.map((item) => (
-              <Statistic key={item.key} title={item.title} value={item.value} styles={{ content: { fontWeight: token.fontWeightStrong, color: item.color } }} />
+
+          <Flex role="img" aria-label={segments.map((segment) => `${segment.value} ${segment.label}`).join(', ')}
+            gap={token.lineWidth * 2} style={{ height: token.lineWidth * 8, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
+            {segments.filter((segment) => segment.value > 0).map((segment) => (
+              <div key={segment.key} style={{ flex: segment.value, background: segment.color }} />
             ))}
           </Flex>
-          {/* Failed cases are listed on the check page; only an incomplete run needs its reason here. */}
-          {latest.reason && latest.outcome === 'incomplete' && (
-            <Alert type="warning" showIcon title={latest.reason} />
-          )}
+
+          <Flex wrap style={{ gap: `${token.marginXXS}px ${token.margin}px` }}>
+            {segments.map((segment) => (
+              <Flex key={segment.key} align="center" gap={token.marginXXS}>
+                <span aria-hidden style={{ width: token.marginXS, height: token.marginXS, borderRadius: '50%', background: segment.color }} />
+                <Typography.Text strong>{segment.value}</Typography.Text>
+                <Typography.Text type="secondary">{segment.label}</Typography.Text>
+              </Flex>
+            ))}
+          </Flex>
+
+          {latest.reason && latest.outcome === 'incomplete' && <Alert type="warning" showIcon title={latest.reason} />}
         </>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No finished runs yet." style={{ margin: 0 }} />
+        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeLG }}>No runs yet</Typography.Text>
       )}
-      <Descriptions
-        size="small"
-        column={{ xs: 1, sm: 1, md: compact ? 1 : 2, lg: compact ? 1 : 2, xl: compact ? 1 : 2, xxl: compact ? 1 : 2 }}
-        items={[
-          { key: 'schedule', label: 'Schedule', children: scheduleText(check.periodSeconds, check.graceSeconds) },
-          { key: 'next', label: 'Next expected', children: utc(check.nextExpectedAt) },
-        ]}
-      />
+
+      <Flex
+        vertical={compact}
+        wrap
+        justify="space-between"
+        style={{ gap: `${token.marginXXS}px ${token.margin}px`, paddingTop: token.paddingXS, borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}` }}
+      >
+        {latest && (
+          <Typography.Text type="secondary" style={small}>
+            Last run {utc(latest.finishedAt)} · {latest.trigger === 'schedule' ? 'scheduled' : 'manual'}
+          </Typography.Text>
+        )}
+        <Typography.Text type="secondary" style={small}>
+          {check.periodSeconds === null
+            ? 'Runs on demand'
+            : `Every ${duration(check.periodSeconds)} · next ${utc(check.nextExpectedAt)}`}
+        </Typography.Text>
+      </Flex>
     </Flex>
   )
 }
