@@ -1,4 +1,4 @@
-import type { ThemeConfig } from 'antd'
+import { theme as antdTheme, type ThemeConfig } from 'antd'
 
 // The only place custom theme values are declared (charter/ui.md). Colours follow the adsy.com palette
 // measured in ASSERT-16, with the roles the owner confirmed; everything not listed is Ant's default.
@@ -20,8 +20,17 @@ export const ASSERTCHECKS_STYLE = {
   tagText: '#112c3e',
   none: 'transparent',
   noShadow: 'none',
-  radius: 8,
-  cardRadius: 20,
+  radius: 6,
+  // Compact density: Ant's compact algorithm plus these sizes.
+  cardRadius: 12,
+  cardPadding: 16,
+  cardHeaderHeight: 44,
+  headerHeight: 52,
+  statisticValue: 20,
+  statisticTitle: 12,
+  // Ant's default control height. The compact algorithm turns it into 28 px; Button needs it again
+  // because its own algorithm would otherwise compact the already-compact height a second time.
+  controlHeightSeed: 32,
   pillRadius: 999,
 } as const
 
@@ -30,6 +39,8 @@ const style = ASSERTCHECKS_STYLE
 export const theme: ThemeConfig = {
   // A fixed key keeps the CSS-variable scope class identical in the pre-rendered stylesheet and SSR markup.
   cssVar: { key: 'ac' },
+  // Compact: smaller controls, paddings and margins across every component and every token.padding/margin.
+  algorithm: [antdTheme.defaultAlgorithm, antdTheme.compactAlgorithm],
   token: {
     colorPrimary: style.primary,
     // Set explicitly, or links and info fall back to Ant's default blue.
@@ -47,6 +58,7 @@ export const theme: ThemeConfig = {
   components: {
     Button: {
       algorithm: true,
+      controlHeight: style.controlHeightSeed,
       colorPrimary: style.button,
       // The button algorithm re-derives text from Ant's black seed; default and text buttons keep body text.
       colorText: style.text,
@@ -63,12 +75,18 @@ export const theme: ThemeConfig = {
       colorBorder: style.none,
       borderRadiusSM: style.pillRadius,
     },
-    Card: { colorBorderSecondary: style.none },
+    Card: {
+      colorBorderSecondary: style.none,
+      headerHeight: style.cardHeaderHeight,
+      headerPadding: style.cardPadding,
+      bodyPadding: style.cardPadding,
+    },
+    Statistic: { contentFontSize: style.statisticValue, titleFontSize: style.statisticTitle },
     // Fields share the pill shape so controls in one form match.
     Input: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius },
     Select: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius },
     Segmented: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius, borderRadiusXS: style.pillRadius },
-    Layout: { bodyBg: style.pageBg, headerBg: style.headerBg },
+    Layout: { bodyBg: style.pageBg, headerBg: style.headerBg, headerHeight: style.headerHeight },
     Table: { rowHoverBg: style.pageBg },
     Tabs: { itemColor: style.textSecondary },
     Menu: { itemColor: style.textSecondary },

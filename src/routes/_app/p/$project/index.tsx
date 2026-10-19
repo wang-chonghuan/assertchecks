@@ -17,7 +17,7 @@ function OverviewPage() {
 
   return (
     <Flex vertical gap="middle">
-      <Typography.Title level={2} style={{ margin: 0 }}>{project.name}</Typography.Title>
+      <Typography.Title level={4} style={{ margin: 0 }}>{project.name}</Typography.Title>
       {checks.length === 0 ? (
         <Card><Empty description="No checks in this project yet." /></Card>
       ) : (
@@ -25,6 +25,7 @@ function OverviewPage() {
           {checks.map((check) => (
             <Col key={check.slug} xs={24} md={12} xl={8}>
               <Card
+                style={{ height: '100%' }}
                 title={
                   <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
                     {check.name}

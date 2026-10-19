@@ -31,32 +31,31 @@ function AppLayout() {
     <Layout style={{ minHeight: '100vh' }}>
       <Layout.Header
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: token.marginSM,
           paddingInline: token.padding,
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
-        <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
-        {me.projects.length > 0 && (
-          <Select
-            aria-label="Project"
-            value={params.project}
-            placeholder="Project"
-            style={{ minWidth: token.controlHeight * 3, maxWidth: '50%' }}
-            options={me.projects.map((project) => ({ value: project.slug, label: project.name }))}
-            onChange={(project) => navigate({ to: '/p/$project', params: { project } })}
-          />
-        )}
-        <Flex flex={1} justify="end" align="center" gap={token.marginXS}>
-          <Button icon={<HomeOutlined />} href="/" aria-label="Home" title="Home">{screens.md && 'Home'}</Button>
-          {screens.md && (
-            <Typography.Text type="secondary" ellipsis style={{ maxWidth: token.screenXS / 2 }}>
-              {me.email}
-            </Typography.Text>
+        <Flex align="center" gap={token.marginSM} style={{ height: '100%', maxWidth: token.screenXL - token.padding * 2, marginInline: 'auto' }}>
+          <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
+          {me.projects.length > 0 && (
+            <Select
+              aria-label="Project"
+              value={params.project}
+              placeholder="Project"
+              style={{ minWidth: token.controlHeight * 3, maxWidth: '50%' }}
+              options={me.projects.map((project) => ({ value: project.slug, label: project.name }))}
+              onChange={(project) => navigate({ to: '/p/$project', params: { project } })}
+            />
           )}
-          <Button icon={<LogoutOutlined />} onClick={signOut} aria-label={`Sign out ${me.email}`} title={me.email} />
+          <Flex flex={1} justify="end" align="center" gap={token.marginXS}>
+            <Button icon={<HomeOutlined />} href="/" aria-label="Home" title="Home">{screens.md && 'Home'}</Button>
+            {screens.md && (
+              <Typography.Text type="secondary" ellipsis style={{ maxWidth: token.screenXS / 2 }}>
+                {me.email}
+              </Typography.Text>
+            )}
+            <Button icon={<LogoutOutlined />} onClick={signOut} aria-label={`Sign out ${me.email}`} title={me.email} />
+          </Flex>
         </Flex>
       </Layout.Header>
       <Layout.Content style={{ padding: token.padding, width: '100%', maxWidth: token.screenXL, marginInline: 'auto' }}>

@@ -1,4 +1,4 @@
-import { Alert, Col, Descriptions, Empty, Flex, Row, Statistic, Typography, theme } from 'antd'
+import { Alert, Descriptions, Empty, Flex, Statistic, Typography, theme } from 'antd'
 import { ActiveRunNotice, OutcomeTag, PartialRunNotice, TriggerTag, scheduleText, utc } from './status'
 import type { CatalogChange, CheckCard } from '../lib/types'
 
@@ -30,20 +30,18 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
             <OutcomeTag run={latest} />
             <TriggerTag trigger={latest.trigger} />
           </Flex>
-          <Row gutter={[token.margin, token.margin]}>
+          <Flex wrap style={{ gap: `${token.marginXS}px ${compact ? token.marginLG : token.marginXL}px` }}>
             {stats.map((item) => (
-              <Col key={item.key} xs={12} sm={8} md={compact ? 8 : 4}>
-                <Statistic title={item.title} value={item.value} styles={{ content: item.color ? { color: item.color } : undefined }} />
-              </Col>
+              <Statistic key={item.key} title={item.title} value={item.value} styles={{ content: item.color ? { color: item.color } : undefined }} />
             ))}
-          </Row>
+          </Flex>
           {/* Failed cases are listed on the check page; only an incomplete run needs its reason here. */}
           {latest.reason && latest.outcome === 'incomplete' && (
             <Alert type="warning" showIcon title={latest.reason} />
           )}
         </>
       ) : (
-        <Empty description="No finished runs yet." />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No finished runs yet." style={{ margin: 0 }} />
       )}
       <Descriptions
         size="small"
