@@ -18,16 +18,17 @@ styling system. Ant Design Pro pages are layout references only.
 
 Pages under `src/routes/`; shared presentational pieces under `src/components/`: `brand.tsx` (the
 product mark), `status.tsx` (outcome/status tags and notices), `check-summary.tsx` (the environment
-overview shared by project cards and the check page) and `code-block.tsx` (copyable code; Ant has
-only inline code). `src/styles.css` holds structural rules only, such as the homepage section links'
-breakpoint. Prefer an antd component or documented composition over a new component. An Ant component
+card shared by project cards, the check page and the homepage example), `how-it-works.tsx` (the
+homepage diagram) and `page-frame.ts` (the content width and side gutter every page and section uses).
+`src/styles.css` holds structural rules only: the self-hosted font face and the homepage's breakpoint
+switches. Prefer an antd component or documented composition over a new component. An Ant component
 is overridden only when tokens cannot do it, in `src/components/ant-overrides/`, one file per
 component, each listed here.
 
 **Tokens**
 
-`src/theme.ts` is the single theme authority. Every custom value (colours, radii, the pill radius) is
-declared once in the `ASSERTCHECKS_STYLE` table at the top of that file; the exported theme takes its
+`src/theme.ts` is the single theme authority. Every custom value (colours, type, radii, the pill radius,
+the page width and gutter) is declared once in the `ASSERTCHECKS_STYLE` table at the top of that file; the exported theme takes its
 values only from that table, and no colour literal appears outside it.
 Components read values with `theme.useToken()`; colours, spacing, radii and sizes come from tokens,
 not literals. The product mark and name live only in `src/components/brand.tsx`.
