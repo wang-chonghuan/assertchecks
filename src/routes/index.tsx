@@ -216,8 +216,7 @@ function HomePage() {
       </main>
 
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
-        <Flex justify="space-between" align="center" gap="middle" wrap style={{ ...container, paddingBlock: token.padding }}>
-          <Brand />
+        <Flex justify="center" align="center" style={{ ...container, paddingBlock: token.padding }}>
           <Typography.Text type="secondary">© {new Date().getUTCFullYear()} {PRODUCT_NAME}. All rights reserved.</Typography.Text>
         </Flex>
       </footer>
