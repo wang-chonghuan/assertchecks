@@ -1,5 +1,6 @@
 import { CheckOutlined } from '@ant-design/icons'
 import { theme } from 'antd'
+import { ASSERTCHECKS_STYLE } from '../theme'
 
 export const PRODUCT_NAME = 'AssertChecks'
 
@@ -19,7 +20,7 @@ export function Brand({ size = 'default' }: { size?: 'default' | 'large' }) {
         fontSize: font,
         fontWeight: 700,
         letterSpacing: '-0.02em',
-        lineHeight: 1,
+        lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle,
         color: token.colorText,
       }}
     >

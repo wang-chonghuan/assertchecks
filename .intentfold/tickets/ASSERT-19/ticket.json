@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-19",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-19",
+  "branch": "ASSERT-19-line-height",
+  "base": "dff3fac519fb6603d2b88131fdc2dfabf6d58460",
+  "ports": {
+    "web": 63019
+  }
+}
