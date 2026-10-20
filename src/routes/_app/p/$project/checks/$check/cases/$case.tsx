@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Breadcrumb, Card, Descriptions, Flex, Tag, Typography, theme } from 'antd'
-import { CaseStatusTag, OutcomeTag, ThenTag, utc } from '../../../../../../../components/status'
+import { Alert, Breadcrumb, Card, Collapse, Descriptions, Flex, Tag, Typography, theme } from 'antd'
+import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
 import { getCase } from '../../../../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
 import { UNGROUPED, caseMeta } from '../../../../../../../lib/organize'
@@ -19,11 +19,45 @@ function Steps({ items }: { items: string[] }) {
   )
 }
 
+// One case answers: did it pass in the latest run, and if not, why? The written spec follows; the
+// catalog's organizing fields and the raw error output wait in collapsed sections.
 function CasePage() {
   const { token } = theme.useToken()
   const { project, check, spec, run, result } = Route.useLoaderData()
   const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
   const meta = caseMeta(spec)
+  const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
+
+  const more = [
+    ...(result?.error ? [{
+      key: 'error',
+      label: 'Error output',
+      children: <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{result.error}</pre>,
+    }] : []),
+    {
+      key: 'details',
+      label: 'Case details',
+      children: (
+        <Descriptions
+          size="small"
+          column={1}
+          items={[
+            { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text type="secondary">{UNGROUPED}</Typography.Text> },
+            {
+              key: 'tags',
+              label: 'Tags',
+              children: meta.tags.length
+                ? <Flex gap="small" wrap>{meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex>
+                : <Typography.Text type="secondary">—</Typography.Text>,
+            },
+            ...(spec.type ? [{ key: 'type', label: 'Type', children: spec.type.toUpperCase() }] : []),
+            { key: 'policy', label: 'Runs', children: spec.run === 'manual' ? 'Only when named' : 'In every full run' },
+            { key: 'status', label: 'Status', children: spec.status },
+          ]}
+        />
+      ),
+    },
+  ]
 
   return (
     <Flex vertical gap="middle">
@@ -36,68 +70,43 @@ function CasePage() {
       />
       <Card
         title={`${spec.id} · ${spec.title}`}
-        extra={<Flex gap="small">{spec.type && <Tag>{spec.type.toUpperCase()}</Tag>}<Tag>{spec.run}</Tag><Tag>{spec.status}</Tag></Flex>}
+        extra={result
+          ? <CaseStatusTag status={failed && result.status === 'passed' ? 'failed' : result.status} />
+          : <Tag>Not in this run</Tag>}
       >
-        <Descriptions
-          column={1}
-          bordered
-          size="small"
-          styles={{ label: { width: token.controlHeight * 4 } }}
-          items={[
-            { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text type="secondary">{UNGROUPED}</Typography.Text> },
-            ...(meta.tags.length
-              ? [{ key: 'tags', label: 'Tags', children: <Flex gap="small" wrap>{meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex> }]
-              : []),
-            { key: 'given', label: 'Given', children: <Steps items={spec.given} /> },
-            { key: 'when', label: 'When', children: <Steps items={spec.when} /> },
-            {
-              key: 'then',
-              label: 'Then',
-              children: (
-                <Flex vertical gap="small">
-                  {spec.then.map((then) => (
-                    <Flex key={then.id} gap="small" align="baseline" wrap>
-                      <ThenTag id={then.id} status={thenStatus.get(then.id) ?? 'not_run'} />
-                      <Typography.Text>{then.expect}</Typography.Text>
-                    </Flex>
-                  ))}
-                </Flex>
-              ),
-            },
-          ]}
-        />
-      </Card>
-      <Card title="Result in the latest run">
-        <Descriptions
-          column={1}
-          size="small"
-          items={[
-            {
-              key: 'run',
-              label: 'Latest run',
-              children: (
-                <Flex gap="small" align="center" wrap>
-                  <OutcomeTag run={run} />
-                  <Typography.Text>{utc(run.startedAt)}</Typography.Text>
-                </Flex>
-              ),
-            },
-            {
-              key: 'case',
-              label: 'This case',
-              children: result
-                ? <CaseStatusTag status={result.status} />
-                : <Typography.Text type="secondary">Not reported in this run</Typography.Text>,
-            },
-            ...(result?.error
-              ? [{
-                  key: 'error',
-                  label: 'Error',
-                  children: <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{result.error}</pre>,
-                }]
-              : []),
-          ]}
-        />
+        <Flex vertical gap="middle">
+          <Typography.Text type="secondary">
+            {result ? `Latest run ${utc(run.startedAt)}` : `Not reported in the latest run (${utc(run.startedAt)})`}
+          </Typography.Text>
+          {spec.failure && (
+            <Alert type={failed ? 'error' : 'info'} showIcon title="Known cause" description={spec.failure} />
+          )}
+          <Descriptions
+            column={1}
+            bordered
+            size="small"
+            styles={{ label: { width: token.controlHeight * 3 } }}
+            items={[
+              { key: 'given', label: 'Given', children: <Steps items={spec.given} /> },
+              { key: 'when', label: 'When', children: <Steps items={spec.when} /> },
+              {
+                key: 'then',
+                label: 'Then',
+                children: (
+                  <Flex vertical gap="small">
+                    {spec.then.map((then) => (
+                      <Flex key={then.id} gap="small" align="baseline">
+                        <span style={{ flex: 'none' }}><ThenTag id={then.id} status={thenStatus.get(then.id) ?? 'not_run'} /></span>
+                        <Typography.Text>{then.expect}</Typography.Text>
+                      </Flex>
+                    ))}
+                  </Flex>
+                ),
+              },
+            ]}
+          />
+          <Collapse ghost size="small" items={more} />
+        </Flex>
       </Card>
     </Flex>
   )

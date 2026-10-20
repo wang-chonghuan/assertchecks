@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-33",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-33",
+  "branch": "ASSERT-33-clear-cards",
+  "base": "dcd70a632aab15c3267b83daf8bfffe2910b7dfb",
+  "ports": {
+    "web": 63033
+  }
+}

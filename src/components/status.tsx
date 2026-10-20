@@ -1,5 +1,5 @@
-import { Alert, Tag, Tooltip, Typography, theme } from 'antd'
-import type { CaseStatus, CheckStatus, Outcome, PartialRun, RunRow, ThenStatus } from '../lib/types'
+import { Tag, Tooltip, Typography } from 'antd'
+import type { CaseStatus, CheckStatus, Outcome, RunRow, ThenStatus } from '../lib/types'
 
 // All timestamps are shown in UTC so server and client render identical text.
 export function utc(iso: string | null): string {
@@ -68,37 +68,6 @@ const THEN: Record<ThenStatus, { color: string; label: string }> = {
 
 export function ThenTag({ id, status }: { id: string; status: ThenStatus }) {
   return <Tag color={THEN[status].color}>{id} · {THEN[status].label}</Tag>
-}
-
-// A run newer than the displayed one that has started but not reported yet.
-export function ActiveRunNotice({ active }: { active: RunRow | null }) {
-  const { token } = theme.useToken()
-  if (!active) return null
-  return (
-    <Alert
-      type={active.timedOut ? 'warning' : 'info'}
-      showIcon
-      title={active.timedOut
-        ? `A newer run started at ${utc(active.startedAt)} timed out without reporting.`
-        : `A newer run started at ${utc(active.startedAt)} is still running.`}
-      style={{ marginBottom: token.margin }}
-    />
-  )
-}
-
-// A named-case run newer than the displayed full run; it never replaces the full run's result.
-export function PartialRunNotice({ partial }: { partial: PartialRun | null }) {
-  const { token } = theme.useToken()
-  if (!partial) return null
-  const cases = `${partial.caseCount} named case${partial.caseCount === 1 ? '' : 's'}`
-  return (
-    <Alert
-      type={partial.outcome === 'passed' ? 'success' : partial.outcome === 'failed' ? 'error' : 'warning'}
-      showIcon
-      title={`A newer partial run of ${cases} finished at ${utc(partial.finishedAt)}: ${partial.outcome}.`}
-      style={{ marginBottom: token.margin }}
-    />
-  )
 }
 
 // Why a catalog case is not in the automatic run: an orange draft, or a grey manual-only case.
