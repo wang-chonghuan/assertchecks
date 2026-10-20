@@ -102,14 +102,21 @@ function CheckPage() {
       render: (id: string, item) => caseLink(id, item.title, item.status === 'failed' || item.status === 'passed' ? null : <CaseStatusTag status={item.status} />),
     },
     {
-      title: 'Then not passed',
+      title: 'Where it stopped',
       dataIndex: 'thens',
       width: resultWidth,
-      render: (thens: CaseResult['thens']) => (
-        <Flex gap="small" wrap>
-          {thens.filter((then) => then.status !== 'passed').map((then) => <ThenTag key={then.id} id={then.id} status={then.status} />)}
-        </Flex>
-      ),
+      render: (thens: CaseResult['thens'], item) => {
+        // A case that failed before its first Then has no Then to blame; say so once.
+        if (item.status !== 'passed' && !thens.some((then) => then.status !== 'not_run')) {
+          return <Tag color="error">Before the checks</Tag>
+        }
+        return (
+          <Flex gap="small" wrap>
+            {thens.filter((then) => then.status !== 'passed')
+              .map((then) => <ThenTag key={then.id} id={then.id} status={then.status} caseStatus={item.status} />)}
+          </Flex>
+        )
+      },
     },
     {
       title: 'Error',

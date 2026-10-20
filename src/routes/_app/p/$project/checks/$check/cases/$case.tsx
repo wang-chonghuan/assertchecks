@@ -76,7 +76,11 @@ function CasePage() {
       >
         <Flex vertical gap="middle">
           <Typography.Text type="secondary">
-            {result ? `Latest run ${utc(run.startedAt)}` : `Not reported in the latest run (${utc(run.startedAt)})`}
+            {!result
+              ? `Not reported in the latest run (${utc(run.startedAt)})`
+              : result.status !== 'passed' && result.thens.every((then) => then.status === 'not_run')
+                ? `Latest run ${utc(run.startedAt)} · stopped before its first check`
+                : `Latest run ${utc(run.startedAt)}`}
           </Typography.Text>
           {spec.failure && (
             <Alert type={failed ? 'error' : 'info'} showIcon title="Known cause" description={spec.failure} />
@@ -96,7 +100,7 @@ function CasePage() {
                   <Flex vertical gap="small">
                     {spec.then.map((then) => (
                       <Flex key={then.id} gap="small" align="baseline">
-                        <span style={{ flex: 'none' }}><ThenTag id={then.id} status={thenStatus.get(then.id) ?? 'not_run'} /></span>
+                        <span style={{ flex: 'none' }}><ThenTag id={then.id} status={thenStatus.get(then.id) ?? 'not_run'} caseStatus={result?.status ?? 'missing'} /></span>
                         <Typography.Text>{then.expect}</Typography.Text>
                       </Flex>
                     ))}

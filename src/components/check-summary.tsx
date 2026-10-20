@@ -16,7 +16,8 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
     ? [
         { key: 'passed', label: 'passed', value: counts.passed, color: token.colorSuccess },
         { key: 'failed', label: 'failed', value: counts.failed, color: token.colorError },
-        { key: 'notRun', label: "didn't finish", value: counts.notRun, color: token.colorWarning },
+        // Ran but gave no full verdict: cut off, skipped, flaky, or a Then missing from the report.
+        { key: 'notRun', label: 'incomplete', value: counts.notRun, color: token.colorWarning },
       ]
     : []
   // The headline is the failures when there are any, otherwise the passes; the legend adds only what

@@ -60,14 +60,19 @@ export function CaseStatusTag({ status }: { status: CaseStatus }) {
   return <Tag color={CASE[status].color}>{CASE[status].label}</Tag>
 }
 
-const THEN: Record<ThenStatus, { color: string; label: string }> = {
-  passed: { color: 'success', label: 'Passed' },
-  failed: { color: 'error', label: 'Failed' },
-  not_run: { color: 'default', label: 'Not run' },
+// A Then that never executed is named by why: the case stopped before reaching it, the case was
+// skipped, or the report never showed it. "Not run" alone read as if the case itself had not run.
+function thenLabel(status: ThenStatus, caseStatus: CaseStatus): { color: string; label: string } {
+  if (status === 'passed') return { color: 'success', label: 'Passed' }
+  if (status === 'failed') return { color: 'error', label: 'Failed' }
+  if (caseStatus === 'failed' || caseStatus === 'interrupted') return { color: 'default', label: 'Not reached' }
+  if (caseStatus === 'skipped') return { color: 'default', label: 'Skipped' }
+  return { color: 'default', label: 'Not reported' }
 }
 
-export function ThenTag({ id, status }: { id: string; status: ThenStatus }) {
-  return <Tag color={THEN[status].color}>{id} · {THEN[status].label}</Tag>
+export function ThenTag({ id, status, caseStatus }: { id: string; status: ThenStatus; caseStatus: CaseStatus }) {
+  const { color, label } = thenLabel(status, caseStatus)
+  return <Tag color={color}>{id} · {label}</Tag>
 }
 
 // Why a catalog case is not in the automatic run: an orange draft, or a grey manual-only case.
