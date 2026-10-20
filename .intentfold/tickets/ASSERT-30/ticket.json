@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-30",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-30",
+  "branch": "ASSERT-30-audit-fixes",
+  "base": "4eb43723922c80aae42605b92f3151f83018a48a",
+  "ports": {
+    "web": 63030
+  }
+}
