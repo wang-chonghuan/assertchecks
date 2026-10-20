@@ -53,8 +53,15 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
               <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: counts.failed > 0 ? token.colorError : token.colorText }}>
                 {headline.value}
               </span>
-              <Typography.Text style={lead}>{headline.label}</Typography.Text>
-              <Typography.Text type="secondary" style={lead}>of {ran} run</Typography.Text>
+              {/* The subject is cases, never runs: "19 failed of 160 cases tested", or "160 cases passed". */}
+              {counts.passed === ran ? (
+                <Typography.Text style={lead}>{ran === 1 ? 'case' : 'cases'} passed</Typography.Text>
+              ) : (
+                <>
+                  <Typography.Text style={lead}>{headline.label}</Typography.Text>
+                  <Typography.Text type="secondary" style={lead}>of {ran} {ran === 1 ? 'case' : 'cases'} tested</Typography.Text>
+                </>
+              )}
             </Flex>
             {unusual && <OutcomeTag run={latest} />}
           </Flex>
