@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-26",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-26",
+  "branch": "ASSERT-26-shared-state",
+  "base": "36386e40e278f4a73fa5853b36d67ff2e7454c8d",
+  "ports": {
+    "web": 63026
+  }
+}
