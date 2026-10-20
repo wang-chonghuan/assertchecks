@@ -1,75 +1,89 @@
-import { Alert, Flex, Typography, theme } from 'antd'
-import { ActiveRunNotice, OutcomeTag, PartialRunNotice, duration, utc } from './status'
+import { Alert, Descriptions, Flex, Popover, Typography, theme } from 'antd'
+import { InfoCircleOutlined, LoadingOutlined } from '@ant-design/icons'
+import { OutcomeTag, duration, utc } from './status'
 import type { CatalogChange, CheckCard } from '../lib/types'
 import { ASSERTCHECKS_STYLE } from '../theme'
 
-// The overview of one environment's latest results, shared by the project page cards, the check page
-// and the homepage example, so all three always look the same. Three levels: the result (passed out of
-// ran), the spread of the catalog (bar and legend), then when it ran and when it runs next.
+// The overview of one environment's latest run, shared by the project page cards, the check page and
+// the homepage example, so all three always look the same. It answers one question: of the cases that
+// ran, how many failed? Everything else about the run sits behind the info popover.
 export function CheckSummary({ check, compact = false }: { check: CheckCard; compact?: boolean }) {
   const { token } = theme.useToken()
   const { latest, counts } = check
   const ran = counts ? counts.passed + counts.failed + counts.notRun : 0
+  // Only the cases that ran; draft and manual cases are outside the run and stay in the popover.
   const segments = counts
     ? [
-        { key: 'passed', label: 'passed', value: counts.passed, color: token.colorSuccess, always: true },
-        { key: 'failed', label: 'failed', value: counts.failed, color: token.colorError, always: true },
-        { key: 'notRun', label: 'not run', value: counts.notRun, color: token.colorWarning, always: false },
-        { key: 'draft', label: 'draft', value: counts.draft, color: token.orange, always: false },
-        { key: 'manual', label: 'manual', value: counts.manual, color: token.colorTextQuaternary, always: false },
-      ].filter((segment) => segment.always || segment.value > 0)
+        { key: 'passed', label: 'passed', value: counts.passed, color: token.colorSuccess },
+        { key: 'failed', label: 'failed', value: counts.failed, color: token.colorError },
+        // Ran but gave no full verdict: cut off, skipped, flaky, or a Then missing from the report.
+        { key: 'notRun', label: 'incomplete', value: counts.notRun, color: token.colorWarning },
+      ]
     : []
+  // The headline is the failures when there are any, otherwise the passes; the legend adds only what
+  // the headline does not already say.
+  const headline = counts && counts.failed > 0 ? segments[1] : segments[0]
+  const legend = segments.filter((segment) => segment !== headline && segment.value > 0)
   // Only an unusual outcome needs its own tag; a plain pass or fail is already the card's status.
   const unusual = latest && (latest.timedOut || latest.outcome === 'incomplete')
-  const small = { fontSize: token.fontSizeSM }
+  const small = { fontSize: token.fontSizeSM, lineHeight: token.lineHeightSM }
   const lead = { fontSize: token.fontSizeLG, lineHeight: token.lineHeightLG }
   // Vertical rhythm in grid units (4 px), independent of the compact algorithm's smaller margins.
   const unit = token.sizeUnit
 
-  // One vertical rhythm on an 8 px grid: the headline, then the bar with its legend held close, then the
-  // run times set apart under a rule.
-  const notices = [
-    <CatalogChangeNotice key="catalog" changes={check.catalogChanges} compact={compact} />,
-    <ActiveRunNotice key="active" active={check.active} />,
-    <PartialRunNotice key="partial" partial={check.partial} />,
-  ]
   return (
     <Flex vertical>
-      {(check.catalogChanges.length > 0 || check.active || check.partial) && (
-        <Flex vertical gap={unit * 2} style={{ marginBottom: unit * 3 }}>{notices}</Flex>
+      {(check.catalogChanges.length > 0 || check.active) && (
+        <Flex vertical gap={unit * 2} style={{ marginBottom: unit * 3 }}>
+          {check.active && (
+            <Typography.Text type={check.active.timedOut ? 'warning' : 'secondary'} style={small}>
+              {check.active.timedOut
+                ? `A newer run started ${utc(check.active.startedAt)} and timed out without reporting.`
+                : <><LoadingOutlined /> A newer run started {utc(check.active.startedAt)} and is still running.</>}
+            </Typography.Text>
+          )}
+          <CatalogChangeNotice changes={check.catalogChanges} compact={compact} />
+        </Flex>
       )}
 
-      {latest && counts ? (
+      {latest && counts && headline ? (
         <>
           <Flex align="baseline" justify="space-between" gap="small" wrap style={{ marginBottom: unit * 3 }}>
             <Flex align="baseline" gap={token.marginXS}>
-              <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: token.colorText }}>
-                {counts.passed}
+              <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: counts.failed > 0 ? token.colorError : token.colorText }}>
+                {headline.value}
               </span>
-              <Typography.Text type="secondary" style={lead}>/ {ran} passed</Typography.Text>
+              {/* The subject is cases, never runs: "19 failed of 160 cases tested", or "160 cases passed". */}
+              {counts.passed === ran ? (
+                <Typography.Text style={lead}>{ran === 1 ? 'case' : 'cases'} passed</Typography.Text>
+              ) : (
+                <>
+                  <Typography.Text style={lead}>{headline.label}</Typography.Text>
+                  <Typography.Text type="secondary" style={lead}>of {ran} {ran === 1 ? 'case' : 'cases'} tested</Typography.Text>
+                </>
+              )}
             </Flex>
-            <Flex align="center" gap="small">
-              {unusual && <OutcomeTag run={latest} />}
-              <Typography.Text type="secondary">{counts.total} cases</Typography.Text>
-            </Flex>
+            {unusual && <OutcomeTag run={latest} />}
           </Flex>
 
           <Flex role="img" aria-label={segments.map((segment) => `${segment.value} ${segment.label}`).join(', ')}
-            gap={token.lineWidth * 2} style={{ height: unit * 2, marginBottom: unit * 2, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
+            gap={token.lineWidth * 2} style={{ height: unit * 2, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
             {segments.filter((segment) => segment.value > 0).map((segment) => (
               <div key={segment.key} style={{ flex: segment.value, background: segment.color }} />
             ))}
           </Flex>
 
-          <Flex wrap style={{ gap: `${token.marginXXS}px ${token.margin}px` }}>
-            {segments.map((segment) => (
-              <Flex key={segment.key} align="center" gap={token.marginXXS}>
-                <span aria-hidden style={{ width: token.marginXS, height: token.marginXS, borderRadius: '50%', background: segment.color }} />
-                <Typography.Text strong>{segment.value}</Typography.Text>
-                <Typography.Text type="secondary">{segment.label}</Typography.Text>
-              </Flex>
-            ))}
-          </Flex>
+          {legend.length > 0 && (
+            <Flex wrap style={{ gap: `${token.marginXXS}px ${token.margin}px`, marginTop: unit * 2 }}>
+              {legend.map((segment) => (
+                <Flex key={segment.key} align="center" gap={token.marginXXS}>
+                  <span aria-hidden style={{ width: token.marginXS, height: token.marginXS, borderRadius: '50%', background: segment.color }} />
+                  <Typography.Text strong>{segment.value}</Typography.Text>
+                  <Typography.Text type="secondary">{segment.label}</Typography.Text>
+                </Flex>
+              ))}
+            </Flex>
+          )}
 
           {latest.reason && latest.outcome === 'incomplete' && (
             <Alert type="warning" showIcon title={latest.reason} style={{ marginTop: unit * 3 }} />
@@ -80,28 +94,66 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
       )}
 
       <Flex
-        vertical={compact}
-        wrap
-        justify="space-between"
+        align="center"
+        gap={token.marginXXS}
         style={{
-          gap: `${unit}px ${unit * 4}px`,
           marginTop: unit * 4,
           paddingTop: unit * 3,
           borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}`,
         }}
       >
-        {latest && (
-          <Typography.Text type="secondary" style={small}>
-            Last run {utc(latest.finishedAt)} · {latest.trigger === 'schedule' ? 'scheduled' : 'manual'}
-          </Typography.Text>
-        )}
         <Typography.Text type="secondary" style={small}>
-          {check.periodSeconds === null
-            ? 'Runs on demand'
-            : `Every ${duration(check.periodSeconds)} · next ${utc(check.nextExpectedAt)}`}
+          {latest ? `Ran ${utc(latest.finishedAt)}` : schedule(check)}
         </Typography.Text>
+        {latest && (
+          <Popover
+            title="About this run"
+            // Clicks inside the popover must not reach a clickable card around the summary.
+            content={<div onClick={(event) => event.stopPropagation()}><RunInfo check={check} /></div>}
+            trigger={['hover', 'click']}
+          >
+            <Typography.Text type="secondary" style={small} aria-label="About this run" role="button" tabIndex={0}
+              onClick={(event) => event.stopPropagation()}>
+              <InfoCircleOutlined />
+            </Typography.Text>
+          </Popover>
+        )}
       </Flex>
     </Flex>
+  )
+}
+
+function schedule(check: CheckCard): string {
+  return check.periodSeconds === null
+    ? 'Runs on demand'
+    : `Every ${duration(check.periodSeconds)} · next ${utc(check.nextExpectedAt)}`
+}
+
+// What a reader rarely needs but sometimes asks: how the run was triggered, when the next one is due,
+// a newer named-case run, and the catalog cases this run left out by design.
+function RunInfo({ check }: { check: CheckCard }) {
+  const { token } = theme.useToken()
+  const { latest, partial, counts } = check
+  const outside = counts ? [
+    counts.draft ? `${counts.draft} draft` : null,
+    counts.manual ? `${counts.manual} manual` : null,
+  ].filter(Boolean).join(', ') : ''
+  return (
+    <Descriptions
+      size="small"
+      column={1}
+      style={{ maxWidth: token.controlHeight * 10 }}
+      items={[
+        { key: 'trigger', label: 'Started', children: latest?.trigger === 'schedule' ? 'On schedule' : 'Manually' },
+        { key: 'schedule', label: 'Schedule', children: schedule(check) },
+        ...(partial ? [{
+          key: 'partial',
+          label: 'Later run',
+          children: `${partial.caseCount} named case${partial.caseCount === 1 ? '' : 's'}, ${utc(partial.finishedAt)}: ${partial.outcome}. Shown as a notice; it does not change this result.`,
+        }] : []),
+        ...(outside ? [{ key: 'outside', label: 'Not in the run', children: `${outside} (of ${counts!.total} catalog cases)` }] : []),
+      ]}
+    />
   )
 }
 
@@ -121,7 +173,7 @@ function CatalogChangeNotice({ changes, compact }: { changes: CatalogChange[]; c
     <Alert
       type="warning"
       showIcon
-      title={`Catalog changed: ${changes.length} required case${changes.length === 1 ? '' : 's'} no longer in the run`}
+      title={`${changes.length} required case${changes.length === 1 ? '' : 's'} left the run since the previous one`}
       description={
         <Flex vertical gap="small">
           {shown.map((change) => (
@@ -131,9 +183,6 @@ function CatalogChangeNotice({ changes, compact }: { changes: CatalogChange[]; c
           ))}
           {changes.length > shown.length && (
             <Typography.Text type="secondary">and {changes.length - shown.length} more on the check page</Typography.Text>
-          )}
-          {!compact && (
-            <Typography.Text type="secondary">Compared with the previous full run. The latest run is judged as reported.</Typography.Text>
           )}
         </Flex>
       }

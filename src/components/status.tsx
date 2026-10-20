@@ -1,5 +1,5 @@
-import { Alert, Tag, Tooltip, Typography, theme } from 'antd'
-import type { CaseStatus, CheckStatus, Outcome, PartialRun, RunRow, ThenStatus } from '../lib/types'
+import { Tag, Tooltip, Typography } from 'antd'
+import type { CaseStatus, CheckStatus, Outcome, RunRow, ThenStatus } from '../lib/types'
 
 // All timestamps are shown in UTC so server and client render identical text.
 export function utc(iso: string | null): string {
@@ -60,45 +60,19 @@ export function CaseStatusTag({ status }: { status: CaseStatus }) {
   return <Tag color={CASE[status].color}>{CASE[status].label}</Tag>
 }
 
-const THEN: Record<ThenStatus, { color: string; label: string }> = {
-  passed: { color: 'success', label: 'Passed' },
-  failed: { color: 'error', label: 'Failed' },
-  not_run: { color: 'default', label: 'Not run' },
+// A Then that never executed is named by why: the case stopped before reaching it, the case was
+// skipped, or the report never showed it. "Not run" alone read as if the case itself had not run.
+function thenLabel(status: ThenStatus, caseStatus: CaseStatus): { color: string; label: string } {
+  if (status === 'passed') return { color: 'success', label: 'Passed' }
+  if (status === 'failed') return { color: 'error', label: 'Failed' }
+  if (caseStatus === 'failed' || caseStatus === 'interrupted') return { color: 'default', label: 'Not reached' }
+  if (caseStatus === 'skipped') return { color: 'default', label: 'Skipped' }
+  return { color: 'default', label: 'Not reported' }
 }
 
-export function ThenTag({ id, status }: { id: string; status: ThenStatus }) {
-  return <Tag color={THEN[status].color}>{id} · {THEN[status].label}</Tag>
-}
-
-// A run newer than the displayed one that has started but not reported yet.
-export function ActiveRunNotice({ active }: { active: RunRow | null }) {
-  const { token } = theme.useToken()
-  if (!active) return null
-  return (
-    <Alert
-      type={active.timedOut ? 'warning' : 'info'}
-      showIcon
-      title={active.timedOut
-        ? `A newer run started at ${utc(active.startedAt)} timed out without reporting.`
-        : `A newer run started at ${utc(active.startedAt)} is still running.`}
-      style={{ marginBottom: token.margin }}
-    />
-  )
-}
-
-// A named-case run newer than the displayed full run; it never replaces the full run's result.
-export function PartialRunNotice({ partial }: { partial: PartialRun | null }) {
-  const { token } = theme.useToken()
-  if (!partial) return null
-  const cases = `${partial.caseCount} named case${partial.caseCount === 1 ? '' : 's'}`
-  return (
-    <Alert
-      type={partial.outcome === 'passed' ? 'success' : partial.outcome === 'failed' ? 'error' : 'warning'}
-      showIcon
-      title={`A newer partial run of ${cases} finished at ${utc(partial.finishedAt)}: ${partial.outcome}.`}
-      style={{ marginBottom: token.margin }}
-    />
-  )
+export function ThenTag({ id, status, caseStatus }: { id: string; status: ThenStatus; caseStatus: CaseStatus }) {
+  const { color, label } = thenLabel(status, caseStatus)
+  return <Tag color={color}>{id} · {label}</Tag>
 }
 
 // Why a catalog case is not in the automatic run: an orange draft, or a grey manual-only case.

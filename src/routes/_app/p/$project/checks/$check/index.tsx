@@ -23,9 +23,6 @@ function versionNames(start: Versions | null, end: Versions | null): string[] {
   return [...new Set([...Object.keys(start ?? {}), ...Object.keys(end ?? {})])].sort()
 }
 
-// One row of the "All" tab: a case that ran in the latest run, or a catalog case outside it.
-type AnyCase = { key: string; ran: CaseResult | null; outside: OutsideCase | null }
-
 // The filter value for cases without a group; the select needs a string.
 const UNGROUPED_KEY = '\u0000ungrouped'
 
@@ -42,18 +39,13 @@ function CheckPage() {
 
   const allFailed = check.notPassed
   const failedIds = new Set(allFailed.map((item) => item.case))
-  const allRows: AnyCase[] = [
-    ...(latest?.summary ?? []).map((item) => ({ key: item.case, ran: item, outside: null })),
-    ...check.outsideRun.map((item) => ({ key: item.case, ran: null, outside: item })),
-  ].sort((a, b) => a.key.localeCompare(b.key))
+  const ids = [...(latest?.summary ?? []).map((item) => item.case), ...check.outsideRun.map((item) => item.case)]
   const failed = allFailed.filter((item) => shown(item.case))
   const passed = (latest?.summary ?? []).filter((item) => !failedIds.has(item.case) && shown(item.case))
-  const drafts = check.outsideRun.filter((item) => item.status === 'draft' && shown(item.case))
-  const manual = check.outsideRun.filter((item) => item.status !== 'draft' && shown(item.case))
-  const all = allRows.filter((row) => shown(row.key))
+  const outside = check.outsideRun.filter((item) => shown(item.case))
+  const showing = ids.filter(shown).length
   const filtered = groupFilter !== undefined || tagFilter !== undefined
 
-  const ids = allRows.map((row) => row.key)
   const groupOptions = groupOrder(ids.map((id) => metaOf(id).group))
     .map((group) => ({ value: group ?? UNGROUPED_KEY, label: group ?? UNGROUPED }))
   const tagOptions = [...new Set(ids.flatMap((id) => metaOf(id).tags))].sort((a, b) => a.localeCompare(b))
@@ -62,12 +54,12 @@ function CheckPage() {
 
   // Each tab lists its cases in group sections, every case once; a catalog without groups keeps one
   // plain table.
-  const byGroup = <T,>(rows: T[], id: (row: T) => string, table: (rows: T[]) => ReactNode) => {
+  const byGroup = <T,>(rows: T[], id: (row: T) => string, table: (rows: T[], header: boolean) => ReactNode) => {
     const groups = groupOrder(rows.map((row) => metaOf(id(row)).group))
-    if (groups.length === 0 || (groups.length === 1 && groups[0] === null)) return table(rows)
+    if (groups.length === 0 || (groups.length === 1 && groups[0] === null)) return table(rows, true)
     return (
       <Flex vertical gap="large">
-        {groups.map((group) => {
+        {groups.map((group, index) => {
           const inGroup = rows.filter((row) => metaOf(id(row)).group === group)
           return (
             <Flex key={group ?? UNGROUPED_KEY} vertical gap="small">
@@ -75,7 +67,7 @@ function CheckPage() {
                 <Typography.Text strong type={group === null ? 'secondary' : undefined}>{group ?? UNGROUPED}</Typography.Text>
                 <Tag variant="filled">{inGroup.length}</Tag>
               </Flex>
-              {table(inGroup)}
+              {table(inGroup, index === 0)}
             </Flex>
           )
         })}
@@ -83,87 +75,87 @@ function CheckPage() {
     )
   }
 
-  const tagsColumn = <T,>(id: (row: T) => string) => ({
-    title: 'Tags',
-    key: 'tags',
-    render: (_: unknown, row: T) => {
-      const tags = metaOf(id(row)).tags
-      return tags.length ? <Flex gap={token.marginXXS} wrap>{tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex> : null
-    },
-  })
-
-  const caseLink = (id: string, title: string) => (
+  const caseLink = (id: string, title: string, extra?: ReactNode) => (
     <Flex vertical>
-      <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: id }}>
-        {id}
-      </Link>
+      <Flex gap="small" align="center" wrap>
+        <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: id }}>
+          {id}
+        </Link>
+        {extra}
+      </Flex>
       <Typography.Text type="secondary">{title.replace(/^[A-Z0-9-]+:\s*/, '')}</Typography.Text>
     </Flex>
   )
+  // The first line of a native error is its message; the rest is call-site detail for the expanded row.
+  const firstLine = (error: string | null) =>
+    error?.split('\n').find((line) => line.trim())?.trim().replace(/^Error:\s*/, '') ?? null
 
   // Fixed leading widths keep columns aligned across group sections.
   const caseWidth = token.controlHeight * 10
   const resultWidth = token.controlHeight * 4
-  const ranColumns = (onlyNotPassed: boolean): TableColumnsType<CaseResult> => [
-    { title: 'Case', dataIndex: 'case', width: caseWidth, render: (id: string, item) => caseLink(id, item.title) },
-    { title: 'Status', dataIndex: 'status', width: resultWidth, render: (status: CaseResult['status']) => <CaseStatusTag status={status} /> },
-    {
-      title: onlyNotPassed ? 'Then not passed' : 'Then',
-      dataIndex: 'thens',
-      render: (thens: CaseResult['thens']) => (
-        <Flex gap="small" wrap>
-          {thens.filter((then) => !onlyNotPassed || then.status !== 'passed')
-            .map((then) => <ThenTag key={then.id} id={then.id} status={then.status} />)}
-        </Flex>
-      ),
-    },
-    tagsColumn<CaseResult>((item) => item.case),
-    { title: 'Duration', dataIndex: 'ms', render: (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1)}s`) },
-  ]
-
-  const outsideColumns: TableColumnsType<OutsideCase> = [
-    { title: 'Why not run', key: 'kind', width: resultWidth, render: (_, item) => <OutsideRunTag status={item.status} run={item.run} /> },
-    { title: 'Case', dataIndex: 'case', width: caseWidth, render: (id: string, item) => caseLink(id, item.title) },
-    tagsColumn<OutsideCase>((item) => item.case),
-  ]
-
-  const allColumns: TableColumnsType<AnyCase> = [
+  const failedColumns: TableColumnsType<CaseResult> = [
     {
       title: 'Case',
-      key: 'case',
+      dataIndex: 'case',
       width: caseWidth,
-      render: (_, row) => caseLink(row.key, row.ran?.title ?? row.outside?.title ?? ''),
+      // A plain failure is what this tab is; only another status needs saying.
+      render: (id: string, item) => caseLink(id, item.title, item.status === 'failed' || item.status === 'passed' ? null : <CaseStatusTag status={item.status} />),
     },
     {
-      title: 'Result',
-      key: 'result',
+      title: 'Where it stopped',
+      dataIndex: 'thens',
       width: resultWidth,
-      render: (_, row) => row.ran
-        ? <CaseStatusTag status={failedIds.has(row.key) && row.ran.status === 'passed' ? 'failed' : row.ran.status} />
-        : <OutsideRunTag status={row.outside!.status} run={row.outside!.run} />,
+      render: (thens: CaseResult['thens'], item) => {
+        // A case that failed before its first Then has no Then to blame; say so once.
+        if (item.status !== 'passed' && !thens.some((then) => then.status !== 'not_run')) {
+          return <Tag color="error">Before the checks</Tag>
+        }
+        return (
+          <Flex gap="small" wrap>
+            {thens.filter((then) => then.status !== 'passed')
+              .map((then) => <ThenTag key={then.id} id={then.id} status={then.status} caseStatus={item.status} />)}
+          </Flex>
+        )
+      },
     },
-    tagsColumn<AnyCase>((row) => row.key),
+    {
+      title: 'Error',
+      dataIndex: 'error',
+      // Phones read the error on the expanded row or the case page instead of scrolling sideways.
+      responsive: ['md'],
+      render: (error: string | null) => firstLine(error)
+        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: token.controlHeight * 16 }}>{firstLine(error)}</Typography.Text>
+        : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+  ]
+  const passedColumns: TableColumnsType<CaseResult> = [
+    { title: 'Case', dataIndex: 'case', render: (id: string, item) => caseLink(id, item.title) },
+  ]
+  const outsideColumns: TableColumnsType<OutsideCase> = [
+    { title: 'Case', dataIndex: 'case', width: caseWidth, render: (id: string, item) => caseLink(id, item.title) },
+    { title: 'Why', key: 'kind', render: (_, item) => <OutsideRunTag status={item.status} run={item.run} /> },
   ]
 
-  const failedTable = (rows: CaseResult[]) => (
+  const failedTable = (rows: CaseResult[], header: boolean) => (
     <Table
+      showHeader={header}
       rowKey="case"
       size="small"
       pagination={false}
       scroll={{ x: 'max-content' }}
-      columns={ranColumns(true)}
+      columns={failedColumns}
       dataSource={rows}
       locale={{ emptyText: <Empty description="No failed cases in the latest run." /> }}
       expandable={{
-        defaultExpandAllRows: true,
         rowExpandable: (item) => Boolean(item.error),
         expandedRowRender: (item) => <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{item.error}</pre>,
       }}
     />
   )
 
-  const outsideTable = (rows: OutsideCase[], empty: string) => (
+  const outsideTable = (rows: OutsideCase[], header: boolean, empty: string) => (
     <Table
+      showHeader={header}
       rowKey="case"
       size="small"
       pagination={false}
@@ -171,7 +163,6 @@ function CheckPage() {
       dataSource={rows}
       locale={{ emptyText: <Empty description={empty} /> }}
       expandable={{
-        defaultExpandAllRows: true,
         rowExpandable: (item) => Boolean(item.note),
         expandedRowRender: (item) => <Typography.Paragraph style={{ margin: 0 }}>{item.note}</Typography.Paragraph>,
       }}
@@ -187,7 +178,7 @@ function CheckPage() {
           { title: check.name },
         ]}
       />
-      <Card title={`${check.name} · ${check.environment}`} extra={<CheckStatusTag status={check.status} />} styles={{ body: { paddingTop: token.paddingXXS } }}>
+      <Card title={check.name} extra={<CheckStatusTag status={check.status} />} styles={{ body: { paddingTop: token.paddingXXS } }}>
         <CheckSummary check={check} />
         {latest && (
           <Collapse
@@ -249,14 +240,12 @@ function CheckPage() {
                 style={{ minWidth: token.controlHeight * 5 }}
               />
               {filtered && (
-                <Typography.Text type="secondary">
-                  Showing {all.length} of {allRows.length} cases. The run's outcome and counts above cover every case.
-                </Typography.Text>
+                <Typography.Text type="secondary">Showing {showing} of {ids.length} cases</Typography.Text>
               )}
             </Flex>
           )}
           <Tabs
-            defaultActiveKey="failed"
+            defaultActiveKey={failed.length ? 'failed' : 'passed'}
             items={[
               { key: 'failed', label: `Not passed (${failed.length})`, children: byGroup(failed, (item) => item.case, failedTable) },
               {
@@ -264,24 +253,20 @@ function CheckPage() {
                 label: `Passed (${passed.length})`,
                 children: byGroup(passed, (item) => item.case, (rows) => (
                   <Table
+                    showHeader={false}
                     rowKey="case"
                     size="small"
                     pagination={false}
-                    scroll={{ x: 'max-content' }}
-                    columns={ranColumns(false)}
+                    columns={passedColumns}
                     dataSource={rows}
                     locale={{ emptyText: <Empty description="No passed cases in the latest run." /> }}
                   />
                 )),
               },
-              { key: 'draft', label: `Draft (${drafts.length})`, children: byGroup(drafts, (item) => item.case, (rows) => outsideTable(rows, 'No draft cases.')) },
-              { key: 'manual', label: `Manual (${manual.length})`, children: byGroup(manual, (item) => item.case, (rows) => outsideTable(rows, 'No manual-only cases.')) },
               {
-                key: 'all',
-                label: `All (${all.length})`,
-                children: byGroup(all, (row) => row.key, (rows) => (
-                  <Table rowKey="key" size="small" pagination={false} columns={allColumns} dataSource={rows} />
-                )),
+                key: 'outside',
+                label: `Not in this run (${outside.length})`,
+                children: byGroup(outside, (item) => item.case, (rows, header) => outsideTable(rows, header, 'Every catalog case ran.')),
               },
             ]}
           />
