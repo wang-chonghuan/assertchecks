@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-25",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-25",
+  "branch": "ASSERT-25-escalation",
+  "base": "14f2a814fd3f02392f50446b344046ac0cfc64b4",
+  "ports": {
+    "web": 63025
+  }
+}
