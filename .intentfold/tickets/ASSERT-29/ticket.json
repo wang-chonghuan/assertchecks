@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-29",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-29",
+  "branch": "ASSERT-29-reorder",
+  "base": "ab1fb2409ca5d90775e1f1927cba2752ccf934ec",
+  "ports": {
+    "web": 63029
+  }
+}
