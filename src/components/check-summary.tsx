@@ -106,8 +106,14 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
           {latest ? `Ran ${utc(latest.finishedAt)}` : schedule(check)}
         </Typography.Text>
         {latest && (
-          <Popover title="About this run" content={<RunInfo check={check} />} trigger={['hover', 'click']}>
-            <Typography.Text type="secondary" style={small} aria-label="About this run" role="button" tabIndex={0}>
+          <Popover
+            title="About this run"
+            // Clicks inside the popover must not reach a clickable card around the summary.
+            content={<div onClick={(event) => event.stopPropagation()}><RunInfo check={check} /></div>}
+            trigger={['hover', 'click']}
+          >
+            <Typography.Text type="secondary" style={small} aria-label="About this run" role="button" tabIndex={0}
+              onClick={(event) => event.stopPropagation()}>
               <InfoCircleOutlined />
             </Typography.Text>
           </Popover>

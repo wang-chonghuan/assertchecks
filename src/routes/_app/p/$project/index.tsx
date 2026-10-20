@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Card, Col, Empty, Flex, Row, Typography, theme } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
@@ -14,6 +14,7 @@ export const Route = createFileRoute('/_app/p/$project/')({
 function OverviewPage() {
   const { project, checks } = Route.useLoaderData()
   const { token } = theme.useToken()
+  const navigate = useNavigate()
 
   return (
     <Flex vertical gap="middle">
@@ -25,7 +26,10 @@ function OverviewPage() {
           {checks.map((check) => (
             <Col key={check.slug} xs={24} md={12} xl={8}>
               <Card
-                style={{ height: '100%' }}
+                hoverable
+                // The whole card opens the check; the title link keeps it reachable by keyboard.
+                onClick={() => navigate({ to: '/p/$project/checks/$check', params: { project: project.slug, check: check.slug } })}
+                style={{ height: '100%', cursor: 'pointer' }}
                 // The header has no rule, so the body starts close under the title.
                 styles={{ body: { paddingTop: token.paddingXXS } }}
                 title={
