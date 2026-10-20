@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-28",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-28",
+  "branch": "ASSERT-28-merge-intentqa",
+  "base": "f443b60bc2091dc6a63dd9ccef3a351df50ac547",
+  "ports": {
+    "web": 63028
+  }
+}
