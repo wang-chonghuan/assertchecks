@@ -1,7 +1,7 @@
 # ASSERT-29 handoff
 
 At the owner's request, the assertchecks capabilities were renumbered in lifecycle order in
-finoge-app/narrative-skills#30. Their content did not change.
+finoge-app/narrative-skills#31. Their content did not change.
 
 | New | Capability | Was |
 |---|---|---|
