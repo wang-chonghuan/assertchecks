@@ -29,6 +29,20 @@ interface LatestDbRow extends RunDbRow {
   cases: string[] | null
 }
 
+// What the pages read from a stored catalog: each case's identity, status and organizing fields, not its
+// Given/When/Then, which make up most of a catalog. Built in the database so only this crosses the wire;
+// the case page reads its one full case separately.
+const slimCatalog = () => sql()`CASE WHEN jsonb_typeof(catalog->'cases') = 'array' THEN jsonb_build_object('cases', (
+  SELECT COALESCE(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+    'id', c->'id', 'title', c->'title', 'status', c->'status', 'run', c->'run',
+    'failure', c->'failure', 'group', c->'group', 'tags', c->'tags')) ORDER BY i), '[]'::jsonb)
+  FROM jsonb_array_elements(catalog->'cases') WITH ORDINALITY AS x(c, i))) END`
+
+// A run's results without error text, enough to count passes and failures.
+const slimSummary = () => sql()`CASE WHEN jsonb_typeof(summary) = 'array' THEN (
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('case', s->'case', 'status', s->'status', 'thens', s->'thens') ORDER BY i), '[]'::jsonb)
+  FROM jsonb_array_elements(summary) WITH ORDINALITY AS x(s, i)) END`
+
 function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
   return {
     id: row.id,
@@ -61,7 +75,7 @@ async function findCheck(projectId: string, slug: string): Promise<CheckRow | nu
 
 async function latestFinished(checkId: string): Promise<LatestDbRow | null> {
   const [row] = await sql()<LatestDbRow[]>`
-    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, catalog, cases
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, ${slimCatalog()} AS catalog, cases
     FROM runs WHERE check_id = ${checkId} AND finished_at IS NOT NULL AND cases IS NULL
     ORDER BY finished_at DESC, id DESC LIMIT 1
   `
@@ -71,7 +85,7 @@ async function latestFinished(checkId: string): Promise<LatestDbRow | null> {
 // A finished run of this check picked from the history: full or named-case.
 async function finishedRun(checkId: string, runId: string): Promise<LatestDbRow | null> {
   const [row] = await sql()<LatestDbRow[]>`
-    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, catalog, cases
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, ${slimCatalog()} AS catalog, cases
     FROM runs WHERE check_id = ${checkId} AND id = ${runId} AND finished_at IS NOT NULL
   `
   return row ?? null
@@ -82,8 +96,20 @@ async function recentRuns(checkId: string): Promise<(RunDbRow & {
   cases: string[] | null; summary: CaseResult[] | null; deployed_start: Versions | null; deployed_end: Versions | null
 })[]> {
   return sql()`
-    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, cases, summary,
-           deployed_start, deployed_end
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, cases,
+           ${slimSummary()} AS summary, deployed_start, deployed_end
+    FROM runs WHERE check_id = ${checkId}
+    ORDER BY started_at DESC, id DESC LIMIT ${HISTORY_RUNS}
+  `
+}
+
+// The newest runs of a check with one case's result in each; null where the run did not include it.
+async function caseRuns(checkId: string, caseId: string): Promise<(RunDbRow & {
+  cases: string[] | null; result: CaseResult | null
+})[]> {
+  return sql()`
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, cases,
+           jsonb_path_query_first(summary, '$[*] ? (@.case == $id)', jsonb_build_object('id', ${caseId}::text)) AS result
     FROM runs WHERE check_id = ${checkId}
     ORDER BY started_at DESC, id DESC LIMIT ${HISTORY_RUNS}
   `
@@ -110,7 +136,7 @@ function tally(summary: CaseResult[] | null): RunHistoryItem['tally'] {
 // Runs without a catalog (reported errors) are skipped.
 async function previousCatalog(checkId: string, latest: LatestDbRow): Promise<unknown> {
   const [row] = await sql()<{ catalog: unknown }[]>`
-    SELECT catalog FROM runs
+    SELECT ${slimCatalog()} AS catalog FROM runs
     WHERE check_id = ${checkId} AND finished_at IS NOT NULL AND cases IS NULL AND catalog IS NOT NULL
       AND (finished_at, id) < (${latest.finished_at}, ${latest.id})
     ORDER BY finished_at DESC, id DESC LIMIT 1
@@ -198,12 +224,17 @@ function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
 }
 
 async function card(check: CheckRow, now: Date, chosen?: LatestDbRow): Promise<{ card: CheckCard; latest: LatestDbRow | null }> {
-  const newest = await latestFinished(check.id)
-  const latest = chosen ?? newest
-  // Notices about newer runs belong to the latest view only.
-  const active = chosen ? null : await activeRun(check.id, latest?.started_at ?? null)
-  const partial = chosen ? null : await latestPartial(check.id, latest?.finished_at ?? null)
-  const scheduled = await latestScheduled(check.id)
+  const latest = chosen ?? await latestFinished(check.id)
+  // The check's status always comes from its newest full run, also while an older run is shown.
+  const newest = chosen ? await latestFinished(check.id) : latest
+  // The rest depends only on the run shown, so it is read in parallel. Notices about newer runs
+  // belong to the latest view only.
+  const [active, partial, scheduled, previous] = await Promise.all([
+    chosen ? null : activeRun(check.id, latest?.started_at ?? null),
+    chosen ? null : latestPartial(check.id, latest?.finished_at ?? null),
+    latestScheduled(check.id),
+    latest && !latest.cases ? previousCatalog(check.id, latest) : null,
+  ])
   const derived = checkStatus({
     now,
     createdAt: check.created_at,
@@ -214,9 +245,7 @@ async function card(check: CheckRow, now: Date, chosen?: LatestDbRow): Promise<{
   })
   const failed = notPassed(latest)
   const outside = outsideRun(latest, check.selection)
-  const changes = latest && !latest.cases
-    ? catalogChanges(await previousCatalog(check.id, latest), latest.catalog, check.selection)
-    : []
+  const changes = latest && !latest.cases ? catalogChanges(previous, latest.catalog, check.selection) : []
   const partialRun: PartialRun | null = partial
     ? { ...toRun(partial, check.grace_seconds, now), caseCount: partial.count }
     : null
@@ -313,14 +342,22 @@ export async function caseDetail(
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
   const latest = runId ? await finishedRun(check.id, runId) : await latestFinished(check.id)
-  const spec = latest ? catalogCases(latest).get(caseId) : undefined
-  if (!latest || !spec) return null
+  if (!latest) return null
+  const [[stored], runs] = await Promise.all([
+    sql()<{ spec: CaseSpec | null }[]>`
+      SELECT jsonb_path_query_first(catalog, '$.cases[*] ? (@.id == $id)', jsonb_build_object('id', ${caseId}::text)) AS spec
+      FROM runs WHERE id = ${latest.id}
+    `,
+    caseRuns(check.id, caseId),
+  ])
+  const spec = stored?.spec
+  if (!spec) return null
   const now = new Date()
   // Finished runs only: one still running has no result for the case yet.
-  const history: CaseHistoryItem[] = (await recentRuns(check.id))
+  const history: CaseHistoryItem[] = runs
     .filter((row) => row.finished_at !== null)
     .map((row) => {
-      const result = row.summary?.find((item) => item.case === caseId) ?? null
+      const result = row.result
       return {
         run: toRun(row, check.grace_seconds, now),
         caseCount: row.cases?.length ?? null,
