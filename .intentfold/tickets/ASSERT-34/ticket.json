@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-34",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-34",
+  "branch": "ASSERT-34-run-history",
+  "base": "c346087c51746b52355905e68cc90cd6a93009b8",
+  "ports": {
+    "web": 63034
+  }
+}

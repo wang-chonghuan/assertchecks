@@ -1,19 +1,26 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { Breadcrumb, Card, Collapse, Descriptions, Empty, Flex, Select, Table, Tabs, Tag, Typography, theme } from 'antd'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Empty, Flex, Select, Table, Tabs, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
-import { ExportOutlined } from '@ant-design/icons'
+import { CopyOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { recentBugReport } from '../../../../../../lib/bug-report'
 import {
-  CaseStatusTag, CheckStatusTag, OutsideRunTag, Sha, ThenTag, utc,
+  CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, Sha, ThenTag, utc,
 } from '../../../../../../components/status'
-import { getCheck } from '../../../../../../server/fns'
-import type { CaseResult, OutsideCase, Versions } from '../../../../../../lib/types'
+import { getBugReport, getCheck } from '../../../../../../server/fns'
+import type { CaseResult, OutsideCase, RunHistoryItem, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 import { CheckSummary } from '../../../../../../components/check-summary'
 import { UNGROUPED, groupOrder, type CaseMeta } from '../../../../../../lib/organize'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
-  loader: ({ params }) => getCheck({ data: { project: params.project, check: params.check } }),
+  // ?run=<number> opens an older run from the history; without it the page shows the latest full run.
+  validateSearch: (search: Record<string, unknown>): { run?: number } => {
+    const run = Number(search.run)
+    return Number.isSafeInteger(run) && run > 0 ? { run } : {}
+  },
+  loaderDeps: ({ search }) => ({ run: search.run === undefined ? undefined : String(search.run) }),
+  loader: ({ params, deps }) => getCheck({ data: { project: params.project, check: params.check, run: deps.run } }),
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.check.name ?? 'Check'} · ${PRODUCT_NAME}` }] }),
   component: CheckPage,
 })
@@ -27,7 +34,10 @@ function versionNames(start: Versions | null, end: Versions | null): string[] {
 const UNGROUPED_KEY = '\u0000ungrouped'
 
 function CheckPage() {
-  const { project, check, latest, caseMeta } = Route.useLoaderData()
+  const { project, check, latest, caseMeta, history, viewingLatest } = Route.useLoaderData()
+  const { message } = App.useApp()
+  // Case links keep the run being viewed, so a case opens with that run's result.
+  const runSearch = viewingLatest || !latest ? {} : { run: Number(latest.id) }
   const { token } = theme.useToken()
   // Filters only narrow what is listed; the summary card's outcome and counts stay whole.
   const [groupFilter, setGroupFilter] = useState<string>()
@@ -78,7 +88,7 @@ function CheckPage() {
   const caseLink = (id: string, title: string, extra?: ReactNode) => (
     <Flex vertical>
       <Flex gap="small" align="center" wrap>
-        <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: id }}>
+        <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: id }} search={runSearch}>
           {id}
         </Link>
         {extra}
@@ -178,7 +188,19 @@ function CheckPage() {
           { title: check.name },
         ]}
       />
-      <Card title={check.name} extra={<CheckStatusTag status={check.status} />} styles={{ body: { paddingTop: token.paddingXXS } }}>
+      {!viewingLatest && latest && (
+        <Alert
+          type="info"
+          showIcon
+          title={`Run #${latest.id}, ${utc(latest.startedAt)}${latest.caseCount ? ` · ${latest.caseCount} named cases` : ''}`}
+          action={<Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>Back to latest</Link>}
+        />
+      )}
+      <Card
+        title={check.name}
+        extra={viewingLatest || !latest ? <CheckStatusTag status={check.status} /> : <OutcomeTag run={latest} />}
+        styles={{ body: { paddingTop: token.paddingXXS } }}
+      >
         <CheckSummary check={check} />
         {latest && (
           <Collapse
@@ -216,6 +238,11 @@ function CheckPage() {
           />
         )}
       </Card>
+      {history.length > 0 && (
+        <Card title="Run history">
+          <RunHistory history={history} shownId={latest?.id ?? null} project={project.slug} check={check.slug} />
+        </Card>
+      )}
       {latest && (
         <Card>
           {organized && (
@@ -246,6 +273,30 @@ function CheckPage() {
           )}
           <Tabs
             defaultActiveKey={failed.length ? 'failed' : 'passed'}
+            // Every case that did not pass in the recent full runs, as a report a coding agent can file
+            // tickets from. The report is read when clicked; the clipboard receives it as a pending value
+            // so a slow read does not lose the browser's permission to write.
+            tabBarExtraContent={(
+              <Button
+                type="primary"
+                icon={<CopyOutlined />}
+                onClick={async () => {
+                  const pending = getBugReport({ data: { project: project.slug, check: check.slug } })
+                    .then((report) => ({ report, text: recentBugReport(window.location.origin, report) }))
+                  try {
+                    await navigator.clipboard.write([new ClipboardItem({
+                      'text/plain': pending.then(({ text }) => new Blob([text], { type: 'text/plain' })),
+                    })])
+                    const { report } = await pending
+                    message.success(`Copied ${report.cases.length} case${report.cases.length === 1 ? '' : 's'} from the last ${report.runs.length} full runs. Paste it to your coding agent to file the bug tickets.`)
+                  } catch {
+                    message.error('Copying failed. Allow clipboard access for this page and try again.')
+                  }
+                }}
+              >
+                Copy bugs from recent runs
+              </Button>
+            )}
             items={[
               { key: 'failed', label: `Not passed (${failed.length})`, children: byGroup(failed, (item) => item.case, failedTable) },
               {
@@ -273,5 +324,102 @@ function CheckPage() {
         </Card>
       )}
     </Flex>
+  )
+}
+
+// A column title with its explanation behind a question-mark tooltip.
+function Explained({ title, help }: { title: string; help: string }) {
+  return (
+    <Flex gap="small" align="center">
+      {title}
+      <Tooltip title={help}>
+        <Typography.Text type="secondary" aria-label={`About ${title}`}><QuestionCircleOutlined /></Typography.Text>
+      </Tooltip>
+    </Flex>
+  )
+}
+
+// Every stored run, newest first: open one to see exactly what it found, even after newer runs replaced it.
+function RunHistory({ history, shownId, project, check }: {
+  history: RunHistoryItem[]; shownId: string | null; project: string; check: string
+}) {
+  const { token } = theme.useToken()
+  const navigate = useNavigate()
+  const pageSize = 5
+  const shownIndex = history.findIndex((run) => run.id === shownId)
+  const columns: TableColumnsType<RunHistoryItem> = [
+    { title: 'Run', dataIndex: 'id', render: (id: string) => <Typography.Text strong={id === shownId}>#{id}</Typography.Text> },
+    { title: 'Started', dataIndex: 'startedAt', render: (at: string) => utc(at) },
+    {
+      title: 'Kind',
+      key: 'kind',
+      render: (_, run) => (
+        <Flex gap="small" wrap>
+          <Tag>{run.trigger === 'schedule' ? 'Scheduled' : 'Manual'}</Tag>
+          {run.caseCount !== null && <Tag variant="filled">{run.caseCount} named cases</Tag>}
+        </Flex>
+      ),
+    },
+    {
+      title: 'Result',
+      key: 'result',
+      render: (_, run) => (
+        <Flex gap="small" align="center" wrap>
+          <OutcomeTag run={run} />
+          {run.tally && (
+            <Typography.Text type="secondary">
+              {run.tally.failed > 0
+                ? `${run.tally.failed} failed of ${run.tally.ran}`
+                : `${run.tally.passed} of ${run.tally.ran} passed`}
+              {run.tally.incomplete > 0 ? `, ${run.tally.incomplete} incomplete` : ''}
+            </Typography.Text>
+          )}
+        </Flex>
+      ),
+    },
+    // Copying a SHA must not open the run under it.
+    {
+      title: <Explained title="Test commit" help="The commit of the test code that ran: the CI commit when the run came from GitHub Actions, otherwise the Git HEAD of the folder the tests ran in." />,
+      dataIndex: 'testSha',       render: (sha: string | null) => <span onClick={(event) => event.stopPropagation()}><Sha value={sha} /></span>,
+    },
+    {
+      title: <Explained title="Deployed" help="The commit of each tested component when the run started, read from the version URLs the project registers (for example web and api). A run passes only if they are unchanged at its end." />,
+      dataIndex: 'deployed',
+      render: (deployed: Versions | null) => deployed && Object.keys(deployed).length
+        ? (
+          <Flex vertical onClick={(event) => event.stopPropagation()}>
+            {Object.keys(deployed).sort().map((name) => (
+              <Flex key={name} gap="small" align="center">
+                <Typography.Text type="secondary">{name}</Typography.Text>
+                <Sha value={deployed[name]} />
+              </Flex>
+            ))}
+          </Flex>
+        )
+        : <Typography.Text type="secondary">not recorded</Typography.Text>,
+    },
+  ]
+  return (
+    <Table
+      rowKey="id"
+      size="small"
+      scroll={{ x: 'max-content' }}
+      // Five rows keep the history compact above the case list, opening on the page of the run shown.
+      pagination={history.length > pageSize
+        ? { pageSize, size: 'small', defaultCurrent: shownIndex < 0 ? 1 : Math.floor(shownIndex / pageSize) + 1 }
+        : false}
+      columns={columns}
+      dataSource={history}
+      // The whole row opens its run; the run on screen stays highlighted. A run still in progress has
+      // nothing to show yet.
+      onRow={(run) => ({
+        onClick: run.finishedAt === null ? undefined : () =>
+          navigate({ to: '/p/$project/checks/$check', params: { project, check }, search: { run: Number(run.id) } }),
+        style: {
+          cursor: run.finishedAt === null ? undefined : 'pointer',
+          background: run.id === shownId ? token.controlItemBgActive : undefined,
+        },
+      })}
+    />
   )
 }

@@ -1,12 +1,16 @@
 import { createServerFn } from '@tanstack/react-start'
 import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
-import { caseDetail, checkDetail, me, overview } from './queries'
+import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
 
 const text = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value || value.length > 256) throw new Error(`${field} is required`)
   return value
 }
+
+// An optional run number from the history; anything else is ignored rather than guessed at.
+const runNumber = (value: unknown): string | undefined =>
+  typeof value === 'string' && /^[1-9][0-9]{0,17}$/.test(value) ? value : undefined
 
 // The operator-created user behind the signed-in email; an email without one can see no project.
 async function requireUser() {
@@ -38,17 +42,28 @@ export const getOverview = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => remembered(await overview((await requireUser()).id, data.project)))
 
 export const getCheck = createServerFn({ method: 'GET' })
+  .validator((data: { project: unknown; check: unknown; run?: unknown }) => ({
+    project: text(data.project, 'project'),
+    check: text(data.check, 'check'),
+    run: runNumber(data.run),
+  }))
+  .handler(async ({ data }) =>
+    remembered(await checkDetail((await requireUser()).id, data.project, data.check, data.run)))
+
+export const getCase = createServerFn({ method: 'GET' })
+  .validator((data: { project: unknown; check: unknown; case: unknown; run?: unknown }) => ({
+    project: text(data.project, 'project'),
+    check: text(data.check, 'check'),
+    case: text(data.case, 'case'),
+    run: runNumber(data.run),
+  }))
+  .handler(async ({ data }) =>
+    remembered(await caseDetail((await requireUser()).id, data.project, data.check, data.case, data.run)))
+
+// Fetched only when someone copies a bug report, so the check page stays light.
+export const getBugReport = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown; check: unknown }) => ({
     project: text(data.project, 'project'),
     check: text(data.check, 'check'),
   }))
-  .handler(async ({ data }) => remembered(await checkDetail((await requireUser()).id, data.project, data.check)))
-
-export const getCase = createServerFn({ method: 'GET' })
-  .validator((data: { project: unknown; check: unknown; case: unknown }) => ({
-    project: text(data.project, 'project'),
-    check: text(data.check, 'check'),
-    case: text(data.case, 'case'),
-  }))
-  .handler(async ({ data }) =>
-    remembered(await caseDetail((await requireUser()).id, data.project, data.check, data.case)))
+  .handler(async ({ data }) => found(await bugReport((await requireUser()).id, data.project, data.check)))
