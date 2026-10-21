@@ -1,7 +1,7 @@
 // Plain-text bug reports a person copies into their coding agent, which files the tickets. Everything
 // the agent needs to trace a failure back to the run, the tested code and the case is in the text; the
 // case's full Given/When/Then is in the project's catalog at the test commit.
-import type { CaseResult, CaseSpec, RunRow, ThenStatus, Versions } from './types'
+import type { BugReport, CaseResult, CaseSpec, RunRow, ThenStatus, Versions } from './types'
 
 interface RunContext {
   origin: string
@@ -12,24 +12,30 @@ interface RunContext {
 }
 
 const INSTRUCTIONS = [
-  'File bug tickets in this project\'s tracker from the AssertChecks results below.',
-  '- One ticket per distinct defect: cases that fail for the same cause share one ticket.',
-  '- Before writing a ticket, read the case\'s Given/When/Then in the project\'s catalog at the test commit and check the error against it.',
-  '- A failure caused by the test itself or by an unstable judgement is not a product bug: list those separately with your reason instead of filing them.',
-  '- Include the run link, the tested versions and the case links in each ticket.',
+  'You are in this project\'s repository. File one fix ticket per distinct product defect from the AssertChecks results below, using the project\'s own ticket workflow (in an IntentFold project: cap2, type fix).',
+  '- Cases that fail for the same cause share one ticket.',
+  '- Each case below carries its written Given/When/Then and its latest failure. Its test is assertchecks/tests/<case id>.spec.ts and its catalog entry is in assertchecks/e2e.json; read them at the run\'s test commit when you need the exact assertion.',
+  '- A case that did not pass in some runs and passed in others is intermittent: file it when the product is at fault, and say how often it failed.',
+  '- A failure caused by the test itself or by an unstable model judgement is not a product defect: list those at the end with your reason instead of filing them.',
+  '- Put the run link, the tested versions and the case link in each ticket.',
 ]
 
+const day = (iso: string) => `${iso.slice(0, 16).replace('T', ' ')} UTC`
+const versionText = (deployed: Versions | null) => deployed && Object.keys(deployed).length
+  ? Object.keys(deployed).sort().map((name) => `${name} ${deployed[name] ?? 'not recorded'}`).join(', ')
+  : 'not recorded'
+const runLink = (origin: string, project: string, check: string, run: string) => `${origin}/p/${project}/checks/${check}?run=${run}`
+const caseLink = (origin: string, project: string, check: string, id: string, run: string) =>
+  `${origin}/p/${project}/checks/${check}/cases/${id}?run=${run}`
+
 function runLines({ origin, project, check, run, deployed }: RunContext): string[] {
-  const versions = deployed && Object.keys(deployed).length
-    ? Object.keys(deployed).sort().map((name) => `${name} ${deployed[name] ?? 'not recorded'}`).join(', ')
-    : 'not recorded'
   const kind = run.caseCount ? `${run.caseCount} named cases` : run.trigger === 'schedule' ? 'scheduled' : 'manual'
   return [
     `Project: ${project.name} · Check: ${check.name}${check.environment ? ` (environment ${check.environment})` : ''}`,
-    `Run: #${run.id}, ${run.startedAt.slice(0, 16).replace('T', ' ')} UTC, ${kind}, outcome ${run.outcome}`,
-    `Run link: ${origin}/p/${project.slug}/checks/${check.slug}?run=${run.id}`,
+    `Run: #${run.id}, ${day(run.startedAt)}, ${kind}, outcome ${run.outcome}`,
+    `Run link: ${runLink(origin, project.slug, check.slug, run.id)}`,
     `Test commit: ${run.testSha ?? 'not recorded'}`,
-    `Deployed at start: ${versions}`,
+    `Deployed at start: ${versionText(deployed)}`,
   ]
 }
 
@@ -46,35 +52,44 @@ function firstLines(error: string | null, lines: number): string {
     .slice(0, lines).join('\n   ')
 }
 
-// Every case of the shown run that did not pass, or the subset the page is filtered to.
-export function runBugReport(context: RunContext & {
-  cases: CaseResult[]
-  ranCount: number
-  knownCause: Record<string, string>
-  recentFailures: Record<string, { notPassed: number; runs: number }>
-  filtered: boolean
-}): string {
-  const { origin, project, check, run, cases, knownCause, recentFailures } = context
+function specLines(spec: CaseSpec, result: CaseResult | null, indent: string): string[] {
+  const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
+  const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
+  return [
+    `${indent}Given:`, ...spec.given.map((step) => `${indent}- ${step}`),
+    `${indent}When:`, ...spec.when.map((step) => `${indent}- ${step}`),
+    `${indent}Then:`, ...spec.then.map((then) => `${indent}- ${then.id} [${thenWord(thenStatus.get(then.id) ?? 'not_run', failed)}]: ${then.expect}`),
+  ]
+}
+
+// Every case that did not pass in the check's recent full runs, each with enough to file a ticket.
+export function recentBugReport(origin: string, report: BugReport): string {
+  const { project, check, runs, cases } = report
+  const runOf = new Map(runs.map((run) => [run.id, run]))
   const caseLines = cases.flatMap((item, index) => {
-    const recent = recentFailures[item.case]
+    const run = runOf.get(item.last.runId)!
     return [
-      `${index + 1}. ${item.case} — ${item.title.replace(/^[A-Z0-9-]+:\s*/, '')}`,
-      `   Where it stopped: ${stopped(item)}`,
-      `   Error: ${firstLines(item.error, 3)}`,
-      ...(knownCause[item.case] ? [`   Known cause in the catalog: ${knownCause[item.case]}`] : []),
-      ...(recent && recent.runs > 1 ? [`   Recent full runs: did not pass in ${recent.notPassed} of the last ${recent.runs}`] : []),
-      `   Case link: ${origin}/p/${project.slug}/checks/${check.slug}/cases/${item.case}?run=${run.id}`,
+      `${index + 1}. ${item.spec.id} — ${item.spec.title}`,
+      `   Did not pass in: ${item.notPassedIn.map((id) => `#${id}`).join(', ')} (${item.notPassedIn.length} of the ${item.ranIn} recent full runs it ran in); newest run: ${item.newest}`,
+      `   Latest failure, run #${run.id} (${day(run.startedAt)}, test commit ${run.testSha ?? 'not recorded'}): ${stopped(item.last.result)}`,
+      `   Error: ${firstLines(item.last.result.error, 6)}`,
+      ...(item.spec.failure ? [`   Known cause in the catalog: ${item.spec.failure}`] : []),
+      ...specLines(item.spec, item.last.result, '   '),
+      `   Case link: ${caseLink(origin, project.slug, check.slug, item.spec.id, run.id)}`,
+      '',
     ]
   })
   return [
     ...INSTRUCTIONS,
     '',
-    ...runLines(context),
-    `Result: ${cases.length} of ${context.ranCount} cases tested did not pass${context.filtered ? ' (only the cases matching the page filter are listed)' : ''}`,
+    `Project: ${project.name} · Check: ${check.name} (environment ${check.environment})`,
+    `Recent full runs, newest first:`,
+    ...runs.map((run) => `- #${run.id}, ${day(run.startedAt)}, ${run.trigger === 'schedule' ? 'scheduled' : 'manual'}, test commit ${run.testSha ?? 'not recorded'}, deployed ${versionText(run.deployed)}: ${runLink(origin, project.slug, check.slug, run.id)}`),
     '',
-    'Cases that did not pass:',
+    `Cases that did not pass in at least one of them (${cases.length}):`,
+    '',
     ...caseLines,
-  ].join('\n')
+  ].join('\n').trimEnd()
 }
 
 // A Then that never executed was not reached when the case failed earlier, otherwise not reported.
@@ -91,7 +106,6 @@ export function caseBugReport(context: RunContext & {
   history: { runId: string; status: string }[]
 }): string {
   const { spec, result, history } = context
-  const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
   const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
   return [
     ...INSTRUCTIONS,
@@ -99,15 +113,10 @@ export function caseBugReport(context: RunContext & {
     ...runLines(context),
     '',
     `Case: ${spec.id} — ${spec.title}`,
-    `Case link: ${context.origin}/p/${context.project.slug}/checks/${context.check.slug}/cases/${spec.id}?run=${context.run.id}`,
-    `Result in this run: ${result ? (result.status === 'passed' && result.thens.some((then) => then.status === 'failed') ? 'failed' : result.status) : 'not in this run'}`,
+    `Case link: ${caseLink(context.origin, context.project.slug, context.check.slug, spec.id, context.run.id)}`,
+    `Result in this run: ${result ? (failed ? 'did not pass' : 'passed') : 'not in this run'}${result && failed ? ` (${stopped(result)})` : ''}`,
     ...(spec.failure ? [`Known cause in the catalog: ${spec.failure}`] : []),
-    'Given:',
-    ...spec.given.map((step) => `- ${step}`),
-    'When:',
-    ...spec.when.map((step) => `- ${step}`),
-    'Then:',
-    ...spec.then.map((then) => `- ${then.id} [${thenWord(thenStatus.get(then.id) ?? 'not_run', failed)}]: ${then.expect}`),
+    ...specLines(spec, result, ''),
     `Error: ${firstLines(result?.error ?? null, 40)}`,
     ...(history.length ? [`Recent runs: ${history.map((item) => `#${item.runId} ${item.status}`).join(', ')}`] : []),
   ].join('\n')

@@ -3,11 +3,11 @@ import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Empty, Fl
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
 import { CopyOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons'
-import { runBugReport } from '../../../../../../lib/bug-report'
+import { recentBugReport } from '../../../../../../lib/bug-report'
 import {
   CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, Sha, ThenTag, utc,
 } from '../../../../../../components/status'
-import { getCheck } from '../../../../../../server/fns'
+import { getBugReport, getCheck } from '../../../../../../server/fns'
 import type { CaseResult, OutsideCase, RunHistoryItem, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 import { CheckSummary } from '../../../../../../components/check-summary'
@@ -34,7 +34,7 @@ function versionNames(start: Versions | null, end: Versions | null): string[] {
 const UNGROUPED_KEY = '\u0000ungrouped'
 
 function CheckPage() {
-  const { project, check, latest, caseMeta, history, viewingLatest, knownCause, recentFailures } = Route.useLoaderData()
+  const { project, check, latest, caseMeta, history, viewingLatest } = Route.useLoaderData()
   const { message } = App.useApp()
   // Case links keep the run being viewed, so a case opens with that run's result.
   const runSearch = viewingLatest || !latest ? {} : { run: Number(latest.id) }
@@ -273,33 +273,28 @@ function CheckPage() {
           )}
           <Tabs
             defaultActiveKey={failed.length ? 'failed' : 'passed'}
-            // The cases that did not pass, as a report a coding agent can file tickets from.
-            tabBarExtraContent={failed.length > 0 && (
+            // Every case that did not pass in the recent full runs, as a report a coding agent can file
+            // tickets from. The report is read when clicked; the clipboard receives it as a pending value
+            // so a slow read does not lose the browser's permission to write.
+            tabBarExtraContent={(
               <Button
                 type="primary"
                 icon={<CopyOutlined />}
                 onClick={async () => {
-                  const text = runBugReport({
-                    origin: window.location.origin,
-                    project,
-                    check: { slug: check.slug, name: check.name, environment: check.environment },
-                    run: latest,
-                    deployed: latest.deployedStart ?? latest.deployedEnd,
-                    cases: failed,
-                    ranCount: latest.summary?.length ?? 0,
-                    knownCause,
-                    recentFailures,
-                    filtered,
-                  })
+                  const pending = getBugReport({ data: { project: project.slug, check: check.slug } })
+                    .then((report) => ({ report, text: recentBugReport(window.location.origin, report) }))
                   try {
-                    await navigator.clipboard.writeText(text)
-                    message.success(`Copied ${failed.length} case${failed.length === 1 ? '' : 's'}. Paste it to your coding agent to file the bug tickets.`)
+                    await navigator.clipboard.write([new ClipboardItem({
+                      'text/plain': pending.then(({ text }) => new Blob([text], { type: 'text/plain' })),
+                    })])
+                    const { report } = await pending
+                    message.success(`Copied ${report.cases.length} case${report.cases.length === 1 ? '' : 's'} from the last ${report.runs.length} full runs. Paste it to your coding agent to file the bug tickets.`)
                   } catch {
                     message.error('Copying failed. Allow clipboard access for this page and try again.')
                   }
                 }}
               >
-                Copy for bug tickets
+                Copy bugs from recent runs
               </Button>
             )}
             items={[

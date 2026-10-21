@@ -114,10 +114,6 @@ export interface CheckDetail {
   latest: LatestRun | null
   viewingLatest: boolean
   history: RunHistoryItem[]
-  // For the cases that did not pass: the catalog's investigated cause, and in how many of the history's
-  // full runs each did not pass, so a bug report can tell a steady defect from one that comes and goes.
-  knownCause: Record<string, string>
-  recentFailures: Record<string, { notPassed: number; runs: number }>
   // Group and tags of every case in the latest full run's catalog, keyed by case ID.
   caseMeta: Record<string, CaseMeta>
 }
@@ -136,6 +132,22 @@ export interface CaseSpec {
   given: string[]
   when: string[]
   then: { id: string; expect: string }[]
+}
+
+// What a coding agent needs to file bug tickets from a check's recent full runs: every case that did
+// not pass in any of them, with its written spec and the details of its latest failure.
+export interface BugReport {
+  project: { slug: string; name: string }
+  check: { slug: string; name: string; environment: string }
+  runs: { id: string; startedAt: string; trigger: Trigger; testSha: string | null; deployed: Versions | null }[]
+  cases: {
+    spec: CaseSpec
+    // Runs (newest first) in which the case did not pass, and its state in the newest run.
+    notPassedIn: string[]
+    ranIn: number
+    newest: 'passed' | 'not passed' | 'not in run'
+    last: { runId: string; result: CaseResult }
+  }[]
 }
 
 // This case's result in one stored run; status is null when the run did not include the case.

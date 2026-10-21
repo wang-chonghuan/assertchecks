@@ -7,12 +7,14 @@ import { catalogChanges } from './catalog-changes'
 import { caseMeta, type CaseMeta } from '../lib/organize'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type {
-  CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview,
+  BugReport, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview,
   PartialRun, RunHistoryItem, RunRow,
 } from '../lib/types'
 
 // How many stored runs the history lists, newest first.
 const HISTORY_RUNS = 50
+// How many recent full runs a bug report gathers failures from.
+const REPORT_RUNS = 10
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
@@ -123,24 +125,6 @@ function caseFailed(item: CaseResult): boolean {
 
 function casePassed(item: CaseResult): boolean {
   return item.status === 'passed' && item.thens.every((then) => then.status === 'passed')
-}
-
-// The catalog's investigated failure notes, by case.
-function knownCauses(run: LatestDbRow): Record<string, string> {
-  const causes: Record<string, string> = {}
-  for (const [id, spec] of catalogCases(run)) {
-    if (typeof spec.failure === 'string' && spec.failure) causes[id] = spec.failure
-  }
-  return causes
-}
-
-// For each case that did not pass: in how many of the history's full runs it ran, and did not pass.
-function recentFailures(cases: CaseResult[], runs: { cases: string[] | null; summary: CaseResult[] | null }[]) {
-  const full = runs.filter((run) => !run.cases && run.summary)
-  return Object.fromEntries(cases.map((item) => {
-    const results = full.flatMap((run) => run.summary!.filter((result) => result.case === item.case))
-    return [item.case, { notPassed: results.filter((result) => !casePassed(result)).length, runs: results.length }]
-  }))
 }
 
 function tally(summary: CaseResult[] | null): RunHistoryItem['tally'] {
@@ -349,8 +333,6 @@ export async function checkDetail(
     latest: latestRun,
     viewingLatest: !chosen,
     history,
-    knownCause: latest ? knownCauses(latest) : {},
-    recentFailures: recentFailures(checkCard.notPassed, runs),
     caseMeta: meta,
   }
 }
@@ -395,5 +377,52 @@ export async function caseDetail(
     viewingLatest: !runId,
     result: latest.summary?.find((item) => item.case === caseId) ?? null,
     history,
+  }
+}
+
+// Every case that did not pass in any of the check's recent full runs, with its spec from the newest
+// run's catalog and its most recent failing result, so one copy covers defects that come and go.
+export async function bugReport(userId: string, projectSlug: string, checkSlug: string): Promise<BugReport | null> {
+  const found = await project(userId, projectSlug)
+  if (!found) return null
+  const check = await findCheck(found.id, checkSlug)
+  if (!check) return null
+  const runs = await sql()<{
+    id: string; started_at: Date; trigger: Trigger; test_sha: string | null
+    deployed_start: Versions | null; deployed_end: Versions | null; summary: CaseResult[] | null
+  }[]>`
+    SELECT id, started_at, trigger, test_sha, deployed_start, deployed_end, summary FROM runs
+    WHERE check_id = ${check.id} AND finished_at IS NOT NULL AND cases IS NULL AND summary IS NOT NULL
+    ORDER BY finished_at DESC, id DESC LIMIT ${REPORT_RUNS}
+  `
+  const ids = [...new Set(runs.flatMap((run) => (run.summary ?? []).filter((item) => !casePassed(item)).map((item) => item.case)))]
+  const specs = runs.length && ids.length ? await sql()<{ spec: CaseSpec }[]>`
+    SELECT c AS spec FROM runs, jsonb_array_elements(CASE WHEN jsonb_typeof(catalog->'cases') = 'array' THEN catalog->'cases' ELSE '[]'::jsonb END) c
+    WHERE id = ${runs[0].id} AND c->>'id' = ANY(${ids})
+  ` : []
+  const specOf = new Map(specs.map((row) => [row.spec.id, row.spec]))
+  const cases = ids.flatMap((id): BugReport['cases'] => {
+    const results = runs.map((run) => ({ runId: run.id, result: run.summary?.find((item) => item.case === id) ?? null }))
+    const notPassed = results.filter((item) => item.result && !casePassed(item.result))
+    // A case the newest catalog no longer has gives no spec to file from.
+    const spec = specOf.get(id)
+    if (!spec || !notPassed.length) return []
+    const newest = results[0].result
+    return [{
+      spec,
+      notPassedIn: notPassed.map((item) => item.runId),
+      ranIn: results.filter((item) => item.result).length,
+      newest: !newest ? 'not in run' : casePassed(newest) ? 'passed' : 'not passed',
+      last: { runId: notPassed[0].runId, result: notPassed[0].result! },
+    }]
+  }).sort((a, b) => a.spec.id.localeCompare(b.spec.id))
+  return {
+    project: { slug: found.slug, name: found.name },
+    check: { slug: check.slug, name: check.name, environment: check.environment },
+    runs: runs.map((run) => ({
+      id: run.id, startedAt: run.started_at.toISOString(), trigger: run.trigger, testSha: run.test_sha,
+      deployed: run.deployed_start ?? run.deployed_end,
+    })),
+    cases,
   }
 }
