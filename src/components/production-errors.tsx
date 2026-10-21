@@ -82,12 +82,12 @@ function DecisionModal({ asking, onCancel, onSave }: {
       <Form form={form} layout="vertical">
         <Form.Item
           name="value"
-          label={ticket ? 'Ticket URL' : 'Why it is not handled'}
+          label={ticket ? 'Linear or Plane ticket link' : 'Why it is not handled'}
           rules={ticket
-            ? [{ required: true, type: 'url', message: 'Paste the ticket link (http or https).' }, { max: 256 }]
+            ? [{ required: true, type: 'url', message: 'Paste the Linear or Plane ticket link.' }, { max: 256 }]
             : [{ required: true, whitespace: true, message: 'Say in one line why.' }, { max: 256 }]}
         >
-          <Input placeholder={ticket ? 'https://linear.app/…' : 'e.g. browser extension, users are not affected'} />
+          <Input placeholder={ticket ? 'https://linear.app/… or https://app.plane.so/…' : 'e.g. browser extension, users are not affected'} />
         </Form.Item>
       </Form>
     </Modal>
@@ -302,7 +302,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   )
 
   const triage = inGroup('triage')
-  // Untriaged problems with nothing in the last 7 days wait folded under the ones happening now.
+  // Untriaged problems not seen in the past 7 days wait folded under the ones happening now.
   const triageNow = triage.filter((problem) => problem.count7d > 0 || problem.isNew)
   const triageEarlier = triage.filter((problem) => !(problem.count7d > 0 || problem.isNew))
   const ticket = inGroup('ticket')
@@ -329,12 +329,12 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       </Card>
       <Card title={`To triage (${triage.length})`}>
         <Flex vertical gap="middle">
-          {table(triageNow, triage.length ? 'Nothing to triage happened in the last 7 days.' : 'Nothing to triage.')}
+          {table(triageNow, triage.length ? 'No problem to triage was seen in the past 7 days.' : 'Nothing to triage.')}
           {triageEarlier.length > 0 && (
             <Collapse
               items={[{
                 key: 'earlier',
-                label: `Nothing in the last 7 days (${triageEarlier.length})`,
+                label: `Not seen in the past 7 days (${triageEarlier.length})`,
                 children: table(triageEarlier, ''),
               }]}
             />
