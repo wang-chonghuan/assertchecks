@@ -75,10 +75,10 @@ export function ThenTag({ id, status, caseStatus }: { id: string; status: ThenSt
   return <Tag color={color}>{id} · {label}</Tag>
 }
 
-// Why a catalog case is not in the automatic run: an orange draft, or a grey manual-only case.
+// Why a catalog case is not in the automatic run: an orange draft, or a grey on-demand case.
 // A failing case is never shown here; it runs and appears red among the cases that did not pass.
 export function OutsideRunTag({ status, run }: { status: string; run: string }) {
   if (status === 'draft') return <Tag color="orange">Draft</Tag>
-  if (run === 'manual') return <Tag>Manual only</Tag>
+  if (run === 'on-demand') return <Tag>On demand</Tag>
   return <Tag>{status} · {run}</Tag>
 }

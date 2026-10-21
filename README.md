@@ -58,7 +58,7 @@ Neither selects, permits or judges anything: runs are still selected by `status`
 case IDs.
 
 A full run is judged against the catalog cases in the check's selection (default: status `active`,
-run `nightly`); a run that names `cases` is partial and judged against exactly those. A run is
+run `regular`); a run that names `cases` is partial and judged against exactly those. A run is
 `passed` only when the exit code is 0, the reported cases are exactly the expected ones, nothing was
 skipped or flaky, every declared Then passed, and every tested version was recorded and unchanged
 between start and end. Assertion failures are `failed`; anything not fully executed is `incomplete`.
@@ -69,7 +69,7 @@ Each check shows its latest finished full run. When that run's catalog removed a
 moved one out of the check's selection, compared with the previous full run, the check shows a
 "Catalog changed" notice; the run is still judged as reported. Status (`new`, `up`, `failing`, `late`) follows that
 run; `late` applies only to checks with a period and only scheduled runs reset it, so manual runs
-cannot hide a missing scheduled run. A check without a period is run on demand. The web UI is
+cannot hide a missing scheduled run. A check without a period has no schedule. The web UI is
 read-only; times are shown in UTC.
 
 ## Development
@@ -105,7 +105,7 @@ pnpm admin member:add <email> <project-slug>
 pnpm admin member:remove <email> <project-slug>
 pnpm admin project:remove <slug> --confirm <slug>
 pnpm admin user:remove <email> --confirm <email>
-pnpm admin check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds> [--select-status active] [--select-run nightly]
+pnpm admin check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds> [--select-status active] [--select-run regular]
 pnpm admin check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace] [--select-status a,b] [--select-run a,b]
 pnpm admin check:token <project-slug> <check-slug>
 ```

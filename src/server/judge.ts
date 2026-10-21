@@ -30,7 +30,7 @@ export interface Selection {
   run: string[]
 }
 
-export const DEFAULT_SELECTION: Selection = { status: ['active'], run: ['nightly'] }
+export const DEFAULT_SELECTION: Selection = { status: ['active'], run: ['regular'] }
 
 export interface Judgement {
   outcome: Exclude<Outcome, 'running'>

@@ -13,11 +13,11 @@ const USAGE = `usage: pnpm admin <command>
   project:remove <slug> --confirm <slug>     delete a project with its checks, runs and memberships
   user:remove <email> --confirm <email>      delete a user with its memberships
   check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds>
-            [--select-status active] [--select-run nightly]
+            [--select-status active] [--select-run regular]
   check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace]
                [--select-status <a,b>] [--select-run <a,b>]
-  A check without a period is run on demand and is never late. A full run must execute every catalog
-  case whose status and run are in the selection (default: status active, run nightly).
+  A check without a period has no schedule and is never late. A full run must execute every catalog
+  case whose status and run are in the selection (default: status active, run regular).
   check:token <project-slug> <check-slug>  replace a check's ping token
   list                                  show users, projects, memberships and checks`
 
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
       if (!values.name || !values.env || periodSeconds === undefined || grace === null) throw new Error(USAGE)
       const selection = {
         status: list(values['select-status']) ?? ['active'],
-        run: list(values['select-run']) ?? ['nightly'],
+        run: list(values['select-run']) ?? ['regular'],
       }
       const token = randomToken()
       await one(db`

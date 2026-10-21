@@ -20,7 +20,7 @@ export const FORMAT_LINKS = [
 export const CONNECT_STEPS: ConnectStep[] = [
   {
     title: 'Create a check and keep its token',
-    text: 'An AssertChecks administrator creates one check per environment; `--period none` makes it run on demand only. Store its ping token as the CI secret `ASSERTCHECKS_PING_TOKEN`, never in the repository.',
+    text: 'An AssertChecks administrator creates one check per environment; `--period none` gives it no schedule. Store its ping token as the CI secret `ASSERTCHECKS_PING_TOKEN`, never in the repository.',
     samples: [{
       label: 'Administrator',
       lang: 'bash',
@@ -30,7 +30,7 @@ export const CONNECT_STEPS: ConnectStep[] = [
   },
   {
     title: 'Write the catalog and name your tests by it',
-    text: 'Each case states its Given, When and Then. `active` `nightly` cases run in every full run, `manual` ones only when named, and `draft` ones not at all. An optional `group` and comma-separated `tags` sort the results page. Start each test title with its case ID and each Then step with its Then ID.',
+    text: 'Each case states its Given, When and Then. `active` `regular` cases run in every full run, `on-demand` ones only when named, and `draft` ones not at all. An optional `group` and comma-separated `tags` sort the results page. Start each test title with its case ID and each Then step with its Then ID.',
     samples: [
       {
         label: 'e2e.json',
@@ -42,7 +42,7 @@ export const CONNECT_STEPS: ConnectStep[] = [
       "id": "E2E-001",
       "title": "Sign in with a saved account",
       "status": "active",
-      "run": "nightly",
+      "run": "regular",
       "group": "Sign-in",
       "tags": "smoke,auth",
       "given": ["A registered account"],

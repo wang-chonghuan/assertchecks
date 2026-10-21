@@ -33,7 +33,7 @@ export interface CheckCard {
   slug: string
   name: string
   environment: string
-  // null: the check is run on demand and is never late.
+  // null: the check has no schedule and is never late.
   periodSeconds: number | null
   graceSeconds: number
   status: CheckStatus

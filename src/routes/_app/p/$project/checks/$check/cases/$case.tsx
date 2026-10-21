@@ -85,7 +85,7 @@ function CasePage() {
                 : <Typography.Text type="secondary">—</Typography.Text>,
             },
             ...(spec.type ? [{ key: 'type', label: 'Type', children: spec.type.toUpperCase() }] : []),
-            { key: 'policy', label: 'Runs', children: spec.run === 'manual' ? 'Only when named' : 'In every full run' },
+            { key: 'policy', label: 'Runs', children: spec.run === 'on-demand' ? 'On demand, only when named' : 'In every regular run' },
             { key: 'status', label: 'Status', children: spec.status },
           ]}
         />
