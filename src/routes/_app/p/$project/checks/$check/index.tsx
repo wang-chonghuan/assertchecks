@@ -1,8 +1,8 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Alert, Breadcrumb, Card, Collapse, Descriptions, Empty, Flex, Select, Table, Tabs, Tag, Typography, theme } from 'antd'
+import { Alert, Breadcrumb, Card, Collapse, Descriptions, Empty, Flex, Select, Table, Tabs, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
-import { ExportOutlined } from '@ant-design/icons'
+import { ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import {
   CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, Sha, ThenTag, utc,
 } from '../../../../../../components/status'
@@ -301,6 +301,18 @@ function CheckPage() {
   )
 }
 
+// A column title with its explanation behind a question-mark tooltip.
+function Explained({ title, help }: { title: string; help: string }) {
+  return (
+    <Flex gap="small" align="center">
+      {title}
+      <Tooltip title={help}>
+        <Typography.Text type="secondary" aria-label={`About ${title}`}><QuestionCircleOutlined /></Typography.Text>
+      </Tooltip>
+    </Flex>
+  )
+}
+
 // Every stored run, newest first: open one to see exactly what it found, even after newer runs replaced it.
 function RunHistory({ history, shownId, project, check }: {
   history: RunHistoryItem[]; shownId: string | null; project: string; check: string
@@ -340,9 +352,12 @@ function RunHistory({ history, shownId, project, check }: {
       ),
     },
     // Copying a SHA must not open the run under it.
-    { title: 'Test commit', dataIndex: 'testSha', render: (sha: string | null) => <span onClick={(event) => event.stopPropagation()}><Sha value={sha} /></span> },
     {
-      title: 'Deployed',
+      title: <Explained title="Test commit" help="The commit of the test code that ran: the CI commit when the run came from GitHub Actions, otherwise the Git HEAD of the folder the tests ran in." />,
+      dataIndex: 'testSha',       render: (sha: string | null) => <span onClick={(event) => event.stopPropagation()}><Sha value={sha} /></span>,
+    },
+    {
+      title: <Explained title="Deployed" help="The commit of each tested component when the run started, read from the version URLs the project registers (for example web and api). A run passes only if they are unchanged at its end." />,
       dataIndex: 'deployed',
       render: (deployed: Versions | null) => deployed && Object.keys(deployed).length
         ? (
