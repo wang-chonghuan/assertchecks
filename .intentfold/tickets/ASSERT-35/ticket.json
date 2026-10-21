@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-35",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-merge",
+  "worktree": "/Users/yong/work/assertchecks-ws/narrative-skills--ASSERT-35",
+  "branch": "ASSERT-35-cap7-bug-tickets",
+  "base": "7f3acb1",
+  "ports": {}
+}
