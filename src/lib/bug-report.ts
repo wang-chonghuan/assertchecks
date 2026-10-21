@@ -12,12 +12,14 @@ interface RunContext {
 }
 
 const INSTRUCTIONS = [
-  'You are in this project\'s repository. File one fix ticket per distinct product defect from the AssertChecks results below, using the project\'s own ticket workflow (in an IntentFold project: cap2, type fix).',
-  '- Cases that fail for the same cause share one ticket.',
+  'You are in this project\'s repository. File fix tickets from the AssertChecks results below with the project\'s own ticket workflow (in an IntentFold project: cap2, type fix). Every case below must end up in a ticket.',
+  '- Product defects: one ticket per distinct defect; cases that fail for the same cause share one ticket. If an open ticket already covers the defect, add the new evidence to it instead of filing another. If that ticket is Done, check whether the failing run\'s deployed version includes its fix before reopening it.',
+  '- Test defects (the case or its test is wrong, or a model judgement is unstable): file them too, as fix tickets for the tests, grouped by cause.',
+  '- When you cannot tell a product defect from a test defect, or a written rule and the product disagree, do not decide it yourself: file a ticket that states the open question with the evidence for each reading, so its owner investigates.',
+  '- A case that did not pass in some runs and passed in others is intermittent: file it like the rest and say how often it failed.',
   '- Each case below carries its written Given/When/Then and its latest failure. Its test is assertchecks/tests/<case id>.spec.ts and its catalog entry is in assertchecks/e2e.json; read them at the run\'s test commit when you need the exact assertion.',
-  '- A case that did not pass in some runs and passed in others is intermittent: file it when the product is at fault, and say how often it failed.',
-  '- A failure caused by the test itself or by an unstable model judgement is not a product defect: list those at the end with your reason instead of filing them.',
-  '- Put the run link, the tested versions and the case link in each ticket.',
+  '- Put the run links, the tested versions and the case links in each ticket.',
+  '- Finish with the list of tickets you created and updated, and the cases each one covers.',
 ]
 
 const day = (iso: string) => `${iso.slice(0, 16).replace('T', ' ')} UTC`
