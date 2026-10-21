@@ -40,7 +40,14 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 
 **Key decisions**
 
-- Push model: projects call the API; AssertChecks never executes tests.
+- Push model for tests: projects call the API; AssertChecks never executes tests.
+- Read model for production errors: AssertChecks queries each project environment's own Azure Log
+  Analytics workspace with KQL, read-only, as its own Azure identity — the Container App's
+  system-assigned managed identity in production, the developer's `az login` locally. No key,
+  secret or connection string for a project's telemetry exists in AssertChecks, its database, its
+  environment or the repository; the database holds only the workspace reference. Raw error events
+  stay in the project's telemetry; AssertChecks stores only the problems it derives from them and a
+  person's decisions on those problems.
 - The report format is fixed. `public/schemas/*.json` is its single definition: the server validates
   against those files, the site serves them unchanged, and the homepage and client point to them.
 - The homepage and the privacy page are public and show no project data; everything else requires

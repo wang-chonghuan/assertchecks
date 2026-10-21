@@ -62,13 +62,13 @@ python3 <intentfold-skill>/scripts/ports.py .intentfold/project.json ticket <tic
 Start the dev server on the returned web port:
 
 ```bash
-pnpm antd-css && node --env-file-if-exists=.env node_modules/vite/bin/vite.js dev --port <ticket-web-port>
+pnpm antd-css && node --env-file-if-exists=.env node_modules/vite/bin/vite.js dev --port <ticket-web-port> --strictPort --host 127.0.0.1
 ```
 
 Confirm it responds:
 
 ```bash
-curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:<port>/login
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:<port>/login
 ```
 
 **Build and tests**
@@ -104,6 +104,11 @@ keys from the Container App (`DATABASE_URL` as secret `database-url`, `CLERK_SEC
 at runtime; nothing is baked in at build time.
 Operator secrets created by the CLI are written to the git-ignored `.credentials.local`.
 
+Reading production telemetry needs no key in either place. Locally the dev server authenticates as
+the developer's `az login`, which must be able to read the configured workspaces. In production the
+Container App's system-assigned managed identity holds the Log Analytics Reader role on each
+configured workspace and nothing else.
+
 **Deploy**
 
 Apply migrations first (same database as local), then redeploy with n-easyapp cap2 from a clean,
@@ -133,6 +138,7 @@ does, rather than reporting the old one.
 pnpm admin list
 az containerapp logs show -g rg-easyapp-shared -n ca-assertchecks --tail 100
 az containerapp revision list -g rg-easyapp-shared -n ca-assertchecks -o table
+az role assignment list --all --assignee "$(az containerapp show -g rg-easyapp-shared -n ca-assertchecks --query identity.principalId -o tsv)" -o table
 ```
 
 ## Guidance
@@ -182,3 +188,6 @@ them to a real user, and removes them with the CLI as soon as the evidence is re
 7. **Reporting a deploy as complete without running the post-deploy check** — forbidden outright.
 8. **Rotating or replacing an existing check's ping token, or the Clerk secret key** — not without
    the human's explicit approval; other repositories and the running site depend on them.
+9. **Granting AssertChecks's identity read access to a project's workspace** — not without the
+   human's explicit approval. **Granting it any role beyond Log Analytics Reader on a single
+   workspace** — forbidden outright.
