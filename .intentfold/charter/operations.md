@@ -104,6 +104,15 @@ keys from the Container App (`DATABASE_URL` as secret `database-url`, `CLERK_SEC
 at runtime; nothing is baked in at build time.
 Operator secrets created by the CLI are written to the git-ignored `.credentials.local`.
 
+Connect a project's production errors to its Log Analytics workspace (and grant AssertChecks's
+identity Log Analytics Reader on it, operations redline 9):
+
+```bash
+az monitor log-analytics workspace show -g <resource-group> -n <workspace> --query '{id:id, customerId:customerId}'
+pnpm admin source:set <project-slug> --workspace-id <customerId> --workspace <id> [--roles <app-role,...>]
+python3 <n-easyapp-skill>/scripts/grant_app_read_access.py --project assertchecks --role-scope "Log Analytics Reader=<id>"
+```
+
 Reading production telemetry needs no key in either place. Locally the dev server authenticates as
 the developer's `az login`, which must be able to read the configured workspaces. In production the
 Container App's system-assigned managed identity holds the Log Analytics Reader role on each

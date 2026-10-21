@@ -17,6 +17,7 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   the push API. TypeScript strict.
 - PostgreSQL through the `postgres` driver with parameterized SQL; no ORM.
 - Ant Design 6 core components as the only UI system (see `ui.md`).
+- Azure Monitor Logs through `@azure/monitor-query-logs` with `@azure/identity`, for production errors only.
 - pnpm with the committed `pnpm-lock.yaml`; Node 24.
 
 **Structure**
@@ -29,13 +30,16 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   mapped to its CLI-created user), `crypto` (token hashing), `schema` (report-format validation), `judge` and `status` (pure run
   judgement and check-state derivation), `catalog-changes` (pure comparison of two full runs'
   catalogs), `ingest` (push API writes and the dry run), `queries` (membership-scoped reads), `fns`
-  (server functions used by routes).
+  (server functions used by routes), `telemetry` (the KQL that reads a workspace and de-duplicates
+  failures), `problems` (pure assembly of the production-errors view) and `production-errors` (its
+  membership-scoped reads, problem upserts and decisions).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
   (`connect-guide`) that both the homepage and "Copy for your agent" render.
 - `public/schemas/` — the published catalog and result formats; `public/client/assertchecks.mjs` — the
   zero-dependency client projects download on every run.
 - `db/migrations/` — numbered SQL migrations applied by `scripts/migrate.ts`.
-- `scripts/admin.ts` — the operator CLI; users, memberships, projects and checks are managed only here.
+- `scripts/admin.ts` — the operator CLI; users, memberships, projects, checks and error sources are
+  managed only here. The web UI writes only people's decisions on production problems.
 - `tests/` — Node test runner unit tests for pure logic.
 
 **Key decisions**
