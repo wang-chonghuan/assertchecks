@@ -168,3 +168,56 @@ export interface CaseDetail {
   result: CaseResult | null
   history: CaseHistoryItem[]
 }
+
+// Production errors (ASSERT-36). A problem is one kind of failure across many requests or page visits;
+// counts are failures (requests, page visits or slow hours), not raw records.
+export type ProblemKind = 'error' | 'slow'
+export type ProblemGroup = 'triage' | 'ticket' | 'quiet' | 'ignored'
+export type NoiseCategory = 'client' | 'scanner' | 'aborted' | 'analytics' | 'script'
+
+export type ProblemDecision =
+  | { kind: 'ticket'; url: string; by: string; at: string }
+  | { kind: 'ignored'; reason: string; by: string; at: string }
+
+export interface ProblemView {
+  id: string
+  kind: ProblemKind
+  // The ProblemId, or the operation name of a slow operation.
+  key: string
+  group: ProblemGroup
+  isNew: boolean
+  firstSeen: string
+  lastSeen: string
+  count24h: number
+  count7d: number
+  // Everything the workspace still holds (90 days).
+  count90d: number
+  decision: ProblemDecision | null
+  // With a ticket: failures since it was attached; quietDays when none occurred since then.
+  sinceTicket: { count: number; quietDays: number | null } | null
+  // Other problems that showed up in the same period, by key.
+  together: string[]
+  place: string | null
+  role: string | null
+  browser: boolean
+  // Distinct messages with ids and numbers masked, most frequent first.
+  variants: { template: string; count: number; lastAt: string }[]
+  latest: { at: string; type: string | null; message: string; stack: string | null } | null
+  // A slow operation's latest slow hour.
+  slow: { p95Ms: number; usualMs: number } | null
+}
+
+export interface ProductionErrors {
+  project: { slug: string; name: string }
+  state: 'not-connected' | 'unavailable' | 'ready'
+  // Why the telemetry could not be read; never shown as zero.
+  error: string | null
+  checkedAt: string
+  portalUrl: string | null
+  headline: { triage: number; isNew: number; ticket: number; stillOccurring: number; last24h: number; previous24h: number }
+  // The last 30 UTC days, oldest first: failures of problems that are not marked Not handling.
+  daily: { day: string; count: number }[]
+  problems: ProblemView[]
+  // The last 7 days of what is never a problem.
+  noise: { category: NoiseCategory; total: number; items: { item: string; count: number }[] }[]
+}

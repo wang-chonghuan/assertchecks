@@ -1,4 +1,5 @@
-// Operator CLI. Users, memberships and checks are managed only here; the web UI is read-only.
+// Operator CLI. Users, memberships, checks and error sources are managed only here; the web UI only
+// records decisions on production problems.
 // People sign in with Clerk email codes; a user here is the email that grants access through memberships.
 // Generated ping tokens are printed once and stored only as hashes.
 import { parseArgs } from 'node:util'
@@ -19,6 +20,10 @@ const USAGE = `usage: pnpm admin <command>
   A check without a period has no schedule and is never late. A full run must execute every catalog
   case whose status and run are in the selection (default: status active, run regular).
   check:token <project-slug> <check-slug>  replace a check's ping token
+  source:set <project-slug> --workspace-id <customer-id> --workspace <resource-id> [--roles <a,b>]
+             read the project's production errors from this Log Analytics workspace, optionally only
+             these app roles; AssertChecks's identity needs Log Analytics Reader on it
+  source:remove <project-slug>          stop reading the project's production errors
   list                                  show users, projects, memberships and checks`
 
 const { positionals, values } = parseArgs({
@@ -32,6 +37,9 @@ const { positionals, values } = parseArgs({
     'select-status': { type: 'string' },
     confirm: { type: 'string' },
     'select-run': { type: 'string' },
+    'workspace-id': { type: 'string' },
+    workspace: { type: 'string' },
+    roles: { type: 'string' },
   },
 })
 const [command, ...args] = positionals
@@ -177,6 +185,34 @@ async function main(): Promise<void> {
       console.log(`replaced token for ${project}/${slug}; the old token no longer works\nping token (shown once): ${token}`)
       return
     }
+    case 'source:set': {
+      const [project] = need(1)
+      const workspaceId = values['workspace-id']
+      const workspace = values.workspace
+      if (!workspaceId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workspaceId)) {
+        throw new Error('--workspace-id must be the workspace customer ID (az monitor log-analytics workspace show --query customerId)')
+      }
+      if (!workspace) throw new Error('--workspace must be the workspace resource ID')
+      const roles = list(values.roles) ?? null
+      if (roles?.some((role) => !/^[\w.-]+$/.test(role))) throw new Error('--roles are app role names')
+      await one(db`
+        INSERT INTO error_sources (project_id, workspace_id, workspace_path, roles)
+        SELECT id, ${workspaceId}, ${workspace}, ${roles ? db.array(roles) : null}::text[] FROM projects WHERE slug = ${project}
+        ON CONFLICT (project_id) DO UPDATE SET
+          workspace_id = EXCLUDED.workspace_id, workspace_path = EXCLUDED.workspace_path, roles = EXCLUDED.roles
+        RETURNING project_id
+      `, 'unknown project')
+      console.log(`${project} reads production errors from ${workspace}${roles ? ` (roles ${roles.join(', ')})` : ''}`)
+      return
+    }
+    case 'source:remove': {
+      const [project] = need(1)
+      await one(db`
+        DELETE FROM error_sources s USING projects p WHERE s.project_id = p.id AND p.slug = ${project} RETURNING s.project_id
+      `, 'no error source for that project')
+      console.log(`${project} no longer reads production errors`)
+      return
+    }
     case 'list': {
       need(0)
       console.table(await db`SELECT email, created_at FROM users ORDER BY email`)
@@ -188,6 +224,10 @@ async function main(): Promise<void> {
       console.table(await db`
         SELECT p.slug AS project, c.slug, c.name, c.environment, c.period_seconds, c.grace_seconds, c.selection::text
         FROM checks c JOIN projects p ON p.id = c.project_id ORDER BY 1, 2
+      `)
+      console.table(await db`
+        SELECT p.slug AS project, s.workspace_path AS workspace, array_to_string(s.roles, ',') AS roles
+        FROM error_sources s JOIN projects p ON p.id = s.project_id ORDER BY 1
       `)
       return
     }

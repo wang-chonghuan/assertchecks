@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
 import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
+import { decideProblem as decide, productionErrors, type Decision } from './production-errors'
 
 const text = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value || value.length > 256) throw new Error(`${field} is required`)
@@ -67,3 +68,33 @@ export const getBugReport = createServerFn({ method: 'GET' })
     check: text(data.check, 'check'),
   }))
   .handler(async ({ data }) => found(await bugReport((await requireUser()).id, data.project, data.check)))
+
+// Read only when the Production errors tab is open: it queries the project's telemetry.
+export const getProductionErrors = createServerFn({ method: 'GET' })
+  .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
+  .handler(async ({ data }) => found(await productionErrors((await requireUser()).id, data.project)))
+
+// A ticket link is any http(s) URL; the reason for not handling is one short line.
+function decision(data: { decision?: unknown; ticketUrl?: unknown; reason?: unknown }): Decision {
+  if (data.decision === 'none') return { decision: 'none' }
+  if (data.decision === 'ticket') {
+    const url = text(data.ticketUrl, 'ticketUrl').trim()
+    let parsed: URL
+    try { parsed = new URL(url) } catch { throw new Error('ticketUrl must be a URL') }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('ticketUrl must be an http(s) URL')
+    return { decision: 'ticket', ticketUrl: url }
+  }
+  if (data.decision === 'ignored') return { decision: 'ignored', reason: text(data.reason, 'reason').trim() }
+  throw new Error('decision must be ticket, ignored or none')
+}
+
+export const decideProblem = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown; problem: unknown; decision?: unknown; ticketUrl?: unknown; reason?: unknown }) => {
+    const problem = text(data.problem, 'problem')
+    if (!/^[1-9][0-9]{0,17}$/.test(problem)) throw new Error('problem must be an id')
+    return { project: text(data.project, 'project'), problem, decision: decision(data) }
+  })
+  .handler(async ({ data }) => {
+    if (!(await decide(await requireUser(), data.project, data.problem, data.decision))) throw notFound()
+    return { ok: true }
+  })

@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-36",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-36",
+  "branch": "ASSERT-36-production-errors",
+  "base": "7cfe6636a2ed2e8fac08664e1c670f263e14d38e",
+  "ports": { "web": 63036 }
+}

@@ -59,7 +59,8 @@ function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
   }
 }
 
-async function project(userId: string, slug: string): Promise<ProjectRow | null> {
+// The project with this slug when the user is a member of it; everything else reads through this.
+export async function project(userId: string, slug: string): Promise<ProjectRow | null> {
   const [row] = await sql()<ProjectRow[]>`
     SELECT p.id, p.slug, p.name FROM projects p JOIN memberships m ON m.project_id = p.id
     WHERE m.user_id = ${userId} AND p.slug = ${slug}
