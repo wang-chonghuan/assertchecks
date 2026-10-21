@@ -125,6 +125,24 @@ function casePassed(item: CaseResult): boolean {
   return item.status === 'passed' && item.thens.every((then) => then.status === 'passed')
 }
 
+// The catalog's investigated failure notes, by case.
+function knownCauses(run: LatestDbRow): Record<string, string> {
+  const causes: Record<string, string> = {}
+  for (const [id, spec] of catalogCases(run)) {
+    if (typeof spec.failure === 'string' && spec.failure) causes[id] = spec.failure
+  }
+  return causes
+}
+
+// For each case that did not pass: in how many of the history's full runs it ran, and did not pass.
+function recentFailures(cases: CaseResult[], runs: { cases: string[] | null; summary: CaseResult[] | null }[]) {
+  const full = runs.filter((run) => !run.cases && run.summary)
+  return Object.fromEntries(cases.map((item) => {
+    const results = full.flatMap((run) => run.summary!.filter((result) => result.case === item.case))
+    return [item.case, { notPassed: results.filter((result) => !casePassed(result)).length, runs: results.length }]
+  }))
+}
+
 function tally(summary: CaseResult[] | null): RunHistoryItem['tally'] {
   if (!summary) return null
   const failed = summary.filter(caseFailed).length
@@ -318,7 +336,8 @@ export async function checkDetail(
       summary: latest.summary?.map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title })) ?? null,
     }
   }
-  const history: RunHistoryItem[] = (await recentRuns(check.id)).map((row) => ({
+  const runs = await recentRuns(check.id)
+  const history: RunHistoryItem[] = runs.map((row) => ({
     ...toRun(row, check.grace_seconds, now),
     caseCount: row.cases?.length ?? null,
     tally: tally(row.summary),
@@ -330,6 +349,8 @@ export async function checkDetail(
     latest: latestRun,
     viewingLatest: !chosen,
     history,
+    knownCause: latest ? knownCauses(latest) : {},
+    recentFailures: recentFailures(checkCard.notPassed, runs),
     caseMeta: meta,
   }
 }
@@ -370,6 +391,7 @@ export async function caseDetail(
     check: { slug: check.slug, name: check.name },
     spec,
     run: toRun(latest, check.grace_seconds, now),
+    deployed: latest.deployed_start ?? latest.deployed_end,
     viewingLatest: !runId,
     result: latest.summary?.find((item) => item.case === caseId) ?? null,
     history,

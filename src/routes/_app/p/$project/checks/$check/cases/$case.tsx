@@ -1,5 +1,7 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Alert, Breadcrumb, Card, Collapse, Descriptions, Flex, Table, Tag, Typography, theme } from 'antd'
+import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Table, Tag, Typography, theme } from 'antd'
+import { CopyOutlined } from '@ant-design/icons'
+import { caseBugReport } from '../../../../../../../lib/bug-report'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
 import type { CaseHistoryItem } from '../../../../../../../lib/types'
@@ -32,7 +34,29 @@ function Steps({ items }: { items: string[] }) {
 // catalog's organizing fields and the raw error output wait in collapsed sections.
 function CasePage() {
   const { token } = theme.useToken()
-  const { project, check, spec, run, result, history, viewingLatest } = Route.useLoaderData()
+  const { project, check, spec, run, result, history, viewingLatest, deployed } = Route.useLoaderData()
+  const { message } = App.useApp()
+  const copyReport = async () => {
+    const text = caseBugReport({
+      origin: window.location.origin,
+      project,
+      check,
+      run,
+      deployed,
+      spec,
+      result,
+      history: history.slice(0, 10).map((item) => ({
+        runId: item.run.id,
+        status: item.status === null ? 'not in run' : item.failed && item.status === 'passed' ? 'failed' : item.status,
+      })),
+    })
+    try {
+      await navigator.clipboard.writeText(text)
+      message.success('Copied. Paste it to your coding agent to file the bug ticket.')
+    } catch {
+      message.error('Copying failed. Allow clipboard access for this page and try again.')
+    }
+  }
   const runSearch = viewingLatest ? {} : { run: Number(run.id) }
   const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
   const meta = caseMeta(spec)
@@ -100,6 +124,11 @@ function CasePage() {
               </Link>
             )}
           </Flex>
+          {failed && (
+            <Flex>
+              <Button type="primary" icon={<CopyOutlined />} onClick={copyReport}>Copy for a bug ticket</Button>
+            </Flex>
+          )}
           {spec.failure && (
             <Alert type={failed ? 'error' : 'info'} showIcon title="Known cause" description={spec.failure} />
           )}
