@@ -125,7 +125,7 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
 
 function schedule(check: CheckCard): string {
   return check.periodSeconds === null
-    ? 'Runs on demand'
+    ? 'No schedule'
     : `Every ${duration(check.periodSeconds)} · next ${utc(check.nextExpectedAt)}`
 }
 

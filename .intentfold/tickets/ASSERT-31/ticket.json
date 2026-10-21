@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-31",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-31",
+  "branch": "ASSERT-31-run-names",
+  "base": "e2899c290654253b2f05438cb4f4c9762174ef0f",
+  "ports": {
+    "web": 63031
+  }
+}

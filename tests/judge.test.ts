@@ -7,10 +7,10 @@ const catalog = {
   version: 1,
   projects: ['dev'],
   cases: [
-    { id: 'E2E-001', title: 'First', status: 'active', run: 'nightly', then: [{ id: 'A1' }, { id: 'A2' }] },
-    { id: 'E2E-002', title: 'Second', status: 'active', run: 'nightly', then: [{ id: 'A1' }] },
-    { id: 'E2E-003', title: 'Draft', status: 'draft', run: 'nightly', then: [{ id: 'A1' }] },
-    { id: 'E2E-004', title: 'Manual', status: 'active', run: 'manual', then: [{ id: 'A1' }] },
+    { id: 'E2E-001', title: 'First', status: 'active', run: 'regular', then: [{ id: 'A1' }, { id: 'A2' }] },
+    { id: 'E2E-002', title: 'Second', status: 'active', run: 'regular', then: [{ id: 'A1' }] },
+    { id: 'E2E-003', title: 'Draft', status: 'draft', run: 'regular', then: [{ id: 'A1' }] },
+    { id: 'E2E-004', title: 'Manual', status: 'active', run: 'on-demand', then: [{ id: 'A1' }] },
   ],
 }
 
@@ -101,7 +101,7 @@ test('missing and extra cases are incomplete', () => {
 })
 
 test('the check selection decides the expected cases', () => {
-  const selection = { status: ['active'], run: ['nightly', 'manual'] }
+  const selection = { status: ['active'], run: ['regular', 'on-demand'] }
   const verdict = judge({ ...base, selection, result: playwright(allPassing) })
   assert.equal(verdict.outcome, 'incomplete')
   assert.match(verdict.reason!, /E2E-004 missing/)

@@ -30,8 +30,8 @@
           "description": "active: required in the run and must pass. draft: listed, not run. retired: kept for its ID, not shown."
         },
         "run": {
-          "enum": ["nightly", "manual"],
-          "description": "nightly: part of every full run. manual: runs only when named with --cases."
+          "enum": ["regular", "on-demand"],
+          "description": "regular: part of every full run. on-demand: runs only when named with --cases."
         },
         "group": {
           "$ref": "#/$defs/text",

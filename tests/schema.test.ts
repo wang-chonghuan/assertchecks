@@ -11,7 +11,7 @@ const catalog = () => ({
       title: 'Sign in',
       type: 'ui',
       status: 'active',
-      run: 'nightly',
+      run: 'regular',
       given: ['A registered account'],
       when: ['Sign in'],
       then: [{ id: 'A1', expect: 'The dashboard greets the user' }],
