@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Alert, Breadcrumb, Card, Collapse, Descriptions, Empty, Flex, Select, Table, Tabs, Tag, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
@@ -305,18 +305,12 @@ function CheckPage() {
 function RunHistory({ history, shownId, project, check }: {
   history: RunHistoryItem[]; shownId: string | null; project: string; check: string
 }) {
+  const { token } = theme.useToken()
+  const navigate = useNavigate()
+  const pageSize = 5
+  const shownIndex = history.findIndex((run) => run.id === shownId)
   const columns: TableColumnsType<RunHistoryItem> = [
-    {
-      title: 'Run',
-      dataIndex: 'id',
-      render: (id: string, run) => run.finishedAt === null
-        ? <Typography.Text>#{id}</Typography.Text>
-        : (
-          <Link to="/p/$project/checks/$check" params={{ project, check }} search={{ run: Number(id) }}>
-            <Typography.Text strong={id === shownId}>#{id}</Typography.Text>
-          </Link>
-        ),
-    },
+    { title: 'Run', dataIndex: 'id', render: (id: string) => <Typography.Text strong={id === shownId}>#{id}</Typography.Text> },
     { title: 'Started', dataIndex: 'startedAt', render: (at: string) => utc(at) },
     {
       title: 'Kind',
@@ -345,13 +339,14 @@ function RunHistory({ history, shownId, project, check }: {
         </Flex>
       ),
     },
-    { title: 'Test commit', dataIndex: 'testSha', render: (sha: string | null) => <Sha value={sha} /> },
+    // Copying a SHA must not open the run under it.
+    { title: 'Test commit', dataIndex: 'testSha', render: (sha: string | null) => <span onClick={(event) => event.stopPropagation()}><Sha value={sha} /></span> },
     {
       title: 'Deployed',
       dataIndex: 'deployed',
       render: (deployed: Versions | null) => deployed && Object.keys(deployed).length
         ? (
-          <Flex vertical>
+          <Flex vertical onClick={(event) => event.stopPropagation()}>
             {Object.keys(deployed).sort().map((name) => (
               <Flex key={name} gap="small" align="center">
                 <Typography.Text type="secondary">{name}</Typography.Text>
@@ -368,10 +363,22 @@ function RunHistory({ history, shownId, project, check }: {
       rowKey="id"
       size="small"
       scroll={{ x: 'max-content' }}
-      // Five rows keep the history compact above the case list; older runs are a page away.
-      pagination={history.length > 5 ? { pageSize: 5, size: 'small' } : false}
+      // Five rows keep the history compact above the case list, opening on the page of the run shown.
+      pagination={history.length > pageSize
+        ? { pageSize, size: 'small', defaultCurrent: shownIndex < 0 ? 1 : Math.floor(shownIndex / pageSize) + 1 }
+        : false}
       columns={columns}
       dataSource={history}
+      // The whole row opens its run; the run on screen stays highlighted. A run still in progress has
+      // nothing to show yet.
+      onRow={(run) => ({
+        onClick: run.finishedAt === null ? undefined : () =>
+          navigate({ to: '/p/$project/checks/$check', params: { project, check }, search: { run: Number(run.id) } }),
+        style: {
+          cursor: run.finishedAt === null ? undefined : 'pointer',
+          background: run.id === shownId ? token.controlItemBgActive : undefined,
+        },
+      })}
     />
   )
 }

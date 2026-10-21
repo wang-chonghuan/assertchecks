@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Alert, Breadcrumb, Card, Collapse, Descriptions, Flex, Table, Tag, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
@@ -143,16 +143,12 @@ function CasePage() {
 function CaseHistory({ history, shownId, project, check, caseId }: {
   history: CaseHistoryItem[]; shownId: string; project: string; check: string; caseId: string
 }) {
+  const { token } = theme.useToken()
+  const navigate = useNavigate()
+  const pageSize = 10
+  const shownIndex = history.findIndex((item) => item.run.id === shownId)
   const columns: TableColumnsType<CaseHistoryItem> = [
-    {
-      title: 'Run',
-      key: 'run',
-      render: (_, item) => (
-        <Link to="/p/$project/checks/$check/cases/$case" params={{ project, check, case: caseId }} search={{ run: Number(item.run.id) }}>
-          <Typography.Text strong={item.run.id === shownId}>#{item.run.id}</Typography.Text>
-        </Link>
-      ),
-    },
+    { title: 'Run', key: 'run', render: (_, item) => <Typography.Text strong={item.run.id === shownId}>#{item.run.id}</Typography.Text> },
     { title: 'Started', key: 'started', render: (_, item) => utc(item.run.startedAt) },
     {
       title: 'Kind',
@@ -172,9 +168,18 @@ function CaseHistory({ history, shownId, project, check, caseId }: {
       rowKey={(item) => item.run.id}
       size="small"
       scroll={{ x: 'max-content' }}
-      pagination={history.length > 10 ? { pageSize: 10, size: 'small' } : false}
+      pagination={history.length > pageSize
+        ? { pageSize, size: 'small', defaultCurrent: shownIndex < 0 ? 1 : Math.floor(shownIndex / pageSize) + 1 }
+        : false}
       columns={columns}
       dataSource={history}
+      // The whole row opens this case in that run; the run on screen stays highlighted.
+      onRow={(item) => ({
+        onClick: () => navigate({
+          to: '/p/$project/checks/$check/cases/$case', params: { project, check, case: caseId }, search: { run: Number(item.run.id) },
+        }),
+        style: { cursor: 'pointer', background: item.run.id === shownId ? token.controlItemBgActive : undefined },
+      })}
     />
   )
 }
