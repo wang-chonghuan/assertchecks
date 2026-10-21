@@ -21,6 +21,7 @@ const unit = (problem: ProblemView) => (problem.kind === 'slow' ? 'slow hour' : 
 function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
   const { token } = theme.useToken()
   const max = Math.max(1, ...daily.map((day) => day.count))
+  const peak = daily.reduce((top, day) => (day.count > top.count ? day : top), { day: '', count: 0 })
   return (
     <Flex vertical gap={token.marginXXS}>
       <Flex align="end" gap={token.marginXXS / 2} style={{ height: token.sizeXXL }} role="img" aria-label="Failures per day, last 30 days">
@@ -39,8 +40,11 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
           </Tooltip>
         ))}
       </Flex>
-      <Flex justify="space-between">
+      <Flex justify="space-between" gap="small" wrap>
         <Typography.Text type="secondary">{daily[0]?.day}</Typography.Text>
+        <Typography.Text type="secondary">
+          {peak.count ? `Peak ${plural(peak.count, 'failure')} on ${peak.day}` : 'No failures in 30 days'}
+        </Typography.Text>
         <Typography.Text type="secondary">{daily.at(-1)?.day}</Typography.Text>
       </Flex>
     </Flex>
@@ -203,7 +207,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       const since = problem.sinceTicket
       return (
         <Flex vertical gap={token.marginXXS}>
-          <Typography.Link href={decision.url} target="_blank" ellipsis style={{ maxWidth: token.controlHeight * 8 }}>
+          <Typography.Link href={decision.url} target="_blank" style={{ wordBreak: 'break-all' }}>
             {decision.url} <ExportOutlined />
           </Typography.Link>
           {since && since.count > 0
@@ -274,7 +278,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       render: (_, problem) => (
         <Flex vertical>
           <Typography.Text>{plural(problem.count7d, unit(problem))} in 7 days</Typography.Text>
-          <Typography.Text type="secondary">{problem.count24h} in 24 h · {problem.count90d} in 90 days</Typography.Text>
+          <Typography.Text type="secondary">{problem.count90d} in 90 days</Typography.Text>
         </Flex>
       ),
     },
@@ -298,6 +302,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   )
 
   const triage = inGroup('triage')
+  // Untriaged problems with nothing in the last 7 days wait folded under the ones happening now.
+  const triageNow = triage.filter((problem) => problem.count7d > 0 || problem.isNew)
+  const triageEarlier = triage.filter((problem) => !(problem.count7d > 0 || problem.isNew))
   const ticket = inGroup('ticket')
   const quiet = inGroup('quiet')
   const ignored = inGroup('ignored')
@@ -309,7 +316,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
         <Flex vertical gap="middle">
           <Flex vertical gap={token.marginXXS}>
             <Typography.Text strong style={{ fontSize: token.fontSizeLG, lineHeight: token.lineHeightLG }}>
-              {headline.triage} to triage{headline.isNew ? ` (${headline.isNew} new)` : ''} · {headline.ticket} with a ticket
+              {headline.triage} to triage ({triageNow.length} this week{headline.isNew ? `, ${headline.isNew} new` : ''}) · {headline.ticket} with a ticket
               {headline.ticket ? `, ${headline.stillOccurring} still occurring` : ''} · {plural(headline.last24h, 'failure')} in the last 24 h ({headline.previous24h} the day before)
             </Typography.Text>
             <Typography.Text type="secondary">
@@ -320,7 +327,20 @@ export function ProductionErrorsTab({ project }: { project: string }) {
           <DailyBars daily={data.daily} />
         </Flex>
       </Card>
-      <Card title={`To triage (${triage.length})`}>{table(triage, 'Nothing to triage.')}</Card>
+      <Card title={`To triage (${triage.length})`}>
+        <Flex vertical gap="middle">
+          {table(triageNow, triage.length ? 'Nothing to triage happened in the last 7 days.' : 'Nothing to triage.')}
+          {triageEarlier.length > 0 && (
+            <Collapse
+              items={[{
+                key: 'earlier',
+                label: `Nothing in the last 7 days (${triageEarlier.length})`,
+                children: table(triageEarlier, ''),
+              }]}
+            />
+          )}
+        </Flex>
+      </Card>
       <Card title={`With a ticket (${ticket.length})`}>{table(ticket, 'No problem carries a ticket.')}</Card>
       <Collapse
         items={[
