@@ -1,5 +1,5 @@
 // View models shared by server functions and pages. Timestamps are ISO strings in UTC.
-import type { CaseResult, Outcome, Trigger, Versions } from '../server/judge'
+import type { CaseResult, CaseStatus, Outcome, Trigger, Versions } from '../server/judge'
 import type { CheckStatus } from '../server/status'
 import type { CaseMeta } from './organize'
 
@@ -89,6 +89,8 @@ export interface Overview {
 }
 
 export interface LatestRun extends RunRow {
+  // A named-case run: how many cases it named; null for a full run.
+  caseCount: number | null
   runnerKind: string | null
   runUrl: string | null
   deployedStart: Versions | null
@@ -96,10 +98,22 @@ export interface LatestRun extends RunRow {
   summary: CaseResult[] | null
 }
 
+// One stored run of a check, newest first, so older and flaky failures stay findable.
+export interface RunHistoryItem extends RunRow {
+  // A named-case run: how many cases it named; null for a full run.
+  caseCount: number | null
+  // Cases that ran and how they ended; null when the run reported no results.
+  tally: { ran: number; passed: number; failed: number; incomplete: number } | null
+  deployed: Versions | null
+}
+
 export interface CheckDetail {
   project: { slug: string; name: string }
   check: CheckCard
+  // The run shown: the latest full run, or an older run picked from the history.
   latest: LatestRun | null
+  viewingLatest: boolean
+  history: RunHistoryItem[]
   // Group and tags of every case in the latest full run's catalog, keyed by case ID.
   caseMeta: Record<string, CaseMeta>
 }
@@ -120,10 +134,20 @@ export interface CaseSpec {
   then: { id: string; expect: string }[]
 }
 
+// This case's result in one stored run; status is null when the run did not include the case.
+export interface CaseHistoryItem {
+  run: RunRow
+  caseCount: number | null
+  status: CaseStatus | null
+  failed: boolean
+}
+
 export interface CaseDetail {
   project: { slug: string; name: string }
   check: { slug: string; name: string }
   spec: CaseSpec
   run: RunRow
+  viewingLatest: boolean
   result: CaseResult | null
+  history: CaseHistoryItem[]
 }

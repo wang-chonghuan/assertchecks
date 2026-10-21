@@ -1,11 +1,18 @@
 // Read model. Every query is scoped to the signed-in user's memberships; a miss is null (rendered as 404).
-// Only each check's latest finished run is shown; older runs stay stored but are never read here.
+// Cards show each check's latest finished full run; the check and case pages can also open an older run
+// from the run history, so failures that come and go stay traceable.
 import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import { catalogChanges } from './catalog-changes'
 import { caseMeta, type CaseMeta } from '../lib/organize'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
-import type { CaseCounts, CaseDetail, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview, PartialRun, RunRow } from '../lib/types'
+import type {
+  CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview,
+  PartialRun, RunHistoryItem, RunRow,
+} from '../lib/types'
+
+// How many stored runs the history lists, newest first.
+const HISTORY_RUNS = 50
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
@@ -19,6 +26,7 @@ interface RunDbRow {
 interface LatestDbRow extends RunDbRow {
   runner_kind: string | null; run_url: string | null; deployed_start: Versions | null
   deployed_end: Versions | null; summary: CaseResult[] | null; catalog: { cases?: CaseSpec[] } | null
+  cases: string[] | null
 }
 
 function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
@@ -53,11 +61,49 @@ async function findCheck(projectId: string, slug: string): Promise<CheckRow | nu
 
 async function latestFinished(checkId: string): Promise<LatestDbRow | null> {
   const [row] = await sql()<LatestDbRow[]>`
-    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, catalog
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, catalog, cases
     FROM runs WHERE check_id = ${checkId} AND finished_at IS NOT NULL AND cases IS NULL
     ORDER BY finished_at DESC, id DESC LIMIT 1
   `
   return row ?? null
+}
+
+// A finished run of this check picked from the history: full or named-case.
+async function finishedRun(checkId: string, runId: string): Promise<LatestDbRow | null> {
+  const [row] = await sql()<LatestDbRow[]>`
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, runner_kind, run_url, deployed_start, deployed_end, summary, catalog, cases
+    FROM runs WHERE check_id = ${checkId} AND id = ${runId} AND finished_at IS NOT NULL
+  `
+  return row ?? null
+}
+
+// The newest runs of a check, any kind, with what each needs for one history row.
+async function recentRuns(checkId: string): Promise<(RunDbRow & {
+  cases: string[] | null; summary: CaseResult[] | null; deployed_start: Versions | null; deployed_end: Versions | null
+})[]> {
+  return sql()`
+    SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, cases, summary,
+           deployed_start, deployed_end
+    FROM runs WHERE check_id = ${checkId}
+    ORDER BY started_at DESC, id DESC LIMIT ${HISTORY_RUNS}
+  `
+}
+
+// A case failed when it failed or any of its Thens failed; it is incomplete when it neither passed nor
+// failed (cut off, skipped, flaky, or a Then missing from the report).
+function caseFailed(item: CaseResult): boolean {
+  return item.status === 'failed' || item.thens.some((then) => then.status === 'failed')
+}
+
+function casePassed(item: CaseResult): boolean {
+  return item.status === 'passed' && item.thens.every((then) => then.status === 'passed')
+}
+
+function tally(summary: CaseResult[] | null): RunHistoryItem['tally'] {
+  if (!summary) return null
+  const failed = summary.filter(caseFailed).length
+  const passed = summary.filter(casePassed).length
+  return { ran: summary.length, passed, failed, incomplete: summary.length - passed - failed }
 }
 
 // The catalog of the full run before the latest one, to show required cases the latest dropped.
@@ -111,13 +157,14 @@ function notPassed(latest: LatestDbRow | null): CaseResult[] {
   if (!latest?.summary) return []
   const specs = catalogCases(latest)
   return latest.summary
-    .filter((item) => item.status !== 'passed' || item.thens.some((then) => then.status !== 'passed'))
+    .filter((item) => !casePassed(item))
     .map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title }))
 }
 
 // Catalog cases this check never runs automatically, so their absence is visible rather than silent.
 function outsideRun(latest: LatestDbRow | null, selection: Selection): OutsideCase[] {
-  if (!latest) return []
+  // A named-case run chose its cases by name; the rest of the catalog was never meant to run.
+  if (!latest || latest.cases) return []
   return [...catalogCases(latest).values()]
     .filter((item) => item.status !== 'retired' &&
       !(selection.status.includes(item.status) && selection.run.includes(item.run)))
@@ -134,7 +181,7 @@ function outsideRun(latest: LatestDbRow | null, selection: Selection): OutsideCa
 function counts(latest: LatestDbRow, notPassedCases: CaseResult[], outside: OutsideCase[]): CaseCounts {
   const ran = latest.summary?.length ?? 0
   const draft = outside.filter((item) => item.status === 'draft').length
-  const failed = notPassedCases.filter((item) => item.status === 'failed' || item.thens.some((then) => then.status === 'failed')).length
+  const failed = notPassedCases.filter(caseFailed).length
   return {
     total: ran + outside.length,
     passed: ran - notPassedCases.length,
@@ -150,22 +197,26 @@ function catalogCases(latest: LatestDbRow): Map<string, CaseSpec> {
   return new Map(cases.map((item) => [item.id, item]))
 }
 
-async function card(check: CheckRow, now: Date): Promise<{ card: CheckCard; latest: LatestDbRow | null }> {
-  const latest = await latestFinished(check.id)
-  const active = await activeRun(check.id, latest?.started_at ?? null)
-  const partial = await latestPartial(check.id, latest?.finished_at ?? null)
+async function card(check: CheckRow, now: Date, chosen?: LatestDbRow): Promise<{ card: CheckCard; latest: LatestDbRow | null }> {
+  const newest = await latestFinished(check.id)
+  const latest = chosen ?? newest
+  // Notices about newer runs belong to the latest view only.
+  const active = chosen ? null : await activeRun(check.id, latest?.started_at ?? null)
+  const partial = chosen ? null : await latestPartial(check.id, latest?.finished_at ?? null)
   const scheduled = await latestScheduled(check.id)
   const derived = checkStatus({
     now,
     createdAt: check.created_at,
     periodSeconds: check.period_seconds,
     graceSeconds: check.grace_seconds,
-    latestFull: latest ? { outcome: latest.outcome } : null,
+    latestFull: newest ? { outcome: newest.outcome } : null,
     latestScheduled: scheduled ? { finishedAt: scheduled } : null,
   })
   const failed = notPassed(latest)
   const outside = outsideRun(latest, check.selection)
-  const changes = latest ? catalogChanges(await previousCatalog(check.id, latest), latest.catalog, check.selection) : []
+  const changes = latest && !latest.cases
+    ? catalogChanges(await previousCatalog(check.id, latest), latest.catalog, check.selection)
+    : []
   const partialRun: PartialRun | null = partial
     ? { ...toRun(partial, check.grace_seconds, now), caseCount: partial.count }
     : null
@@ -211,13 +262,17 @@ export async function overview(userId: string, projectSlug: string): Promise<Ove
   return { project: { slug: found.slug, name: found.name }, checks: cards.map((item) => item.card) }
 }
 
-export async function checkDetail(userId: string, projectSlug: string, checkSlug: string): Promise<CheckDetail | null> {
+export async function checkDetail(
+  userId: string, projectSlug: string, checkSlug: string, runId?: string,
+): Promise<CheckDetail | null> {
   const found = await project(userId, projectSlug)
   if (!found) return null
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
   const now = new Date()
-  const { card: checkCard, latest } = await card(check, now)
+  const chosen = runId ? await finishedRun(check.id, runId) : undefined
+  if (chosen === null) return null
+  const { card: checkCard, latest } = await card(check, now, chosen)
   let latestRun: LatestRun | null = null
   const meta: Record<string, CaseMeta> = {}
   if (latest) {
@@ -225,6 +280,7 @@ export async function checkDetail(userId: string, projectSlug: string, checkSlug
     const specs = catalogCases(latest)
     latestRun = {
       ...toRun(latest, check.grace_seconds, now),
+      caseCount: latest.cases?.length ?? null,
       runnerKind: latest.runner_kind,
       runUrl: latest.run_url,
       deployedStart: latest.deployed_start,
@@ -233,24 +289,52 @@ export async function checkDetail(userId: string, projectSlug: string, checkSlug
       summary: latest.summary?.map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title })) ?? null,
     }
   }
-  return { project: { slug: found.slug, name: found.name }, check: checkCard, latest: latestRun, caseMeta: meta }
+  const history: RunHistoryItem[] = (await recentRuns(check.id)).map((row) => ({
+    ...toRun(row, check.grace_seconds, now),
+    caseCount: row.cases?.length ?? null,
+    tally: tally(row.summary),
+    deployed: row.deployed_start ?? row.deployed_end,
+  }))
+  return {
+    project: { slug: found.slug, name: found.name },
+    check: checkCard,
+    latest: latestRun,
+    viewingLatest: !chosen,
+    history,
+    caseMeta: meta,
+  }
 }
 
 export async function caseDetail(
-  userId: string, projectSlug: string, checkSlug: string, caseId: string,
+  userId: string, projectSlug: string, checkSlug: string, caseId: string, runId?: string,
 ): Promise<CaseDetail | null> {
   const found = await project(userId, projectSlug)
   if (!found) return null
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
-  const latest = await latestFinished(check.id)
+  const latest = runId ? await finishedRun(check.id, runId) : await latestFinished(check.id)
   const spec = latest ? catalogCases(latest).get(caseId) : undefined
   if (!latest || !spec) return null
+  const now = new Date()
+  // Finished runs only: one still running has no result for the case yet.
+  const history: CaseHistoryItem[] = (await recentRuns(check.id))
+    .filter((row) => row.finished_at !== null)
+    .map((row) => {
+      const result = row.summary?.find((item) => item.case === caseId) ?? null
+      return {
+        run: toRun(row, check.grace_seconds, now),
+        caseCount: row.cases?.length ?? null,
+        status: result?.status ?? null,
+        failed: result ? caseFailed(result) : false,
+      }
+    })
   return {
     project: { slug: found.slug, name: found.name },
     check: { slug: check.slug, name: check.name },
     spec,
-    run: toRun(latest, check.grace_seconds, new Date()),
+    run: toRun(latest, check.grace_seconds, now),
+    viewingLatest: !runId,
     result: latest.summary?.find((item) => item.case === caseId) ?? null,
+    history,
   }
 }

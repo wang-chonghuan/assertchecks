@@ -1,12 +1,21 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Alert, Breadcrumb, Card, Collapse, Descriptions, Flex, Tag, Typography, theme } from 'antd'
+import { Alert, Breadcrumb, Card, Collapse, Descriptions, Flex, Table, Tag, Typography, theme } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
+import type { CaseHistoryItem } from '../../../../../../../lib/types'
 import { getCase } from '../../../../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
 import { UNGROUPED, caseMeta } from '../../../../../../../lib/organize'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/cases/$case')({
-  loader: ({ params }) => getCase({ data: { project: params.project, check: params.check, case: params.case } }),
+  // ?run=<number> shows the case as an older run found it; without it, as the latest full run did.
+  validateSearch: (search: Record<string, unknown>): { run?: number } => {
+    const run = Number(search.run)
+    return Number.isSafeInteger(run) && run > 0 ? { run } : {}
+  },
+  loaderDeps: ({ search }) => ({ run: search.run === undefined ? undefined : String(search.run) }),
+  loader: ({ params, deps }) =>
+    getCase({ data: { project: params.project, check: params.check, case: params.case, run: deps.run } }),
   head: ({ params }) => ({ meta: [{ title: `${params.case} · ${PRODUCT_NAME}` }] }),
   component: CasePage,
 })
@@ -23,7 +32,8 @@ function Steps({ items }: { items: string[] }) {
 // catalog's organizing fields and the raw error output wait in collapsed sections.
 function CasePage() {
   const { token } = theme.useToken()
-  const { project, check, spec, run, result } = Route.useLoaderData()
+  const { project, check, spec, run, result, history, viewingLatest } = Route.useLoaderData()
+  const runSearch = viewingLatest ? {} : { run: Number(run.id) }
   const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
   const meta = caseMeta(spec)
   const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
@@ -64,7 +74,7 @@ function CasePage() {
       <Breadcrumb
         items={[
           { title: <Link to="/p/$project" params={{ project: project.slug }}>{project.name}</Link> },
-          { title: <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>{check.name}</Link> },
+          { title: <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }} search={runSearch}>{check.name}</Link> },
           { title: spec.id },
         ]}
       />
@@ -75,13 +85,21 @@ function CasePage() {
           : <Tag>Not in this run</Tag>}
       >
         <Flex vertical gap="middle">
-          <Typography.Text type="secondary">
-            {!result
-              ? `Not reported in the latest run (${utc(run.startedAt)})`
-              : result.status !== 'passed' && result.thens.every((then) => then.status === 'not_run')
-                ? `Latest run ${utc(run.startedAt)} · stopped before its first check`
-                : `Latest run ${utc(run.startedAt)}`}
-          </Typography.Text>
+          <Flex gap="small" wrap>
+            <Typography.Text type="secondary">
+              {viewingLatest ? 'Latest run' : `Run #${run.id}`}, {utc(run.startedAt)}
+              {!result
+                ? ' · not in this run'
+                : result.status !== 'passed' && result.thens.every((then) => then.status === 'not_run')
+                  ? ' · stopped before its first check'
+                  : ''}
+            </Typography.Text>
+            {!viewingLatest && (
+              <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: spec.id }}>
+                Back to latest
+              </Link>
+            )}
+          </Flex>
           {spec.failure && (
             <Alert type={failed ? 'error' : 'info'} showIcon title="Known cause" description={spec.failure} />
           )}
@@ -112,6 +130,51 @@ function CasePage() {
           <Collapse ghost size="small" items={more} />
         </Flex>
       </Card>
+      {history.length > 0 && (
+        <Card title="Result in each run">
+          <CaseHistory history={history} shownId={run.id} project={project.slug} check={check.slug} caseId={spec.id} />
+        </Card>
+      )}
     </Flex>
+  )
+}
+
+// This case's result run by run, so a failure that comes and goes is visible.
+function CaseHistory({ history, shownId, project, check, caseId }: {
+  history: CaseHistoryItem[]; shownId: string; project: string; check: string; caseId: string
+}) {
+  const columns: TableColumnsType<CaseHistoryItem> = [
+    {
+      title: 'Run',
+      key: 'run',
+      render: (_, item) => (
+        <Link to="/p/$project/checks/$check/cases/$case" params={{ project, check, case: caseId }} search={{ run: Number(item.run.id) }}>
+          <Typography.Text strong={item.run.id === shownId}>#{item.run.id}</Typography.Text>
+        </Link>
+      ),
+    },
+    { title: 'Started', key: 'started', render: (_, item) => utc(item.run.startedAt) },
+    {
+      title: 'Kind',
+      key: 'kind',
+      render: (_, item) => <Tag>{item.caseCount !== null ? 'Named cases' : item.run.trigger === 'schedule' ? 'Scheduled' : 'Manual'}</Tag>,
+    },
+    {
+      title: 'This case',
+      key: 'status',
+      render: (_, item) => item.status === null
+        ? <Typography.Text type="secondary">Not in this run</Typography.Text>
+        : <CaseStatusTag status={item.failed && item.status === 'passed' ? 'failed' : item.status} />,
+    },
+  ]
+  return (
+    <Table
+      rowKey={(item) => item.run.id}
+      size="small"
+      scroll={{ x: 'max-content' }}
+      pagination={history.length > 10 ? { pageSize: 10, size: 'small' } : false}
+      columns={columns}
+      dataSource={history}
+    />
   )
 }
