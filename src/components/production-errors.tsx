@@ -1,10 +1,11 @@
-import { Alert, App, Button, Card, Collapse, Descriptions, Empty, Flex, Form, Input, Modal, Popconfirm, Skeleton, Table, Tag, Tooltip, Typography, theme } from 'antd'
+import { Alert, App, Button, Card, Collapse, Descriptions, Empty, Flex, Form, Grid, Input, Modal, Popconfirm, Skeleton, Table, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { decideProblem, getProductionErrors } from '../server/fns'
 import type { NoiseCategory, ProblemGroup, ProblemView, ProductionErrors } from '../lib/types'
 import { utc } from './status'
+import { ASSERTCHECKS_STYLE } from '../theme'
 
 const NOISE_LABEL: Record<NoiseCategory, string> = {
   client: '4xx responses',
@@ -14,6 +15,9 @@ const NOISE_LABEL: Record<NoiseCategory, string> = {
   script: 'Cross-origin "Script error."',
 }
 
+// The folded groups line up with the cards above them.
+const { cardPadding } = ASSERTCHECKS_STYLE
+
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 const unit = (problem: ProblemView) => (problem.kind === 'slow' ? 'slow hour' : 'failure')
 
@@ -22,6 +26,9 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
   const { token } = theme.useToken()
   const max = Math.max(1, ...daily.map((day) => day.count))
   const peak = daily.reduce((top, day) => (day.count > top.count ? day : top), { day: '', count: 0 })
+  const peakText = peak.count ? `Peak ${plural(peak.count, 'failure')} on ${peak.day}` : 'No failures in 30 days'
+  // On phones the peak gets its own line instead of squeezing between the two dates.
+  const wide = Grid.useBreakpoint().md
   return (
     <Flex vertical gap={token.marginXXS}>
       <Flex align="end" gap={token.marginXXS / 2} style={{ height: token.sizeXXL }} role="img" aria-label="Failures per day, last 30 days">
@@ -40,13 +47,12 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
           </Tooltip>
         ))}
       </Flex>
-      <Flex justify="space-between" gap="small" wrap>
+      <Flex justify="space-between" gap="small">
         <Typography.Text type="secondary">{daily[0]?.day}</Typography.Text>
-        <Typography.Text type="secondary">
-          {peak.count ? `Peak ${plural(peak.count, 'failure')} on ${peak.day}` : 'No failures in 30 days'}
-        </Typography.Text>
+        {wide && <Typography.Text type="secondary">{peakText}</Typography.Text>}
         <Typography.Text type="secondary">{daily.at(-1)?.day}</Typography.Text>
       </Flex>
+      {!wide && <Typography.Text type="secondary">{peakText}</Typography.Text>}
     </Flex>
   )
 }
@@ -117,8 +123,8 @@ function ProblemDetail({ problem }: { problem: ProblemView }) {
           pagination={false}
           columns={[
             { title: 'Message', dataIndex: 'template', render: (text: string) => <Typography.Text style={{ wordBreak: 'break-word' }}>{text || '—'}</Typography.Text> },
-            { title: 'Failures', dataIndex: 'count', width: token.controlHeight * 2 },
-            { title: 'Last', dataIndex: 'lastAt', responsive: ['md'], render: utc },
+            { title: 'Failures', dataIndex: 'count', width: token.controlHeight * 3 },
+            { title: 'Last', dataIndex: 'lastAt', responsive: ['md'], width: token.controlHeight * 5, render: utc },
           ]}
           dataSource={problem.variants}
         />
@@ -128,7 +134,21 @@ function ProblemDetail({ problem }: { problem: ProblemView }) {
           <Typography.Text strong>Latest failure, {utc(problem.latest.at)}</Typography.Text>
           <Typography.Text style={{ wordBreak: 'break-word' }}>{problem.latest.type ? `${problem.latest.type}: ` : ''}{problem.latest.message}</Typography.Text>
           {problem.latest.stack && (
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0, maxHeight: token.controlHeight * 10, overflow: 'auto' }}>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                margin: 0,
+                maxHeight: token.controlHeight * 10,
+                overflow: 'auto',
+                padding: token.paddingXS,
+                borderRadius: token.borderRadius,
+                background: token.colorFillQuaternary,
+                fontFamily: token.fontFamilyCode,
+                fontSize: token.fontSizeSM,
+                lineHeight: token.lineHeightSM,
+              }}
+            >
               {problem.latest.stack}
             </pre>
           )}
@@ -206,20 +226,22 @@ export function ProductionErrorsTab({ project }: { project: string }) {
     if (decision?.kind === 'ticket') {
       const since = problem.sinceTicket
       return (
-        <Flex vertical gap={token.marginXXS}>
-          <Typography.Link href={decision.url} target="_blank" style={{ wordBreak: 'break-all' }}>
+        <Flex vertical gap={token.marginXXS} align="flex-start">
+          <Typography.Link href={decision.url} target="_blank" onClick={(event) => event.stopPropagation()} style={{ wordBreak: 'break-all' }}>
             {decision.url} <ExportOutlined />
           </Typography.Link>
-          {since && since.count > 0
-            ? <Tag color="error">Still occurring: {plural(since.count, unit(problem))} since the ticket</Tag>
-            : <Tag>{since?.quietDays ? `No occurrence for ${plural(since.quietDays, 'day')} since the ticket` : 'No occurrence since the ticket'}</Tag>}
-          <Typography.Text type="secondary">Ticket by {decision.by}, {utc(decision.at)}</Typography.Text>
+          <Flex gap="small" wrap align="center">
+            {since && since.count > 0
+              ? <Tag color="error">Still occurring: {plural(since.count, unit(problem))} since the ticket</Tag>
+              : <Tag>{since?.quietDays ? `No occurrence for ${plural(since.quietDays, 'day')} since the ticket` : 'No occurrence since the ticket'}</Tag>}
+            <Typography.Text type="secondary">by {decision.by}, {utc(decision.at)}</Typography.Text>
+          </Flex>
         </Flex>
       )
     }
     if (decision?.kind === 'ignored') {
       return (
-        <Flex vertical gap={token.marginXXS}>
+        <Flex vertical>
           <Typography.Text>{decision.reason}</Typography.Text>
           <Typography.Text type="secondary">Not handling, by {decision.by}, {utc(decision.at)}</Typography.Text>
         </Flex>
@@ -231,37 +253,48 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   const actionsOf = (problem: ProblemView): ReactNode => {
     const undo = (
       <Popconfirm title="Undo this decision?" onConfirm={() => decide(problem, 'none')}>
-        <Button size="small">Undo</Button>
+        <Button size="small" block>Undo</Button>
       </Popconfirm>
     )
-    if (problem.decision?.kind === 'ticket') {
-      return <Flex gap="small" wrap><Button size="small" onClick={() => setAsking({ problem, decision: 'ticket' })}>Change ticket</Button>{undo}</Flex>
-    }
-    if (problem.decision?.kind === 'ignored') return undo
-    return (
-      <Flex gap="small" wrap>
-        <Button size="small" type="primary" onClick={() => setAsking({ problem, decision: 'ticket' })}>Attach ticket</Button>
-        <Button size="small" onClick={() => setAsking({ problem, decision: 'ignored' })}>Not handling</Button>
+    // Stacked buttons share the width of the widest; clicking them never opens or closes the row.
+    const stack = (children: ReactNode) => (
+      <Flex vertical gap={token.marginXS} style={{ width: 'max-content' }} onClick={(event) => event.stopPropagation()}>
+        {children}
       </Flex>
+    )
+    if (problem.decision?.kind === 'ticket') {
+      return stack(<><Button size="small" block onClick={() => setAsking({ problem, decision: 'ticket' })}>Change ticket</Button>{undo}</>)
+    }
+    if (problem.decision?.kind === 'ignored') return stack(undo)
+    return stack(
+      <>
+        <Button size="small" block type="primary" onClick={() => setAsking({ problem, decision: 'ticket' })}>Attach ticket</Button>
+        <Button size="small" block onClick={() => setAsking({ problem, decision: 'ignored' })}>Not handling</Button>
+      </>,
     )
   }
 
+  // Rows hold several lines; their first lines line up when every cell starts at the top.
+  const top = () => ({ style: { verticalAlign: 'top' as const } })
   const columns: TableColumnsType<ProblemView> = [
     {
       title: 'Problem',
       key: 'problem',
+      onCell: top,
       render: (_, problem) => (
-        <Flex vertical gap={token.marginXXS}>
-          <Flex gap="small" wrap align="center">
-            {problem.isNew && <Tag color="processing">New</Tag>}
-            {problem.kind === 'slow' && <Tag color="warning">Slow</Tag>}
-            <Typography.Text strong style={{ wordBreak: 'break-word' }}>{problem.key}</Typography.Text>
+        <Flex vertical gap={token.marginXS} align="flex-start">
+          <Flex vertical>
+            <Flex gap="small" wrap align="center">
+              {problem.isNew && <Tag color="processing">New</Tag>}
+              {problem.kind === 'slow' && <Tag color="warning">Slow</Tag>}
+              <Typography.Text strong style={{ wordBreak: 'break-word' }}>{problem.key}</Typography.Text>
+            </Flex>
+            <Typography.Text type="secondary" style={{ wordBreak: 'break-word' }}>
+              {problem.slow
+                ? `p95 ${problem.slow.p95Ms} ms in its latest slow hour, usually ${problem.slow.usualMs} ms`
+                : [problem.place, problem.browser ? 'Browser' : problem.role].filter(Boolean).join(' · ') || '—'}
+            </Typography.Text>
           </Flex>
-          <Typography.Text type="secondary" style={{ wordBreak: 'break-word' }}>
-            {problem.slow
-              ? `p95 ${problem.slow.p95Ms} ms in its latest slow hour, usually ${problem.slow.usualMs} ms`
-              : [problem.place, problem.browser ? 'Browser' : problem.role].filter(Boolean).join(' · ') || '—'}
-          </Typography.Text>
           {problem.together.length > 0 && (
             <Tooltip title={problem.together.join(' · ')}>
               <Tag>Appeared together with {plural(problem.together.length, 'other problem')}</Tag>
@@ -275,6 +308,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       title: 'Failures',
       key: 'count',
       width: token.controlHeight * 6,
+      onCell: top,
       render: (_, problem) => (
         <Flex vertical>
           <Typography.Text>{plural(problem.count7d, unit(problem))} in 7 days</Typography.Text>
@@ -282,14 +316,14 @@ export function ProductionErrorsTab({ project }: { project: string }) {
         </Flex>
       ),
     },
-    { title: 'Last seen', dataIndex: 'lastSeen', responsive: ['md'], width: token.controlHeight * 5, render: utc },
-    { title: '', key: 'actions', width: token.controlHeight * 6, render: (_, problem) => actionsOf(problem) },
+    { title: 'Last seen', dataIndex: 'lastSeen', responsive: ['md'], width: token.controlHeight * 5, onCell: top, render: utc },
+    { title: '', key: 'actions', width: token.controlHeight * 4, onCell: top, render: (_, problem) => actionsOf(problem) },
   ]
 
   const table = (rows: ProblemView[], empty: string) => (
     <Table
       rowKey="id"
-      size="small"
+      size="middle"
       pagination={false}
       // Fixed layout lets long problem names wrap; below this width the table scrolls inside its card.
       tableLayout="fixed"
@@ -297,7 +331,14 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       columns={columns}
       dataSource={rows}
       locale={{ emptyText: <Empty description={empty} /> }}
-      expandable={{ expandedRowRender: (problem) => <ProblemDetail problem={problem} /> }}
+      // The expand icon sits at the row's end so problem names line up with the card title; the whole row opens.
+      expandable={{
+        expandedRowRender: (problem) => <ProblemDetail problem={problem} />,
+        expandRowByClick: true,
+        expandIconColumnIndex: columns.length,
+        columnWidth: token.controlHeight,
+      }}
+      onRow={() => ({ style: { cursor: 'pointer' } })}
     />
   )
 
@@ -332,8 +373,10 @@ export function ProductionErrorsTab({ project }: { project: string }) {
           {table(triageNow, triage.length ? 'No problem to triage was seen in the past 7 days.' : 'Nothing to triage.')}
           {triageEarlier.length > 0 && (
             <Collapse
+              ghost
               items={[{
                 key: 'earlier',
+                styles: { header: { paddingInline: 0 }, body: { paddingInline: 0 } },
                 label: `Not seen in the past 7 days (${triageEarlier.length})`,
                 children: table(triageEarlier, ''),
               }]}
@@ -343,6 +386,8 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       </Card>
       <Card title={`With a ticket (${ticket.length})`}>{table(ticket, 'No problem carries a ticket.')}</Card>
       <Collapse
+        bordered={false}
+        style={{ background: token.colorBgContainer }}
         items={[
           { key: 'quiet', label: `Quiet for 30+ days (${quiet.length})`, children: table(quiet, 'No problem has been quiet that long.') },
           { key: 'ignored', label: `Not handling (${ignored.length})`, children: table(ignored, 'Nothing is marked not handling.') },
@@ -350,9 +395,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
             key: 'noise',
             label: `Filtered noise, last 7 days (${noiseTotal})`,
             children: (
-              <Flex vertical gap="middle">
+              <Flex vertical gap="middle" style={{ maxWidth: token.controlHeight * 20 }}>
                 {data.noise.map((group) => (
-                  <Flex key={group.category} vertical gap={token.marginXXS}>
+                  <Flex key={group.category} vertical>
                     <Typography.Text strong>{NOISE_LABEL[group.category]} · {group.total}</Typography.Text>
                     {group.items.length === 0
                       ? <Typography.Text type="secondary">None</Typography.Text>
@@ -367,7 +412,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
               </Flex>
             ),
           },
-        ]}
+        ].map((item) => ({ ...item, styles: { header: { paddingInline: cardPadding }, body: { paddingInline: cardPadding } } }))}
       />
       <DecisionModal
         asking={asking}
