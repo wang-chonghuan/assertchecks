@@ -108,7 +108,7 @@ function CheckPage() {
   // Fixed leading widths keep columns aligned across group sections.
   const caseWidth = token.controlHeight * 10
   const resultWidth = token.controlHeight * 4
-  const ticketWidth = token.controlHeight * 9
+  const ticketWidth = token.controlHeight * 8
   // The newest ticket and what runs since say about it; earlier tickets are on the case page.
   const ticketCell = (id: string) => {
     const own = tickets[id]
@@ -157,7 +157,7 @@ function CheckPage() {
       // Phones read the error on the expanded row or the case page instead of scrolling sideways.
       responsive: ['md'],
       render: (error: string | null) => firstLine(error)
-        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: token.controlHeight * 16 }}>{firstLine(error)}</Typography.Text>
+        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: token.controlHeight * 8 }}>{firstLine(error)}</Typography.Text>
         : <Typography.Text type="secondary">—</Typography.Text>,
     },
   ]
