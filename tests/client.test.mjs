@@ -211,7 +211,7 @@ test('link needs a signed-in person, cases and a ticket', async () => {
   const { options } = harness({ XDG_CONFIG_HOME: config })
   await assert.rejects(run(['link', '--cases', 'E2E-094'], { ...options, cwd: repo }), /--ticket/)
   const away = harness({ XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), 'assertchecks-config-')) })
-  await assert.rejects(run(['link', '--cases', 'E2E-094', '--ticket', 'https://x.example/1'], { ...away.options, cwd: repo }), /Not signed in/)
+  await assert.rejects(run(['link', '--cases', 'E2E-094', '--ticket', 'https://x.example/1'], { ...away.options, cwd: repo }), /not signed in/)
 })
 
 test('bugs without a project lists the person\'s projects and fails', async () => {

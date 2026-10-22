@@ -157,10 +157,10 @@ async function personReply(response, what) {
   if (response.status === 401) {
     const reply = await response.json().catch(() => ({}))
     throw new Error(reply.url
-      ? `Sign-in is waiting for approval: open ${reply.url}`
-      : 'AssertChecks does not accept this computer\'s sign-in (signed out, revoked or expired). Run: node assertchecks.mjs login')
+      ? `AssertChecks: the sign-in is waiting for approval at ${reply.url}`
+      : 'AssertChecks: this computer\'s sign-in is no longer accepted (signed out, revoked or expired). Run: node assertchecks.mjs login')
   }
-  if (response.status === 404) throw new Error(`AssertChecks: ${what} not found among your projects`)
+  if (response.status === 404) throw new Error(`AssertChecks: ${what}, or you are not a member of it`)
   const plain = response.headers.get('content-type')?.startsWith('text/plain')
   const reply = plain ? await response.text() : await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(`AssertChecks: ${reply.error ?? `HTTP ${response.status}`}`)
@@ -184,7 +184,7 @@ async function awaitApproval({ origin, env, token, url, fetchImpl, out, sleep })
     if (response.status !== 401 || !reply.url) {
       const all = readCredentials(env)
       if (all[origin]?.token === token) { delete all[origin]; writeCredentials(env, all) }
-      throw new Error(response.status === 401 ? 'The sign-in request expired. Run login again.' : `AssertChecks login failed: HTTP ${response.status}`)
+      throw new Error(response.status === 401 ? 'AssertChecks: the sign-in request expired. Run login again.' : `AssertChecks login failed: HTTP ${response.status}`)
     }
   }
 }
@@ -331,13 +331,13 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
 
   if (command === 'bugs' || command === 'link') {
     const saved = readCredentials(env)[origin]
-    if (!saved) throw new Error(`Not signed in to ${origin}. Run: node assertchecks.mjs login`)
+    if (!saved) throw new Error(`AssertChecks: not signed in to ${origin}. Run: node assertchecks.mjs login`)
     const project = projectOf(values.project, cwd)
 
     if (command === 'link') {
       if (!project) throw new Error('link needs --project SLUG, or "project" in assertchecks/config.json')
       if (!cases?.length || !values.ticket) throw new Error('link needs --cases ID,ID and --ticket URL')
-      const reply = await personReply(await asPerson(origin, saved.token, 'POST', 'link', { project, cases, ticket: values.ticket }, fetchImpl), `project ${project}`)
+      const reply = await personReply(await asPerson(origin, saved.token, 'POST', 'link', { project, cases, ticket: values.ticket }, fetchImpl), `no project ${project}`)
       out(`AssertChecks: ${values.ticket} linked to ${reply.linked.length ? reply.linked.join(', ') : 'no new cases'}` +
         `${reply.already.length ? `; already linked: ${reply.already.join(', ')}` : ''}`)
       return 0
@@ -347,7 +347,7 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
     if (project) query.set('project', project)
     if (project && values.check) query.set('check', values.check)
     const reply = await personReply(await asPerson(origin, saved.token, 'GET', `bugs?${query}`, null, fetchImpl),
-      project && values.check ? `check ${project}/${values.check}` : `project ${project}`)
+      project && values.check ? `no check ${values.check} in project ${project}` : `no project ${project}`)
     if (typeof reply === 'string') {
       out(reply)
       return 0
@@ -356,8 +356,8 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
       out('Name the project with --project SLUG, or set "project" in assertchecks/config.json. Your projects:')
       for (const item of reply.projects) out(`- ${item.slug}: ${item.name}`)
     } else {
-      out(`Name the check with --check SLUG. Checks of ${project}:`)
-      for (const item of reply.checks) out(`- ${item.slug}: ${item.name} (environment ${item.environment})`)
+      out(`Name the check with --check SLUG. Checks in project ${project}:`)
+      for (const item of reply.checks) out(`- ${item.slug}: ${item.name}, environment ${item.environment}`)
     }
     return 1
   }

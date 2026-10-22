@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { App, Button, Flex, Result, Typography, theme } from 'antd'
+import { KeyOutlined } from '@ant-design/icons'
 import { approveClientLogin, getClientLogin } from '../../../server/fns'
 import { utc } from '../../../components/status'
 
@@ -20,26 +21,27 @@ function ClientLoginPage() {
   const [approving, setApproving] = useState(false)
 
   if (state === 'approved') {
-    return <Result status="success" title="The client is signed in" subTitle="You can close this page and return to your terminal." />
+    return <Result status="success" title="This computer is signed in" subTitle="You can close this page and go back to your terminal or coding agent." />
   }
   if (state === 'expired') {
     return (
       <Result
         status="warning"
         title="This sign-in request expired"
-        subTitle={<>Run <Typography.Text code>node assertchecks.mjs login</Typography.Text> again for a new code.</>}
+        subTitle="Sign in again from your terminal or coding agent for a new code."
       />
     )
   }
   return (
     <Result
       status="info"
-      title="Sign in the AssertChecks client?"
+      icon={<KeyOutlined />}
+      title="Approve this computer?"
       subTitle={(
         <>
-          It will act as <Typography.Text strong>{me.email}</Typography.Text>: read your projects' failures and link
-          tickets. Approve only if you just ran <Typography.Text code>node assertchecks.mjs login</Typography.Text> on
-          your own computer and it shows this code.
+          A sign-in started on your computer, by you or your coding agent, will act as{' '}
+          <Typography.Text strong>{me.email}</Typography.Text>: read your projects' failures and link tickets. Approve
+          only if it shows this same code.
         </>
       )}
       extra={(

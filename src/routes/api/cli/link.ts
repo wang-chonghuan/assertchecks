@@ -22,7 +22,7 @@ export const Route = createFileRoute('/api/cli/link')({
         }
         const reply = await linkFromClient(person, fields.project, fields.cases, fields.url)
         if (!reply) return Response.json({ error: 'not found' }, { status: 404 })
-        if ('unknown' in reply) return Response.json({ error: `not in the project's current catalogs: ${reply.unknown.join(', ')}` }, { status: 400 })
+        if ('unknown' in reply) return Response.json({ error: `nothing was linked; not cases of project ${fields.project}: ${reply.unknown.join(', ')}` }, { status: 400 })
         return Response.json(reply)
       },
     },
