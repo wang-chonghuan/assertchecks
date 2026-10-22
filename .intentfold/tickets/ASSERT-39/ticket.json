@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-39",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-39",
   "branch": "ASSERT-39-cap7-closed-tickets",
