@@ -138,7 +138,8 @@ export const theme: ThemeConfig = {
     },
     // Fields share the pill shape so controls in one form match.
     Input: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius },
-    Select: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius },
+    // The field is a pill; its dropdown panel takes borderRadiusLG, so that one stays the card radius.
+    Select: { borderRadius: style.pillRadius, borderRadiusLG: style.cardRadius, borderRadiusSM: style.pillRadius },
     Segmented: { borderRadius: style.pillRadius, borderRadiusLG: style.pillRadius, borderRadiusSM: style.pillRadius, borderRadiusXS: style.pillRadius },
     Layout: { bodyBg: style.pageBg, headerBg: style.headerBg, headerHeight: style.headerHeight },
     Table: { rowHoverBg: style.pageBg },
