@@ -264,4 +264,6 @@ export interface ProjectTicket {
 export interface ProjectTickets {
   project: { slug: string; name: string }
   tickets: ProjectTicket[]
+  // Cases that did not pass in a check's newest full run and carry no ticket, with those checks.
+  untracked: { case: string; title: string; checks: { slug: string; name: string }[] }[]
 }

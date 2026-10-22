@@ -107,8 +107,8 @@ function CheckPage() {
 
   // Fixed leading widths keep columns aligned across group sections.
   const caseWidth = token.controlHeight * 10
-  const resultWidth = token.controlHeight * 4
-  const ticketWidth = token.controlHeight * 8
+  const resultWidth = token.controlHeight * 5
+  const ticketWidth = token.controlHeight * 7
   // The newest ticket and what runs since say about it; earlier tickets are on the case page.
   const ticketCell = (id: string) => {
     const own = tickets[id]
@@ -116,8 +116,8 @@ function CheckPage() {
     return (
       <Flex vertical gap={token.marginXXS} align="flex-start">
         {own?.recurred && <Tag color="error">Recurred after a verified fix</Tag>}
-        {newest && <TicketUrl url={newest.url} />}
-        {newest && <TicketStateTag state={newest.state} failed={newest.failed} runs={newest.since.length} />}
+        {newest && <TicketUrl url={newest.url} short />}
+        {newest && <TicketStateTag state={newest.state} failed={newest.failed} runs={newest.since.length} compact />}
         {own && own.tickets.length > 1 && (
           <Typography.Text type="secondary">{own.tickets.length - 1} earlier ticket{own.tickets.length > 2 ? 's' : ''}</Typography.Text>
         )}
@@ -157,7 +157,7 @@ function CheckPage() {
       // Phones read the error on the expanded row or the case page instead of scrolling sideways.
       responsive: ['md'],
       render: (error: string | null) => firstLine(error)
-        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: token.controlHeight * 8 }}>{firstLine(error)}</Typography.Text>
+        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: '100%' }}>{firstLine(error)}</Typography.Text>
         : <Typography.Text type="secondary">—</Typography.Text>,
     },
   ]
@@ -175,7 +175,9 @@ function CheckPage() {
       rowKey="case"
       size="small"
       pagination={false}
-      scroll={{ x: 'max-content' }}
+      // Fixed widths keep every group section's columns on the same lines; phones scroll inside the card.
+      tableLayout="fixed"
+      scroll={{ x: token.controlHeight * 26 }}
       columns={failedColumns}
       dataSource={rows}
       // Selections across group sections add up to one list for a shared ticket.

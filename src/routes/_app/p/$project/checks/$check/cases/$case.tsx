@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Empty, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
+import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Divider, Empty, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { useState } from 'react'
 import { caseBugReport } from '../../../../../../../lib/bug-report'
@@ -245,41 +245,58 @@ function CaseHistory({ history, shownId, project, check, caseId }: {
   )
 }
 
-// Every ticket this case was given, newest first, each judged by this check's runs since it was attached.
+// Every ticket this case was given. The newest is the one later runs judge; earlier ones are kept as
+// history, with when they were attached.
 function CaseTicketsCard({ tickets, checkName, onAttach, onRemove }: {
   tickets: CaseTickets; checkName: string; onAttach: () => void; onRemove: (link: string) => Promise<void>
 }) {
   const { token } = theme.useToken()
+  const [newest, ...earlier] = tickets.tickets
+  const remove = (id: string) => (
+    <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(id)}>
+      <Button size="small" type="link">Remove</Button>
+    </Popconfirm>
+  )
   return (
-    <Card title={`Tickets (${tickets.tickets.length})`} extra={<Button onClick={onAttach}>{tickets.tickets.length ? 'Add ticket' : 'Attach ticket'}</Button>}>
+    <Card title={`Tickets (${tickets.tickets.length})`} extra={<Button onClick={onAttach}>{newest ? 'Add ticket' : 'Attach ticket'}</Button>}>
       <Flex vertical gap="middle">
         {tickets.recurred && (
           <Alert type="error" showIcon title="Recurred" description="This case fails again after one of its tickets had been verified fixed." />
         )}
-        {tickets.tickets.length === 0 && <Empty description="No ticket yet. Tickets are shared by every check of this project." />}
-        {tickets.tickets.map((ticket, index) => (
-          <Flex key={ticket.id} vertical gap={token.marginXXS} align="flex-start">
+        {!newest && <Empty description="No ticket yet. Tickets are shared by every check of this project." />}
+        {newest && (
+          <Flex vertical gap={token.marginXXS} align="flex-start">
+            <TicketUrl url={newest.url} />
             <Flex gap="small" wrap align="center">
-              {index === 0 && tickets.tickets.length > 1 && <Tag>Newest</Tag>}
-              <TicketUrl url={ticket.url} />
+              <TicketStateTag state={newest.state} failed={newest.failed} runs={newest.since.length} />
+              <Typography.Text type="secondary">on {checkName} · by {newest.by}, {utc(newest.at)}</Typography.Text>
+              {remove(newest.id)}
             </Flex>
-            <Flex gap="small" wrap align="center">
-              <TicketStateTag state={ticket.state} failed={ticket.failed} runs={ticket.since.length} />
-              <Typography.Text type="secondary">on {checkName} · by {ticket.by}, {utc(ticket.at)}</Typography.Text>
-              <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
-                <Button size="small" type="link">Remove</Button>
-              </Popconfirm>
-            </Flex>
-            {ticket.since.length > 0 && (
+            {newest.since.length > 0 && (
               <Flex gap={token.marginXXS} wrap align="center">
                 <Typography.Text type="secondary">Runs since:</Typography.Text>
-                {ticket.since.map((item) => (
+                {newest.since.map((item) => (
                   <Tag key={item.runId} color={item.passed ? 'success' : 'error'}>#{item.runId} {item.passed ? 'passed' : 'not passed'}</Tag>
                 ))}
               </Flex>
             )}
           </Flex>
-        ))}
+        )}
+        {earlier.length > 0 && (
+          <Flex vertical gap={token.marginXS}>
+            <Divider style={{ margin: 0 }} />
+            <Typography.Text strong>Earlier tickets</Typography.Text>
+            {earlier.map((ticket) => (
+              <Flex key={ticket.id} vertical align="flex-start">
+                <TicketUrl url={ticket.url} />
+                <Flex gap="small" wrap align="center">
+                  <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.at)}</Typography.Text>
+                  {remove(ticket.id)}
+                </Flex>
+              </Flex>
+            ))}
+          </Flex>
+        )}
       </Flex>
     </Card>
   )

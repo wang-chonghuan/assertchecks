@@ -1,8 +1,7 @@
 // Tickets on cases and problems (ASSERT-37): the attach dialog, a ticket's link and state, and the
 // project's tickets grouped by ticket.
 import { Link } from '@tanstack/react-router'
-import { Alert, Card, Collapse, Empty, Flex, Form, Input, Modal, Skeleton, Table, Tag, Typography, theme } from 'antd'
-import type { TableColumnsType } from 'antd'
+import { Alert, Card, Collapse, Divider, Flex, Form, Input, Modal, Skeleton, Tag, Typography, theme } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import { useEffect, useState, type ReactNode } from 'react'
 import { getProjectTickets } from '../server/fns'
@@ -11,19 +10,35 @@ import { utc } from './status'
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 
-// What later runs say about a ticket, in the words a person checks a fix by.
-export function TicketStateTag({ state, failed, runs }: { state: TicketState; failed: number; runs: number }) {
-  if (state === 'verified') return <Tag color="success">Verified fixed: passed 2 runs in a row</Tag>
-  if (state === 'passing') return <Tag color="processing">Passed once since the ticket</Tag>
-  if (state === 'failing') return <Tag color="error">Still failing: {failed} of {plural(runs, 'run')} since the ticket</Tag>
-  return <Tag>No run since the ticket</Tag>
+// What later runs say about a ticket, in the words a person checks a fix by. The compact form is for
+// lists that repeat it per case and environment.
+export function TicketStateTag({ state, failed, runs, compact = false }: { state: TicketState; failed: number; runs: number; compact?: boolean }) {
+  if (state === 'verified') return <Tag color="success">{compact ? 'Verified fixed' : 'Verified fixed: passed 2 runs in a row'}</Tag>
+  if (state === 'passing') return <Tag color="processing">{compact ? 'Passed once' : 'Passed once since the ticket'}</Tag>
+  if (state === 'failing') {
+    return <Tag color="error">{compact ? `Still failing ${failed}/${runs}` : `Still failing: ${failed} of ${plural(runs, 'run')} since the ticket`}</Tag>
+  }
+  return <Tag>{compact ? 'No run yet' : 'No run since the ticket'}</Tag>
 }
 
-// A ticket's link opens the ticket and never the row it sits in.
-export function TicketUrl({ url }: { url: string }) {
+// A ticket's short name: its issue key (ENG-1702) when the link has one, else the link's last part.
+export function ticketLabel(url: string): string {
+  const key = url.match(/\b[A-Z][A-Z0-9]+-\d+(?![-\w])/)
+  if (key) return key[0]
+  const path = url.replace(/[?#].*$/, '').split('/').filter(Boolean)
+  const last = path.at(-1) ?? url
+  // An opaque ID (a UUID) says nothing; show its start.
+  return /^[0-9a-f-]{20,}$/i.test(last) ? `${last.slice(0, 8)}…` : last
+}
+
+// Who attached a ticket, short: an email's name part, or the client's own label.
+export const attachedBy = (by: string) => (by.includes('@') ? by.split('@')[0] : by)
+
+// A ticket's link opens the ticket and never the row it sits in; `short` shows only its key.
+export function TicketUrl({ url, short = false }: { url: string; short?: boolean }) {
   return (
-    <Typography.Link href={url} target="_blank" onClick={(event) => event.stopPropagation()} style={{ wordBreak: 'break-all' }}>
-      {url} <ExportOutlined />
+    <Typography.Link href={url} target="_blank" title={url} onClick={(event) => event.stopPropagation()} style={short ? undefined : { wordBreak: 'break-all' }}>
+      {short ? ticketLabel(url) : url} <ExportOutlined />
     </Typography.Link>
   )
 }
@@ -67,27 +82,19 @@ export function AttachTicketModal({ open, subject, onCancel, onSave }: {
   )
 }
 
-function TicketTable({ tickets, project }: { tickets: ProjectTicket[]; project: string }) {
+// Each ticket with its cases stacked below it, so phones read it without scrolling sideways.
+function TicketList({ tickets, project, empty }: { tickets: ProjectTicket[]; project: string; empty: string }) {
   const { token } = theme.useToken()
-  const columns: TableColumnsType<ProjectTicket> = [
-    {
-      title: 'Ticket',
-      key: 'ticket',
-      width: token.controlHeight * 10,
-      onCell: () => ({ style: { verticalAlign: 'top' } }),
-      render: (_, ticket) => (
-        <Flex vertical>
-          <TicketUrl url={ticket.url} />
-          <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.firstAt)}</Typography.Text>
-        </Flex>
-      ),
-    },
-    {
-      title: 'Cases',
-      key: 'cases',
-      onCell: () => ({ style: { verticalAlign: 'top' } }),
-      render: (_, ticket) => (
-        <Flex vertical gap={token.marginXS}>
+  if (!tickets.length) return <Typography.Text type="secondary">{empty}</Typography.Text>
+  return (
+    <Flex vertical>
+      {tickets.map((ticket, index) => (
+        <Flex key={ticket.url} vertical gap={token.marginXS}>
+          {index > 0 && <Divider style={{ margin: 0 }} />}
+          <Flex gap="small" wrap align="baseline">
+            <TicketUrl url={ticket.url} short />
+            <Typography.Text type="secondary">by {attachedBy(ticket.by)}, {utc(ticket.firstAt)}</Typography.Text>
+          </Flex>
           {ticket.cases.map((item) => (
             <Flex key={item.case} vertical align="flex-start">
               <Flex gap="small" wrap align="baseline">
@@ -103,7 +110,7 @@ function TicketTable({ tickets, project }: { tickets: ProjectTicket[]; project: 
                     {item.checks.map((check) => (
                       <Flex key={check.slug} gap={token.marginXXS} align="center">
                         <Typography.Text type="secondary">{check.name}</Typography.Text>
-                        <TicketStateTag state={check.state} failed={check.failed} runs={check.runs} />
+                        <TicketStateTag state={check.state} failed={check.failed} runs={check.runs} compact />
                       </Flex>
                     ))}
                   </Flex>
@@ -111,20 +118,8 @@ function TicketTable({ tickets, project }: { tickets: ProjectTicket[]; project: 
             </Flex>
           ))}
         </Flex>
-      ),
-    },
-  ]
-  return (
-    <Table
-      rowKey="url"
-      size="middle"
-      pagination={false}
-      tableLayout="fixed"
-      scroll={{ x: token.controlHeight * 20 }}
-      columns={columns}
-      dataSource={tickets}
-      locale={{ emptyText: <Empty description="No open ticket." /> }}
-    />
+      ))}
+    </Flex>
   )
 }
 
@@ -137,20 +132,36 @@ export function ProjectTicketsCard({ project }: { project: string }) {
   }, [project])
   if (failed) return <Alert type="error" showIcon title="Tickets could not be loaded" description={failed} />
   if (!data) return <Card title="Tickets"><Skeleton active /></Card>
-  if (data.tickets.length === 0) return null
+  if (data.tickets.length === 0 && data.untracked.length === 0) return null
   const open = data.tickets.filter((ticket) => ticket.section === 'open')
   const recent = data.tickets.filter((ticket) => ticket.section === 'recent')
   const earlier = data.tickets.filter((ticket) => ticket.section === 'earlier')
   return (
     <Card title={`Tickets (${open.length} open)`}>
       <Flex vertical gap="middle">
-        <TicketTable tickets={open} project={project} />
+        {data.untracked.length > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            title={`${plural(data.untracked.length, 'failing case')} without a ticket`}
+            description={(
+              <Flex gap="small" wrap>
+                {data.untracked.map((item) => (
+                  <Link key={item.case} to="/p/$project/checks/$check/cases/$case" params={{ project, check: item.checks[0].slug, case: item.case }} title={item.title}>
+                    {item.case}
+                  </Link>
+                ))}
+              </Flex>
+            )}
+          />
+        )}
+        <TicketList tickets={open} project={project} empty="No open ticket." />
         {(recent.length > 0 || earlier.length > 0) && (
           <Collapse
             ghost
             items={[
-              ...(recent.length ? [{ key: 'recent', label: `Verified in the last 14 days (${recent.length})`, children: <TicketTable tickets={recent} project={project} /> }] : []),
-              ...(earlier.length ? [{ key: 'earlier', label: `Verified earlier (${earlier.length})`, children: <TicketTable tickets={earlier} project={project} /> }] : []),
+              ...(recent.length ? [{ key: 'recent', label: `Verified in the last 14 days (${recent.length})`, children: <TicketList tickets={recent} project={project} empty="" /> }] : []),
+              ...(earlier.length ? [{ key: 'earlier', label: `Verified earlier (${earlier.length})`, children: <TicketList tickets={earlier} project={project} empty="" /> }] : []),
             ].map((item) => ({ ...item, styles: { header: { paddingInline: 0 }, body: { paddingInline: 0 } } }))}
           />
         )}
