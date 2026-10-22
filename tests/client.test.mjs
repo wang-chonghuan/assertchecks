@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -177,20 +178,75 @@ test('report exits non-zero when AssertChecks names format errors', async () => 
   assert.deepEqual(warnings, ['format error: catalog: missing version'])
 })
 
-test('link sends the cases and the ticket and prints what was linked', async () => {
+// A person signed in on this computer: a configuration directory of its own with a saved token.
+function signedIn(project) {
+  const config = mkdtempSync(join(tmpdir(), 'assertchecks-config-'))
+  const repo = mkdtempSync(join(tmpdir(), 'assertchecks-repo-'))
+  mkdirSync(join(config, 'assertchecks'))
+  writeFileSync(join(config, 'assertchecks', 'credentials.json'), JSON.stringify({ [DEFAULT_ORIGIN]: { token: 'person-token', email: 'a@example.com' } }))
+  if (project) {
+    mkdirSync(join(repo, 'assertchecks'))
+    writeFileSync(join(repo, 'assertchecks', 'config.json'), JSON.stringify({ project }))
+  }
+  return { config, repo }
+}
+
+test('link sends the configured project, the cases and the ticket as the signed-in person', async () => {
+  const { config, repo } = signedIn('shop')
   const answers = (calls) => async (url, init = {}) => {
-    calls.push({ url: String(url), body: JSON.parse(init.body) })
+    calls.push({ url: String(url), body: JSON.parse(init.body), authorization: init.headers.authorization })
     return Response.json({ linked: ['E2E-094'], already: ['E2E-151'] })
   }
-  const { calls, lines, options } = harness({}, answers)
-  const code = await run(['link', '--cases', 'E2E-094,E2E-151', '--ticket', 'https://linear.app/x/issue/ENG-1'], options)
+  const { calls, lines, options } = harness({ ASSERTCHECKS_PING_TOKEN: '', XDG_CONFIG_HOME: config }, answers)
+  const code = await run(['link', '--cases', 'E2E-094,E2E-151', '--ticket', 'https://linear.app/x/issue/ENG-1'], { ...options, cwd: repo })
   assert.equal(code, 0)
-  assert.equal(calls[0].url, `${DEFAULT_ORIGIN}/api/ping/secret-token/link`)
-  assert.deepEqual(calls[0].body, { cases: ['E2E-094', 'E2E-151'], ticket: 'https://linear.app/x/issue/ENG-1' })
+  assert.equal(calls[0].url, `${DEFAULT_ORIGIN}/api/cli/link`)
+  assert.equal(calls[0].authorization, 'Bearer person-token')
+  assert.deepEqual(calls[0].body, { project: 'shop', cases: ['E2E-094', 'E2E-151'], ticket: 'https://linear.app/x/issue/ENG-1' })
   assert.deepEqual(lines, ['AssertChecks: https://linear.app/x/issue/ENG-1 linked to E2E-094; already linked: E2E-151'])
 })
 
-test('link needs cases and a ticket', async () => {
-  const { options } = harness()
-  await assert.rejects(run(['link', '--cases', 'E2E-094'], options), /--ticket/)
+test('link needs a signed-in person, cases and a ticket', async () => {
+  const { config, repo } = signedIn('shop')
+  const { options } = harness({ XDG_CONFIG_HOME: config })
+  await assert.rejects(run(['link', '--cases', 'E2E-094'], { ...options, cwd: repo }), /--ticket/)
+  const away = harness({ XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), 'assertchecks-config-')) })
+  await assert.rejects(run(['link', '--cases', 'E2E-094', '--ticket', 'https://x.example/1'], { ...away.options, cwd: repo }), /not signed in/)
+})
+
+test('bugs without a project lists the person\'s projects and fails', async () => {
+  const { config, repo } = signedIn(null)
+  const answers = (calls) => async (url) => {
+    calls.push({ url: String(url) })
+    return Response.json({ projects: [{ slug: 'shop', name: 'Shop' }] })
+  }
+  const { calls, lines, options } = harness({ XDG_CONFIG_HOME: config }, answers)
+  assert.equal(await run(['bugs', '--check', 'dev'], { ...options, cwd: repo }), 1)
+  assert.equal(calls[0].url, `${DEFAULT_ORIGIN}/api/cli/bugs?`)
+  assert.deepEqual(lines.slice(1), ['- shop: Shop'])
+})
+
+test('login saves the token before approval, privately, and never prints it', async () => {
+  const config = mkdtempSync(join(tmpdir(), 'assertchecks-config-'))
+  const answers = (calls) => async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method, body: init.body ? JSON.parse(init.body) : null, authorization: init.headers?.authorization })
+    if (init.method === 'POST') return Response.json({ code: 'ABCD-EFGH', url: `${DEFAULT_ORIGIN}/cli/ABCD-EFGH`, minutes: 10 })
+    const polls = calls.filter((call) => call.method === 'GET').length
+    return polls < 2
+      ? Response.json({ error: 'sign-in is waiting for approval', url: `${DEFAULT_ORIGIN}/cli/ABCD-EFGH` }, { status: 401 })
+      : Response.json({ email: 'a@example.com' })
+  }
+  const { calls, lines, options } = harness({ ASSERTCHECKS_PING_TOKEN: '', XDG_CONFIG_HOME: config }, answers)
+  assert.equal(await run(['login'], options), 0)
+  const file = join(config, 'assertchecks', 'credentials.json')
+  const saved = JSON.parse(readFileSync(file, 'utf8'))[DEFAULT_ORIGIN]
+  assert.equal(statSync(file).mode & 0o777, 0o600)
+  assert.equal(calls[0].body.tokenHash, createHash('sha256').update(saved.token).digest('hex'))
+  assert.equal(calls[1].authorization, `Bearer ${saved.token}`)
+  assert.equal(saved.email, 'a@example.com')
+  assert.ok(lines.every((line) => !line.includes(saved.token)))
+  assert.deepEqual(lines, [
+    `Open ${DEFAULT_ORIGIN}/cli/ABCD-EFGH and approve code ABCD-EFGH with your AssertChecks account. Waiting for approval...`,
+    `Signed in to ${DEFAULT_ORIGIN} as a@example.com`,
+  ])
 })

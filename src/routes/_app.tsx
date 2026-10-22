@@ -7,9 +7,10 @@ import { Brand, PRODUCT_NAME } from '../components/brand'
 import { pageFrame } from '../components/page-frame'
 
 export const Route = createFileRoute('/_app')({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const me = await getMe()
-    if (!me) throw redirect({ to: '/login' })
+    // Back to the page that was asked for once signed in, such as a client sign-in to approve.
+    if (!me) throw redirect({ to: '/login', search: { redirect: location.href } })
     return { me }
   },
   component: AppLayout,

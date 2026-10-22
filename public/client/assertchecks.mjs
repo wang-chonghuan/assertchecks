@@ -1,24 +1,39 @@
 #!/usr/bin/env node
-// AssertChecks client: report one test run to AssertChecks. Zero dependencies, Node 20+.
-// Served by AssertChecks at /client/assertchecks.mjs so it always matches the server.
+// AssertChecks client: report test runs to AssertChecks, and read failures and link tickets as a person.
+// Zero dependencies, Node 20+. Served by AssertChecks at /client/assertchecks.mjs so it always matches
+// the server.
 //
+// A check's runs, with its ping token in ASSERTCHECKS_PING_TOKEN (never printed):
 //   node assertchecks.mjs start  [--trigger schedule|manual] [--cases ID,ID] [--version NAME=URL]...
 //   node assertchecks.mjs report --run-id ID --exit-code N --playwright results.json --catalog e2e.json
 //                                [--version NAME=URL]...
 //   node assertchecks.mjs report --run-id ID --exit-code N --error "why there is no report"
 //   node assertchecks.mjs check  --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]
-//   node assertchecks.mjs link   --cases ID,ID --ticket URL
+//
+// A person, after signing in once on this computer:
+//   node assertchecks.mjs login
+//   node assertchecks.mjs bugs   [--project SLUG] [--check SLUG]
+//   node assertchecks.mjs link   [--project SLUG] --cases ID,ID --ticket URL
+//   node assertchecks.mjs logout
 //
 // `check` is a dry run: it validates the catalog (and the result, when given) against the published
 // formats at /schemas/ and shows how the check would judge it, without recording a run.
-// `link` records that a ticket covers these cases of the check's project; AssertChecks then shows the
-// ticket on the cases and judges it from later runs. The cases must be in the check's newest catalog.
+// `login` prints an address where the person approves this computer with their AssertChecks account;
+// the token stays in their own configuration directory (credentials.json under $XDG_CONFIG_HOME or
+// ~/.config/assertchecks), never in the repository and never printed. If the command is stopped before
+// the approval, approving still signs the computer in. `bugs` prints a check's failure report, the same
+// text as "Copy bugs from recent runs"; without a project or check it lists the choices. `link` records
+// that a ticket covers these cases, which must be in the project's current catalogs. The project comes
+// from --project or from "project" in assertchecks/config.json in the current directory.
 //
-// Environment: ASSERTCHECKS_PING_TOKEN (required, never printed), ASSERTCHECKS_ORIGIN (optional).
+// Environment: ASSERTCHECKS_PING_TOKEN (for start, report, check), ASSERTCHECKS_ORIGIN (optional).
 // `start` prints only the run ID. A version URL must return JSON with a 40-character `sha`; each read
 // is tried up to three times (waiting 2 s, then 4 s) before it is recorded as unreadable.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { createHash, randomBytes } from 'node:crypto'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
@@ -102,7 +117,81 @@ async function post(origin, token, step, body, fetchImpl) {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export async function run(argv, { env = process.env, fetchImpl = fetch, out = console.log, log = console.error, sleep = wait } = {}) {
+// The person's sign-ins, one per AssertChecks origin, in their own configuration directory.
+export function credentialsPath(env) {
+  return join(env.XDG_CONFIG_HOME || join(env.HOME || homedir(), '.config'), 'assertchecks', 'credentials.json')
+}
+
+function readCredentials(env) {
+  const file = credentialsPath(env)
+  return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {}
+}
+
+function writeCredentials(env, all) {
+  const file = credentialsPath(env)
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
+  writeFileSync(file, `${JSON.stringify(all, null, 2)}\n`, { mode: 0o600 })
+  chmodSync(file, 0o600)
+}
+
+// The project named on the command line or in the repository's assertchecks/config.json.
+export function projectOf(given, cwd) {
+  if (given) return given
+  const file = join(cwd, 'assertchecks', 'config.json')
+  if (!existsSync(file)) return null
+  const project = JSON.parse(readFileSync(file, 'utf8')).project
+  return typeof project === 'string' && project ? project : null
+}
+
+async function asPerson(origin, token, method, path, body, fetchImpl) {
+  return fetchImpl(`${origin}/api/cli/${path}`, {
+    method,
+    headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+}
+
+// The reply of a signed-in call, or the reason the person has to sign in (again).
+async function personReply(response, what) {
+  if (response.status === 401) {
+    const reply = await response.json().catch(() => ({}))
+    throw new Error(reply.url
+      ? `AssertChecks: the sign-in is waiting for approval at ${reply.url}`
+      : 'AssertChecks: this computer\'s sign-in is no longer accepted (signed out, revoked or expired). Run: node assertchecks.mjs login')
+  }
+  if (response.status === 404) throw new Error(`AssertChecks: ${what}, or you are not a member of it`)
+  const plain = response.headers.get('content-type')?.startsWith('text/plain')
+  const reply = plain ? await response.text() : await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(`AssertChecks: ${reply.error ?? `HTTP ${response.status}`}`)
+  return reply
+}
+
+// Waits while AssertChecks says the sign-in awaits approval; it voids the request after its time limit.
+async function awaitApproval({ origin, env, token, url, fetchImpl, out, sleep }) {
+  out(`Open ${url} and approve code ${url.split('/').pop()} with your AssertChecks account. Waiting for approval...`)
+  for (;;) {
+    await sleep(2_000)
+    const response = await asPerson(origin, token, 'GET', 'session', null, fetchImpl)
+    const reply = await response.json().catch(() => ({}))
+    if (response.ok) {
+      const all = readCredentials(env)
+      all[origin] = { token, email: reply.email }
+      writeCredentials(env, all)
+      out(`Signed in to ${origin} as ${reply.email}`)
+      return 0
+    }
+    if (response.status !== 401 || !reply.url) {
+      const all = readCredentials(env)
+      if (all[origin]?.token === token) { delete all[origin]; writeCredentials(env, all) }
+      throw new Error(response.status === 401 ? 'AssertChecks: the sign-in request expired. Run login again.' : `AssertChecks login failed: HTTP ${response.status}`)
+    }
+  }
+}
+
+const PING_COMMANDS = ['start', 'report', 'check']
+
+export async function run(argv, { env = process.env, fetchImpl = fetch, out = console.log, log = console.error, sleep = wait, cwd = process.cwd() } = {}) {
   const { positionals, values } = parseArgs({
     args: argv,
     allowPositionals: true,
@@ -117,10 +206,10 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
       catalog: { type: 'string' },
       error: { type: 'string' },
       ticket: { type: 'string' },
+      project: { type: 'string' },
+      check: { type: 'string' },
     },
   })
-  const token = env.ASSERTCHECKS_PING_TOKEN
-  if (!token) throw new Error('ASSERTCHECKS_PING_TOKEN is required')
   const origin = new URL(env.ASSERTCHECKS_ORIGIN ?? DEFAULT_ORIGIN).origin
   const runner = runnerFromEnv(env)
   const trigger = values.trigger ?? runner.trigger
@@ -128,6 +217,8 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
   const cases = values.cases ? values.cases.split(',').map((id) => id.trim()).filter(Boolean) : null
   const versions = () => readVersions(values.version ?? [], fetchImpl, log, sleep)
   const [command] = positionals
+  const token = env.ASSERTCHECKS_PING_TOKEN
+  if (PING_COMMANDS.includes(command) && !token) throw new Error('ASSERTCHECKS_PING_TOKEN is required')
 
   if (command === 'start') {
     const reply = await post(origin, token, 'start', {
@@ -196,15 +287,82 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
     return 0
   }
 
-  if (command === 'link') {
-    if (!cases?.length || !values.ticket) throw new Error('link needs --cases ID,ID and --ticket URL')
-    const reply = await post(origin, token, 'link', { cases, ticket: values.ticket }, fetchImpl)
-    out(`AssertChecks: ${values.ticket} linked to ${reply.linked.length ? reply.linked.join(', ') : 'no new cases'}` +
-      `${reply.already.length ? `; already linked: ${reply.already.join(', ')}` : ''}`)
+  if (command === 'login') {
+    const saved = readCredentials(env)[origin]
+    if (saved) {
+      const response = await asPerson(origin, saved.token, 'GET', 'session', null, fetchImpl)
+      const reply = await response.json().catch(() => ({}))
+      if (response.ok) {
+        out(`Signed in to ${origin} as ${reply.email}`)
+        return 0
+      }
+      // A login stopped before its approval resumes with the same address.
+      if (response.status === 401 && reply.url) return awaitApproval({ origin, env, token: saved.token, url: reply.url, fetchImpl, out, sleep })
+    }
+    const personal = randomBytes(32).toString('base64url')
+    const response = await fetchImpl(`${origin}/api/cli/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tokenHash: createHash('sha256').update(personal).digest('hex') }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+    const reply = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(`AssertChecks login failed: HTTP ${response.status} ${reply.error ?? ''}`.trim())
+    // Saved before the approval, so approving signs this computer in even if this command is stopped.
+    const all = readCredentials(env)
+    all[origin] = { token: personal, email: null }
+    writeCredentials(env, all)
+    return awaitApproval({ origin, env, token: personal, url: reply.url, fetchImpl, out, sleep })
+  }
+
+  if (command === 'logout') {
+    const all = readCredentials(env)
+    if (!all[origin]) {
+      out(`Not signed in to ${origin}`)
+      return 0
+    }
+    const response = await asPerson(origin, all[origin].token, 'DELETE', 'session', null, fetchImpl)
+    if (!response.ok && response.status !== 401) throw new Error(`AssertChecks logout failed: HTTP ${response.status}; still signed in`)
+    delete all[origin]
+    writeCredentials(env, all)
+    out(`Signed out of ${origin}`)
     return 0
   }
 
-  throw new Error('usage: assertchecks.mjs start | report | check | link (see the header of this file)')
+  if (command === 'bugs' || command === 'link') {
+    const saved = readCredentials(env)[origin]
+    if (!saved) throw new Error(`AssertChecks: not signed in to ${origin}. Run: node assertchecks.mjs login`)
+    const project = projectOf(values.project, cwd)
+
+    if (command === 'link') {
+      if (!project) throw new Error('link needs --project SLUG, or "project" in assertchecks/config.json')
+      if (!cases?.length || !values.ticket) throw new Error('link needs --cases ID,ID and --ticket URL')
+      const reply = await personReply(await asPerson(origin, saved.token, 'POST', 'link', { project, cases, ticket: values.ticket }, fetchImpl), `no project ${project}`)
+      out(`AssertChecks: ${values.ticket} linked to ${reply.linked.length ? reply.linked.join(', ') : 'no new cases'}` +
+        `${reply.already.length ? `; already linked: ${reply.already.join(', ')}` : ''}`)
+      return 0
+    }
+
+    const query = new URLSearchParams()
+    if (project) query.set('project', project)
+    if (project && values.check) query.set('check', values.check)
+    const reply = await personReply(await asPerson(origin, saved.token, 'GET', `bugs?${query}`, null, fetchImpl),
+      project && values.check ? `no check ${values.check} in project ${project}` : `no project ${project}`)
+    if (typeof reply === 'string') {
+      out(reply)
+      return 0
+    }
+    if (reply.projects) {
+      out('Name the project with --project SLUG, or set "project" in assertchecks/config.json. Your projects:')
+      for (const item of reply.projects) out(`- ${item.slug}: ${item.name}`)
+    } else {
+      out(`Name the check with --check SLUG. Checks in project ${project}:`)
+      for (const item of reply.checks) out(`- ${item.slug}: ${item.name}, environment ${item.environment}`)
+    }
+    return 1
+  }
+
+  throw new Error('usage: assertchecks.mjs start | report | check | login | bugs | link | logout (see the header of this file)')
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

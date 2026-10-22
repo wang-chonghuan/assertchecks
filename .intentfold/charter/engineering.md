@@ -24,8 +24,9 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 
 - `src/start.ts` — request middleware: Clerk, and TanStack Start's CSRF check for server functions.
 - `src/routes/` — the public homepage (`index`) and `privacy`, `login` (Clerk sign-in), the signed-in pages
-  (`_app/...`) and the push API server routes (`api/ping/$token/start`, `report`, and the dry run
-  `check`).
+  (`_app/...`, including `cli/$code` where a person approves a client sign-in), the push API server
+  routes (`api/ping/$token/start`, `report`, and the dry run `check`) and the client's routes as a
+  person (`api/cli/session`, `bugs`, `link`).
 - `src/server/` — server-only code: `db` (pool), `session` (the signed-in Clerk user's verified email
   mapped to its CLI-created user), `crypto` (token hashing), `schema` (report-format validation), `judge` and `status` (pure run
   judgement and check-state derivation), `catalog-changes` (pure comparison of two full runs'
@@ -33,7 +34,8 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   (server functions used by routes), `telemetry` (the KQL that reads a workspace and de-duplicates
   failures), `problems` (pure assembly of the production-errors view) and `production-errors` (its
   membership-scoped reads, problem upserts and decisions), `tickets` (pure judgement of tickets
-  on cases from run results) and `ticket-links` (attaching, removing and listing tickets by ticket).
+  on cases from run results), `ticket-links` (attaching, removing and listing tickets by ticket) and
+  `client-tokens` (the client's sign-in as a person).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
   (`connect-guide`) that both the homepage and "Copy for your agent" render.
 - `public/schemas/` — the published catalog and result formats; `public/client/assertchecks.mjs` — the
@@ -64,7 +66,11 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 - Check state is derived on read; no stored status table. A ticket's state on a case is derived the
   same way, from the check's runs since the ticket was attached; only the link itself is stored.
 - Every read is scoped by the signed-in user's memberships; a miss is a 404.
-- Ping tokens are stored only as hashes; passwords and sessions are not stored (Clerk holds sessions).
+- Two credentials, one job each. A check's ping token reports that check's runs and nothing else; it
+  lives in the project's CI secrets. A person's client token, made by the client and bound to them when
+  they approve its code while signed in, lets the client read and link tickets as that person through
+  their memberships; it lives in their own configuration directory, never in a repository. Both are
+  stored only as hashes; passwords and browser sessions are not stored (Clerk holds sessions).
 - One database: the easy-app PostgreSQL schema serves production and local development alike, so
   migrations are additive only (add tables or nullable columns; drop/rename only in a later
   migration after the new code is deployed).

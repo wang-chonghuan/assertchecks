@@ -89,6 +89,9 @@ pnpm build
 - Browser: the built-in or headed Chrome at 1440×900 and 390×844, signed in locally as
   `sandbox+clerk_test@example.com`. Review links for the owner point at `/p/sandbox`.
 - Push API: the client or `curl` against the local origin with a sandbox check's token.
+- Client as a person: run it with `ASSERTCHECKS_ORIGIN` set to the local origin and `XDG_CONFIG_HOME`
+  set to a scratch directory (so no real sign-in is touched), and approve its sign-in in the browser
+  signed in as the sandbox account.
 - Data: `psql "$DATABASE_URL"` with `set search_path to "assertchecks-schema"` for read-only checks.
 - A check that needs a project of its own (another member set, a non-member's 404) creates a
   ticket-scoped project with `pnpm admin project:add`, `check:add` and `member:add` and removes it
@@ -149,6 +152,7 @@ does, rather than reporting the old one.
 
 ```bash
 pnpm admin list
+pnpm admin client:revoke <email>   # a lost computer: signs that person's clients out everywhere
 az containerapp logs show -g rg-easyapp-shared -n ca-assertchecks --tail 100
 az containerapp revision list -g rg-easyapp-shared -n ca-assertchecks -o table
 az role assignment list --all --assignee "$(az containerapp show -g rg-easyapp-shared -n ca-assertchecks --query identity.principalId -o tsv)" -o table

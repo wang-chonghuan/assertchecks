@@ -12,12 +12,12 @@ interface RunContext {
 }
 
 // The rules live in the assertchecks skill's cap7; the short form below is for an agent without it.
-const INSTRUCTIONS = [
+const instructions = (project: string) => [
   'File bug tickets from the AssertChecks results below by following the assertchecks skill\'s cap7, in this project\'s repository and with its own ticket workflow (in an IntentFold project: cap2, type fix).',
   'Without the skill: every case must end in a ticket. Product defects get one fix ticket per cause; test defects get fix tickets for the tests; when product and test cannot be told apart, or a rule and the product disagree, file a ticket that states the open question with the evidence for each reading, for its owner to investigate. Add evidence to an open ticket that already covers a cause instead of filing another, and check a closed one against the failing run\'s deployed version before reopening it.',
   'Each case carries its written Given/When/Then and its latest failure; its test is assertchecks/tests/<case id>.spec.ts and its catalog entry is in assertchecks/e2e.json at the run\'s test commit. Put the run links, tested versions and case links in each ticket, and finish with the tickets per owner.',
   'Each case says whether AssertChecks has it in progress, with its tickets newest first. A case in progress gets new evidence on its newest ticket, not another ticket. A case that needs a ticket gets a new one; when it failed again after an earlier ticket had fixed it, link that earlier ticket in the new one.',
-  'After creating or updating a ticket, record it in AssertChecks: with this check\'s ping token in the environment variable ASSERTCHECKS_PING_TOKEN (never on the command line), run `node assertchecks.mjs link --cases <ID,ID> --ticket <URL>` (the client is at /client/assertchecks.mjs). Without the token, list those commands for a person to run.',
+  `After creating or updating a ticket, record it in AssertChecks with its client (/client/assertchecks.mjs): \`node assertchecks.mjs link --project ${project} --cases <ID,ID> --ticket <URL>\`. The client acts as the person signed in with \`node assertchecks.mjs login\`; when it is not signed in, run login and give the person the address it prints to approve.`,
 ]
 
 const day = (iso: string) => `${iso.slice(0, 16).replace('T', ' ')} UTC`
@@ -96,7 +96,7 @@ export function recentBugReport(origin: string, report: BugReport): string {
     ]
   })
   return [
-    ...INSTRUCTIONS,
+    ...instructions(project.slug),
     '',
     `Project: ${project.name} · Check: ${check.name} (environment ${check.environment})`,
     `Recent full runs, newest first:`,
@@ -125,7 +125,7 @@ export function caseBugReport(context: RunContext & {
   const { spec, result, history, bug } = context
   const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
   return [
-    ...INSTRUCTIONS,
+    ...instructions(context.project.slug),
     '',
     ...runLines(context),
     '',

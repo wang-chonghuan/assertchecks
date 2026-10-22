@@ -13,10 +13,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as AppCliCodeRouteImport } from './routes/_app/cli/$code'
 import { Route as AppPIndexRouteImport } from './routes/_app/p/index'
+import { Route as ApiCliBugsRouteImport } from './routes/api/cli/bugs'
+import { Route as ApiCliLinkRouteImport } from './routes/api/cli/link'
+import { Route as ApiCliSessionRouteImport } from './routes/api/cli/session'
 import { Route as AppPProjectIndexRouteImport } from './routes/_app/p/$project/index'
 import { Route as ApiPingTokenCheckRouteImport } from './routes/api/ping/$token/check'
-import { Route as ApiPingTokenLinkRouteImport } from './routes/api/ping/$token/link'
 import { Route as ApiPingTokenReportRouteImport } from './routes/api/ping/$token/report'
 import { Route as ApiPingTokenStartRouteImport } from './routes/api/ping/$token/start'
 import { Route as AppPProjectChecksCheckIndexRouteImport } from './routes/_app/p/$project/checks/$check/index'
@@ -41,10 +44,30 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppCliCodeRoute = AppCliCodeRouteImport.update({
+  id: '/cli/$code',
+  path: '/cli/$code',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPIndexRoute = AppPIndexRouteImport.update({
   id: '/p/',
   path: '/p/',
   getParentRoute: () => AppRoute,
+} as any)
+const ApiCliBugsRoute = ApiCliBugsRouteImport.update({
+  id: '/api/cli/bugs',
+  path: '/api/cli/bugs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCliLinkRoute = ApiCliLinkRouteImport.update({
+  id: '/api/cli/link',
+  path: '/api/cli/link',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCliSessionRoute = ApiCliSessionRouteImport.update({
+  id: '/api/cli/session',
+  path: '/api/cli/session',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppPProjectIndexRoute = AppPProjectIndexRouteImport.update({
   id: '/p/$project/',
@@ -54,11 +77,6 @@ const AppPProjectIndexRoute = AppPProjectIndexRouteImport.update({
 const ApiPingTokenCheckRoute = ApiPingTokenCheckRouteImport.update({
   id: '/api/ping/$token/check',
   path: '/api/ping/$token/check',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPingTokenLinkRoute = ApiPingTokenLinkRouteImport.update({
-  id: '/api/ping/$token/link',
-  path: '/api/ping/$token/link',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPingTokenReportRoute = ApiPingTokenReportRouteImport.update({
@@ -88,9 +106,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/cli/$code': typeof AppCliCodeRoute
+  '/api/cli/bugs': typeof ApiCliBugsRoute
+  '/api/cli/link': typeof ApiCliLinkRoute
+  '/api/cli/session': typeof ApiCliSessionRoute
   '/p/': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
-  '/api/ping/$token/link': typeof ApiPingTokenLinkRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project/': typeof AppPProjectIndexRoute
@@ -101,9 +122,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/cli/$code': typeof AppCliCodeRoute
+  '/api/cli/bugs': typeof ApiCliBugsRoute
+  '/api/cli/link': typeof ApiCliLinkRoute
+  '/api/cli/session': typeof ApiCliSessionRoute
   '/p': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
-  '/api/ping/$token/link': typeof ApiPingTokenLinkRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project': typeof AppPProjectIndexRoute
@@ -116,9 +140,12 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/_app/cli/$code': typeof AppCliCodeRoute
+  '/api/cli/bugs': typeof ApiCliBugsRoute
+  '/api/cli/link': typeof ApiCliLinkRoute
+  '/api/cli/session': typeof ApiCliSessionRoute
   '/_app/p/': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
-  '/api/ping/$token/link': typeof ApiPingTokenLinkRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/_app/p/$project/': typeof AppPProjectIndexRoute
@@ -131,9 +158,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/privacy'
+    | '/cli/$code'
+    | '/api/cli/bugs'
+    | '/api/cli/link'
+    | '/api/cli/session'
     | '/p/'
     | '/api/ping/$token/check'
-    | '/api/ping/$token/link'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project/'
@@ -144,9 +174,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/privacy'
+    | '/cli/$code'
+    | '/api/cli/bugs'
+    | '/api/cli/link'
+    | '/api/cli/session'
     | '/p'
     | '/api/ping/$token/check'
-    | '/api/ping/$token/link'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project'
@@ -158,9 +191,12 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/privacy'
+    | '/_app/cli/$code'
+    | '/api/cli/bugs'
+    | '/api/cli/link'
+    | '/api/cli/session'
     | '/_app/p/'
     | '/api/ping/$token/check'
-    | '/api/ping/$token/link'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/_app/p/$project/'
@@ -173,8 +209,10 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
+  ApiCliBugsRoute: typeof ApiCliBugsRoute
+  ApiCliLinkRoute: typeof ApiCliLinkRoute
+  ApiCliSessionRoute: typeof ApiCliSessionRoute
   ApiPingTokenCheckRoute: typeof ApiPingTokenCheckRoute
-  ApiPingTokenLinkRoute: typeof ApiPingTokenLinkRoute
   ApiPingTokenReportRoute: typeof ApiPingTokenReportRoute
   ApiPingTokenStartRoute: typeof ApiPingTokenStartRoute
 }
@@ -209,12 +247,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/cli/$code': {
+      id: '/_app/cli/$code'
+      path: '/cli/$code'
+      fullPath: '/cli/$code'
+      preLoaderRoute: typeof AppCliCodeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/p/': {
       id: '/_app/p/'
       path: '/p'
       fullPath: '/p/'
       preLoaderRoute: typeof AppPIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/api/cli/bugs': {
+      id: '/api/cli/bugs'
+      path: '/api/cli/bugs'
+      fullPath: '/api/cli/bugs'
+      preLoaderRoute: typeof ApiCliBugsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cli/link': {
+      id: '/api/cli/link'
+      path: '/api/cli/link'
+      fullPath: '/api/cli/link'
+      preLoaderRoute: typeof ApiCliLinkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cli/session': {
+      id: '/api/cli/session'
+      path: '/api/cli/session'
+      fullPath: '/api/cli/session'
+      preLoaderRoute: typeof ApiCliSessionRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/p/$project/': {
       id: '/_app/p/$project/'
@@ -228,13 +294,6 @@ declare module '@tanstack/react-router' {
       path: '/api/ping/$token/check'
       fullPath: '/api/ping/$token/check'
       preLoaderRoute: typeof ApiPingTokenCheckRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ping/$token/link': {
-      id: '/api/ping/$token/link'
-      path: '/api/ping/$token/link'
-      fullPath: '/api/ping/$token/link'
-      preLoaderRoute: typeof ApiPingTokenLinkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/ping/$token/report': {
@@ -269,6 +328,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppCliCodeRoute: typeof AppCliCodeRoute
   AppPIndexRoute: typeof AppPIndexRoute
   AppPProjectIndexRoute: typeof AppPProjectIndexRoute
   AppPProjectChecksCheckIndexRoute: typeof AppPProjectChecksCheckIndexRoute
@@ -276,6 +336,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppCliCodeRoute: AppCliCodeRoute,
   AppPIndexRoute: AppPIndexRoute,
   AppPProjectIndexRoute: AppPProjectIndexRoute,
   AppPProjectChecksCheckIndexRoute: AppPProjectChecksCheckIndexRoute,
@@ -289,8 +350,10 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
+  ApiCliBugsRoute: ApiCliBugsRoute,
+  ApiCliLinkRoute: ApiCliLinkRoute,
+  ApiCliSessionRoute: ApiCliSessionRoute,
   ApiPingTokenCheckRoute: ApiPingTokenCheckRoute,
-  ApiPingTokenLinkRoute: ApiPingTokenLinkRoute,
   ApiPingTokenReportRoute: ApiPingTokenReportRoute,
   ApiPingTokenStartRoute: ApiPingTokenStartRoute,
 }

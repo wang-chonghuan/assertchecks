@@ -30,6 +30,29 @@ version is recorded as unreadable. If there is no report, `report --error "<why>
 The client never prints the token, uploads the Playwright report unchanged, refuses to upload a
 report containing credential-like strings, and exits non-zero when the run could not be reported.
 
+### As a person, from the terminal
+
+A ping token only reports runs. People, and the coding agents working for them, sign the client in
+once per computer with their own AssertChecks account and then read failures and link tickets with the
+same access as the pages:
+
+```bash
+node assertchecks.mjs login                       # prints an address; approve the code there
+node assertchecks.mjs bugs --project shop --check staging
+node assertchecks.mjs link --project shop --cases E2E-094,E2E-151 --ticket https://linear.app/…/ENG-1702
+node assertchecks.mjs logout
+```
+
+`login` keeps the token in the person's own configuration directory (`~/.config/assertchecks/`),
+never in the repository, and never prints it; a sign-in not approved within 10 minutes is void.
+`bugs` prints a check's failure report, the same text as "Copy bugs from recent runs"; without a
+project or check it lists the choices and exits non-zero. `link` records that a ticket (an http(s)
+URL) covers cases in the project's current catalogs, as the assertchecks skill's cap7 does after
+filing it, attached under the person's email. The project can also come from `"project"` in the
+repository's `assertchecks/config.json`. These calls are `POST|GET|DELETE /api/cli/session`,
+`GET /api/cli/bugs?project=&check=` and `POST /api/cli/link` `{project, cases, ticket}`, with the
+token as a bearer.
+
 ### Push API
 
 | Endpoint | Body | Response |
@@ -37,7 +60,6 @@ report containing credential-like strings, and exits non-zero when the run could
 | `POST /api/ping/:token/start` | `{testSha, runner: {kind, runUrl}, trigger, cases?, deployed: {name: sha}}` | `{runId}` |
 | `POST /api/ping/:token/report` | `{runId?, exitCode, testSha, trigger, cases?, deployedEnd: {name: sha}, result, catalog}` or `{runId?, exitCode, error}` | `{runId, outcome, errors?}` |
 | `POST /api/ping/:token/check` | `{catalog, result?, exitCode?, cases?}` | `{valid, errors?, outcome?, reason?}` |
-| `POST /api/ping/:token/link` | `{cases, ticket}` | `{linked, already}` |
 
 The format is fixed and published as JSON Schema: `/schemas/catalog.schema.json` (the catalog's core
 fields; projects may add their own, which are kept and ignored) and `/schemas/result.schema.json`.
@@ -47,9 +69,7 @@ as `incomplete`, and the reply lists each wrong field (`errors`, for example
 it validates a catalog, and a result when given, judges it against the check's selection (versions
 are not compared), and records nothing. The client runs it with
 `node assertchecks.mjs check --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]`.
-`link` records that a ticket (an http(s) URL) covers some cases of the check's project, as the
-assertchecks skill's cap7 does after filing it: `node assertchecks.mjs link --cases ID,ID --ticket URL`.
-The cases must be in the check's newest catalog. A failing case is a bug of the project, in whatever
+A failing case is a bug of the project, in whatever
 environment it fails; it needs a ticket, is in progress (a ticket is on it), or is fixed (since its
 newest ticket, every check that ran it passed it twice in a row). Its tickets are all kept.
 
@@ -111,6 +131,7 @@ pnpm admin member:add <email> <project-slug>
 pnpm admin member:remove <email> <project-slug>
 pnpm admin project:remove <slug> --confirm <slug>
 pnpm admin user:remove <email> --confirm <email>
+pnpm admin client:revoke <email>
 pnpm admin check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds> [--select-status active] [--select-run regular]
 pnpm admin check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace] [--select-status a,b] [--select-run a,b]
 pnpm admin check:token <project-slug> <check-slug>

@@ -3,7 +3,8 @@ import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
 import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
 import { decideProblem as decide, productionErrors, type Decision } from './production-errors'
-import { attachTicket as attach, projectBugsView, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
+import { attachTicket as attach, caseIds, projectBugsView, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
+import { approveLogin, clientLogin, LOGIN_CODE } from './client-tokens'
 
 const text = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value || value.length > 256) throw new Error(`${field} is required`)
@@ -76,7 +77,6 @@ export const getProductionErrors = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => found(await productionErrors((await requireUser()).id, data.project)))
 
 const ID = /^[1-9][0-9]{0,17}$/
-const CASE_ID = /^[A-Z0-9]+(?:-[A-Z0-9]+)*$/
 
 // The reason for not handling is one short line.
 function decision(data: { decision?: unknown; reason?: unknown }): Decision {
@@ -105,11 +105,7 @@ export const attachTicket = createServerFn({ method: 'POST' })
       if (!ID.test(problem)) throw new Error('problem must be an id')
       subject = { problem }
     } else {
-      const cases = data.cases
-      if (!Array.isArray(cases) || !cases.length || cases.length > 200 || cases.some((id) => typeof id !== 'string' || !CASE_ID.test(id))) {
-        throw new Error('cases must be a list of case IDs')
-      }
-      subject = { cases: [...new Set(cases as string[])] }
+      subject = { cases: caseIds(data.cases) }
     }
     return { project: text(data.project, 'project'), ticket: ticketUrl(data.ticket), subject }
   })
@@ -133,3 +129,21 @@ export const removeTicket = createServerFn({ method: 'POST' })
 export const getProjectBugs = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
   .handler(async ({ data }) => found(await projectBugsView((await requireUser()).id, data.project)))
+
+// The approval page for a client sign-in (ASSERT-38). Codes are shown upper-case; a typed one may not be.
+const loginCodeOf = (data: { code: unknown }) => {
+  const code = text(data.code, 'code').toUpperCase()
+  if (!LOGIN_CODE.test(code)) throw notFound()
+  return { code }
+}
+
+export const getClientLogin = createServerFn({ method: 'GET' })
+  .validator(loginCodeOf)
+  .handler(async ({ data }) => {
+    await requireUser()
+    return found(await clientLogin(data.code))
+  })
+
+export const approveClientLogin = createServerFn({ method: 'POST' })
+  .validator(loginCodeOf)
+  .handler(async ({ data }) => ({ approved: await approveLogin((await requireUser()).id, data.code) }))
