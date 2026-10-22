@@ -3,6 +3,7 @@ import { Card, Col, Empty, Flex, Row, Tabs, Typography, theme } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
+import { ProjectTicketsCard } from '../../../../components/tickets'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -20,7 +21,7 @@ function OverviewPage() {
   const { token } = theme.useToken()
   const navigate = useNavigate()
 
-  const tests = checks.length === 0 ? (
+  const cards = checks.length === 0 ? (
     <Card><Empty description="No checks in this project yet." /></Card>
   ) : (
     <Row gutter={[token.margin, token.margin]}>
@@ -45,6 +46,13 @@ function OverviewPage() {
         </Col>
       ))}
     </Row>
+  )
+  // The tickets on this project's cases, grouped by ticket, under the checks they come from.
+  const tests = (
+    <Flex vertical gap="middle">
+      {cards}
+      <ProjectTicketsCard key={project.slug} project={project.slug} />
+    </Flex>
   )
 
   return (

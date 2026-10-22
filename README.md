@@ -37,6 +37,7 @@ report containing credential-like strings, and exits non-zero when the run could
 | `POST /api/ping/:token/start` | `{testSha, runner: {kind, runUrl}, trigger, cases?, deployed: {name: sha}}` | `{runId}` |
 | `POST /api/ping/:token/report` | `{runId?, exitCode, testSha, trigger, cases?, deployedEnd: {name: sha}, result, catalog}` or `{runId?, exitCode, error}` | `{runId, outcome, errors?}` |
 | `POST /api/ping/:token/check` | `{catalog, result?, exitCode?, cases?}` | `{valid, errors?, outcome?, reason?}` |
+| `POST /api/ping/:token/link` | `{cases, ticket}` | `{linked, already}` |
 
 The format is fixed and published as JSON Schema: `/schemas/catalog.schema.json` (the catalog's core
 fields; projects may add their own, which are kept and ignored) and `/schemas/result.schema.json`.
@@ -46,6 +47,10 @@ as `incomplete`, and the reply lists each wrong field (`errors`, for example
 it validates a catalog, and a result when given, judges it against the check's selection (versions
 are not compared), and records nothing. The client runs it with
 `node assertchecks.mjs check --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]`.
+`link` records that a ticket (an http(s) URL) covers some cases of the check's project, as the
+assertchecks skill's cap7 does after filing it: `node assertchecks.mjs link --cases ID,ID --ticket URL`.
+The cases must be in the check's newest catalog. A case keeps every ticket it is given; each is shown
+as waiting, still failing, passing or verified (the two newest runs since it was attached passed).
 
 `result` is an envelope: `{"format": "playwright", "report": <Playwright JSON report>}` (case IDs come
 from the test title prefix `E2E-001: …`, Then IDs from step titles `Then A1: …`), or
@@ -69,8 +74,8 @@ Each check shows its latest finished full run. When that run's catalog removed a
 moved one out of the check's selection, compared with the previous full run, the check shows a
 "Catalog changed" notice; the run is still judged as reported. Status (`new`, `up`, `failing`, `late`) follows that
 run; `late` applies only to checks with a period and only scheduled runs reset it, so manual runs
-cannot hide a missing scheduled run. A check without a period has no schedule. The web UI is
-read-only; times are shown in UTC.
+cannot hide a missing scheduled run. A check without a period has no schedule. The web UI writes only
+tickets on cases and problems and Not handling on problems; times are shown in UTC.
 
 ## Development
 
@@ -108,6 +113,8 @@ pnpm admin user:remove <email> --confirm <email>
 pnpm admin check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds> [--select-status active] [--select-run regular]
 pnpm admin check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace] [--select-status a,b] [--select-run a,b]
 pnpm admin check:token <project-slug> <check-slug>
+pnpm admin source:set <project-slug> --workspace-id <customer-id> --workspace <resource-id> [--roles a,b]
+pnpm admin source:remove <project-slug>
 ```
 
 ## Deployment

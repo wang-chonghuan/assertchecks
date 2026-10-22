@@ -11,7 +11,7 @@ const project = { slug: 'p', name: 'P' }
 function stored(id: string, key: string, firstHoursAgo: number, lastHoursAgo: number, extra: Partial<StoredProblem> = {}): StoredProblem {
   return {
     id, kind: 'error', key, firstSeen: ago(firstHoursAgo), lastSeen: ago(lastHoursAgo),
-    decision: null, ticketUrl: null, reason: null, decidedBy: null, decidedAt: null, ...extra,
+    ignored: null, tickets: [], ...extra,
   }
 }
 
@@ -47,12 +47,13 @@ test('an untriaged problem first seen within a day is new and to triage; failure
 })
 
 test('a ticket keeps the problem visible and counts what happened after it was attached', () => {
-  const ticket = { decision: 'ticket' as const, ticketUrl: 'https://linear.app/x/ENG-1', decidedBy: 'a@b.c', decidedAt: ago(10) }
+  const ticketAt = (hoursAgo: number, url = 'https://linear.app/x/ENG-1') => ({ tickets: [{ id: url, url, by: 'a@b.c', at: ago(hoursAgo).toISOString() }] })
+  const ticket = ticketAt(10)
   const result = assemble({
     project, now: NOW, portalUrl: null,
     stored: [
       stored('1', 'Still', 100, 2, ticket),
-      stored('2', 'Quiet', 100, 50, { ...ticket, decidedAt: ago(48) }),
+      stored('2', 'Quiet', 100, 50, ticketAt(48)),
     ],
     data: data([['Still', 20, 5], ['Still', 2, 3], ['Quiet', 50, 1]]),
   })
@@ -74,7 +75,7 @@ test('a problem quiet for 30 days leaves the working lists and comes back when i
 test('not handling folds the problem away and removes it from the failure counts', () => {
   const result = assemble({
     project, now: NOW, portalUrl: null,
-    stored: [stored('1', 'Noise', 5, 1, { decision: 'ignored', reason: 'extension', decidedBy: 'a@b.c', decidedAt: ago(1) }), stored('2', 'Real', 5, 1)],
+    stored: [stored('1', 'Noise', 5, 1, { ignored: { reason: 'extension', by: 'a@b.c', at: ago(1).toISOString() } }), stored('2', 'Real', 5, 1)],
     data: data([['Noise', 1, 40], ['Real', 1, 2]]),
   })
   assert.equal(view(result, '1').group, 'ignored')
@@ -127,10 +128,25 @@ test('a stored problem the telemetry still covers but no longer counts is droppe
     project, now: NOW, portalUrl: null,
     stored: [
       stored('1', 'NowNoise', 300, 200),
-      stored('2', 'Decided', 300, 200, { decision: 'ignored', reason: 'r', decidedBy: 'a@b.c', decidedAt: ago(1) }),
+      stored('2', 'Decided', 300, 200, { ignored: { reason: 'r', by: 'a@b.c', at: ago(1).toISOString() } }),
       stored('3', 'Ancient', 3000, 24 * 100),
     ],
     data: data([]),
   })
   assert.deepEqual(result.problems.map((problem) => problem.id).sort(), ['2', '3'])
+})
+
+test('a problem keeps every ticket; "since the ticket" counts from the newest', () => {
+  const tickets = [
+    { id: '2', url: 'https://linear.app/x/ENG-2', by: 'a@b.c', at: ago(5).toISOString() },
+    { id: '1', url: 'https://linear.app/x/ENG-1', by: 'a@b.c', at: ago(50).toISOString() },
+  ]
+  const result = assemble({
+    project, now: NOW, portalUrl: null,
+    stored: [stored('1', 'Twice', 100, 1, { tickets })],
+    data: data([['Twice', 40, 4], ['Twice', 1, 2]]),
+  })
+  assert.equal(view(result, '1').tickets.length, 2)
+  assert.deepEqual(view(result, '1').sinceTicket, { count: 2, quietDays: null })
+  assert.equal(view(result, '1').group, 'ticket')
 })

@@ -1,11 +1,13 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Table, Tag, Typography, theme } from 'antd'
+import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Empty, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
+import { useState } from 'react'
 import { caseBugReport } from '../../../../../../../lib/bug-report'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
-import type { CaseHistoryItem } from '../../../../../../../lib/types'
-import { getCase } from '../../../../../../../server/fns'
+import type { CaseHistoryItem, CaseTickets } from '../../../../../../../lib/types'
+import { attachTicket, getCase, removeTicket } from '../../../../../../../server/fns'
+import { AttachTicketModal, TicketStateTag, TicketUrl } from '../../../../../../../components/tickets'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
 import { UNGROUPED, caseMeta } from '../../../../../../../lib/organize'
 
@@ -34,8 +36,10 @@ function Steps({ items }: { items: string[] }) {
 // catalog's organizing fields and the raw error output wait in collapsed sections.
 function CasePage() {
   const { token } = theme.useToken()
-  const { project, check, spec, run, result, history, viewingLatest, deployed } = Route.useLoaderData()
+  const { project, check, spec, run, result, history, viewingLatest, deployed, tickets } = Route.useLoaderData()
   const { message } = App.useApp()
+  const router = useRouter()
+  const [attaching, setAttaching] = useState(false)
   const copyReport = async () => {
     const text = caseBugReport({
       origin: window.location.origin,
@@ -45,6 +49,7 @@ function CasePage() {
       deployed,
       spec,
       result,
+      tickets,
       history: history.slice(0, 10).map((item) => ({
         runId: item.run.id,
         status: item.status === null ? 'not in run' : item.failed && item.status === 'passed' ? 'failed' : item.status,
@@ -159,6 +164,33 @@ function CasePage() {
           <Collapse ghost size="small" items={more} />
         </Flex>
       </Card>
+      <CaseTicketsCard
+        tickets={tickets}
+        checkName={check.name}
+        onAttach={() => setAttaching(true)}
+        onRemove={async (link) => {
+          try {
+            await removeTicket({ data: { project: project.slug, link } })
+            await router.invalidate()
+          } catch (error) {
+            message.error(`Removing failed: ${(error as Error).message}`)
+          }
+        }}
+      />
+      <AttachTicketModal
+        open={attaching}
+        subject={`${spec.id} · ${spec.title}`}
+        onCancel={() => setAttaching(false)}
+        onSave={async (url) => {
+          try {
+            await attachTicket({ data: { project: project.slug, ticket: url, cases: [spec.id] } })
+            setAttaching(false)
+            await router.invalidate()
+          } catch (error) {
+            message.error(`Attaching failed: ${(error as Error).message}`)
+          }
+        }}
+      />
       {history.length > 0 && (
         <Card title="Result in each run">
           <CaseHistory history={history} shownId={run.id} project={project.slug} check={check.slug} caseId={spec.id} />
@@ -210,5 +242,45 @@ function CaseHistory({ history, shownId, project, check, caseId }: {
         style: { cursor: 'pointer', background: item.run.id === shownId ? token.controlItemBgActive : undefined },
       })}
     />
+  )
+}
+
+// Every ticket this case was given, newest first, each judged by this check's runs since it was attached.
+function CaseTicketsCard({ tickets, checkName, onAttach, onRemove }: {
+  tickets: CaseTickets; checkName: string; onAttach: () => void; onRemove: (link: string) => Promise<void>
+}) {
+  const { token } = theme.useToken()
+  return (
+    <Card title={`Tickets (${tickets.tickets.length})`} extra={<Button onClick={onAttach}>{tickets.tickets.length ? 'Add ticket' : 'Attach ticket'}</Button>}>
+      <Flex vertical gap="middle">
+        {tickets.recurred && (
+          <Alert type="error" showIcon title="Recurred" description="This case fails again after one of its tickets had been verified fixed." />
+        )}
+        {tickets.tickets.length === 0 && <Empty description="No ticket yet. Tickets are shared by every check of this project." />}
+        {tickets.tickets.map((ticket, index) => (
+          <Flex key={ticket.id} vertical gap={token.marginXXS} align="flex-start">
+            <Flex gap="small" wrap align="center">
+              {index === 0 && tickets.tickets.length > 1 && <Tag>Newest</Tag>}
+              <TicketUrl url={ticket.url} />
+            </Flex>
+            <Flex gap="small" wrap align="center">
+              <TicketStateTag state={ticket.state} failed={ticket.failed} runs={ticket.since.length} />
+              <Typography.Text type="secondary">on {checkName} · by {ticket.by}, {utc(ticket.at)}</Typography.Text>
+              <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
+                <Button size="small" type="link">Remove</Button>
+              </Popconfirm>
+            </Flex>
+            {ticket.since.length > 0 && (
+              <Flex gap={token.marginXXS} wrap align="center">
+                <Typography.Text type="secondary">Runs since:</Typography.Text>
+                {ticket.since.map((item) => (
+                  <Tag key={item.runId} color={item.passed ? 'success' : 'error'}>#{item.runId} {item.passed ? 'passed' : 'not passed'}</Tag>
+                ))}
+              </Flex>
+            )}
+          </Flex>
+        ))}
+      </Flex>
+    </Card>
   )
 }

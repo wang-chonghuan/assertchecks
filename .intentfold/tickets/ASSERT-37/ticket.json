@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-37",
+  "mode": "autonomous",
+  "stage": "handoff-ready",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-37",
+  "branch": "ASSERT-37-case-tickets",
+  "base": "d4596b166c2495dff533cdbfb06d9b6bd10573b4",
+  "ports": { "web": 63037 }
+}

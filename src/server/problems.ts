@@ -1,7 +1,7 @@
 // Pure assembly of the production-errors view from what the telemetry says and what people decided.
 // Nothing here reads the database or Azure, so every rule is unit-tested.
 import type { NoiseRow, ProblemVariantRow, SlowHour, Telemetry } from './telemetry'
-import type { NoiseCategory, ProblemDecision, ProblemGroup, ProblemKind, ProblemView, ProductionErrors } from '../lib/types'
+import type { NoiseCategory, ProblemGroup, ProblemIgnored, ProblemKind, ProblemView, ProductionErrors, TicketLink } from '../lib/types'
 
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
@@ -16,18 +16,16 @@ const DAILY_DAYS = 30
 const VARIANTS = 5
 const NOISE_ITEMS = 10
 
-// A stored problem: what was first and last seen, and the decision on it.
+// A stored problem: what was first and last seen, whether it is marked Not handling, and its tickets.
 export interface StoredProblem {
   id: string
   kind: ProblemKind
   key: string
   firstSeen: Date
   lastSeen: Date
-  decision: 'ticket' | 'ignored' | null
-  ticketUrl: string | null
-  reason: string | null
-  decidedBy: string | null
-  decidedAt: Date | null
+  ignored: ProblemIgnored | null
+  // Newest first.
+  tickets: TicketLink[]
 }
 
 export interface Seen { kind: ProblemKind; key: string; firstSeen: Date; lastSeen: Date }
@@ -68,18 +66,9 @@ const sum = (list: { at: number; count: number }[], from: number, to = Infinity)
   list.reduce((total, item) => (item.at >= from && item.at < to ? total + item.count : total), 0)
 
 function groupOf(problem: StoredProblem, now: number): ProblemGroup {
-  if (problem.decision === 'ignored') return 'ignored'
+  if (problem.ignored) return 'ignored'
   if (now - problem.lastSeen.getTime() > QUIET_DAYS * DAY) return 'quiet'
-  return problem.decision === 'ticket' ? 'ticket' : 'triage'
-}
-
-function decisionOf(problem: StoredProblem): ProblemDecision | null {
-  if (!problem.decision || !problem.decidedAt) return null
-  const by = problem.decidedBy ?? 'unknown'
-  const at = problem.decidedAt.toISOString()
-  return problem.decision === 'ticket'
-    ? { kind: 'ticket', url: problem.ticketUrl ?? '', by, at }
-    : { kind: 'ignored', reason: problem.reason ?? '', by, at }
+  return problem.tickets.length ? 'ticket' : 'triage'
 }
 
 // Which problems appeared together: first seen within an hour of each other, or active in mostly the
@@ -132,8 +121,8 @@ function compare(a: ProblemView, b: ProblemView): number {
     const aStill = (a.sinceTicket?.count ?? 0) > 0
     const bStill = (b.sinceTicket?.count ?? 0) > 0
     if (aStill !== bStill) return aStill ? -1 : 1
-    // Problems sharing a ticket stay next to each other.
-    const byTicket = (a.decision?.kind === 'ticket' ? a.decision.url : '').localeCompare(b.decision?.kind === 'ticket' ? b.decision.url : '')
+    // Problems sharing their newest ticket stay next to each other.
+    const byTicket = (a.tickets[0]?.url ?? '').localeCompare(b.tickets[0]?.url ?? '')
     if (byTicket !== 0) return byTicket
   }
   if (a.group !== 'quiet' && a.count7d !== b.count7d) return b.count7d - a.count7d
@@ -158,10 +147,10 @@ export function assemble(input: {
 
   // A stored problem the telemetry still covers but no longer counts was reclassified as noise; it is
   // dropped unless someone already decided on it.
-  const current = stored.filter((problem) => problem.decision !== null || byProblem.has(problemId(problem.kind, problem.key))
+  const current = stored.filter((problem) => problem.ignored !== null || problem.tickets.length > 0 || byProblem.has(problemId(problem.kind, problem.key))
     || now - problem.lastSeen.getTime() > LOOKBACK_DAYS[problem.kind] * DAY)
 
-  const hints = together(current.filter((problem) => problem.decision !== 'ignored').map((problem) => ({
+  const hints = together(current.filter((problem) => !problem.ignored).map((problem) => ({
     id: problem.id,
     key: problem.key,
     firstSeen: problem.firstSeen.getTime(),
@@ -171,8 +160,9 @@ export function assemble(input: {
   const problems = current.map((problem): ProblemView => {
     const list = byProblem.get(problemId(problem.kind, problem.key)) ?? []
     const group = groupOf(problem, now)
-    const decidedAt = problem.decidedAt?.getTime()
-    const since = problem.decision === 'ticket' && decidedAt !== undefined ? sum(list, decidedAt) : 0
+    // "Since the ticket" counts from the newest ticket.
+    const ticketAt = problem.tickets[0] ? new Date(problem.tickets[0].at).getTime() : undefined
+    const since = ticketAt !== undefined ? sum(list, ticketAt) : 0
     const variants = problem.kind === 'error' ? (variantsOf.get(problem.key) ?? []) : []
     const latest = latestVariant(variants)
     const slow = problem.kind === 'slow' ? latestSlow(slowOf.get(problem.key) ?? []) : undefined
@@ -187,11 +177,12 @@ export function assemble(input: {
       count24h: sum(list, now - DAY),
       count7d: sum(list, now - 7 * DAY),
       count90d: sum(list, 0),
-      decision: decisionOf(problem),
-      sinceTicket: problem.decision === 'ticket' && decidedAt !== undefined
+      ignored: problem.ignored,
+      tickets: problem.tickets,
+      sinceTicket: ticketAt !== undefined
         ? {
             count: since,
-            quietDays: since > 0 ? null : Math.floor((now - Math.max(decidedAt, problem.lastSeen.getTime())) / DAY),
+            quietDays: since > 0 ? null : Math.floor((now - Math.max(ticketAt, problem.lastSeen.getTime())) / DAY),
           }
         : null,
       together: hints.get(problem.id) ?? [],
@@ -206,7 +197,7 @@ export function assemble(input: {
   }).sort(compare)
 
   // Failures of errors that are not marked Not handling; slow hours are not failures.
-  const counted = new Set(current.filter((problem) => problem.kind === 'error' && problem.decision !== 'ignored')
+  const counted = new Set(current.filter((problem) => problem.kind === 'error' && !problem.ignored)
     .map((problem) => problemId(problem.kind, problem.key)))
   const failures = data.buckets.filter((row) => counted.has(problemId('error', row.key)))
   const today = Math.floor(now / DAY) * DAY

@@ -3,6 +3,7 @@ import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
 import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
 import { decideProblem as decide, productionErrors, type Decision } from './production-errors'
+import { attachTicket as attach, projectTicketsView, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
 
 const text = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value || value.length > 256) throw new Error(`${field} is required`)
@@ -74,27 +75,61 @@ export const getProductionErrors = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
   .handler(async ({ data }) => found(await productionErrors((await requireUser()).id, data.project)))
 
-// A ticket link is any http(s) URL; the reason for not handling is one short line.
-function decision(data: { decision?: unknown; ticketUrl?: unknown; reason?: unknown }): Decision {
+const ID = /^[1-9][0-9]{0,17}$/
+const CASE_ID = /^[A-Z0-9]+(?:-[A-Z0-9]+)*$/
+
+// The reason for not handling is one short line.
+function decision(data: { decision?: unknown; reason?: unknown }): Decision {
   if (data.decision === 'none') return { decision: 'none' }
-  if (data.decision === 'ticket') {
-    const url = text(data.ticketUrl, 'ticketUrl').trim()
-    let parsed: URL
-    try { parsed = new URL(url) } catch { throw new Error('ticketUrl must be a URL') }
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('ticketUrl must be an http(s) URL')
-    return { decision: 'ticket', ticketUrl: url }
-  }
   if (data.decision === 'ignored') return { decision: 'ignored', reason: text(data.reason, 'reason').trim() }
-  throw new Error('decision must be ticket, ignored or none')
+  throw new Error('decision must be ignored or none')
 }
 
 export const decideProblem = createServerFn({ method: 'POST' })
-  .validator((data: { project: unknown; problem: unknown; decision?: unknown; ticketUrl?: unknown; reason?: unknown }) => {
+  .validator((data: { project: unknown; problem: unknown; decision?: unknown; reason?: unknown }) => {
     const problem = text(data.problem, 'problem')
-    if (!/^[1-9][0-9]{0,17}$/.test(problem)) throw new Error('problem must be an id')
+    if (!ID.test(problem)) throw new Error('problem must be an id')
     return { project: text(data.project, 'project'), problem, decision: decision(data) }
   })
   .handler(async ({ data }) => {
     if (!(await decide(await requireUser(), data.project, data.problem, data.decision))) throw notFound()
     return { ok: true }
   })
+
+// One ticket onto some cases of the project, or onto one production problem.
+export const attachTicket = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown; ticket: unknown; cases?: unknown; problem?: unknown }) => {
+    let subject: Subject
+    if (data.problem !== undefined) {
+      const problem = text(data.problem, 'problem')
+      if (!ID.test(problem)) throw new Error('problem must be an id')
+      subject = { problem }
+    } else {
+      const cases = data.cases
+      if (!Array.isArray(cases) || !cases.length || cases.length > 200 || cases.some((id) => typeof id !== 'string' || !CASE_ID.test(id))) {
+        throw new Error('cases must be a list of case IDs')
+      }
+      subject = { cases: [...new Set(cases as string[])] }
+    }
+    return { project: text(data.project, 'project'), ticket: ticketUrl(data.ticket), subject }
+  })
+  .handler(async ({ data }) => {
+    if (!(await attach(await requireUser(), data.project, data.subject, data.ticket))) throw notFound()
+    return { ok: true }
+  })
+
+export const removeTicket = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown; link: unknown }) => {
+    const link = text(data.link, 'link')
+    if (!ID.test(link)) throw new Error('link must be an id')
+    return { project: text(data.project, 'project'), link }
+  })
+  .handler(async ({ data }) => {
+    if (!(await remove(await requireUser(), data.project, data.link))) throw notFound()
+    return { ok: true }
+  })
+
+// Read when the project's Tests tab shows its tickets.
+export const getProjectTickets = createServerFn({ method: 'GET' })
+  .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
+  .handler(async ({ data }) => found(await projectTicketsView((await requireUser()).id, data.project)))

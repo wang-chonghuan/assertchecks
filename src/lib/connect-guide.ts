@@ -120,6 +120,7 @@ export const FORMAT_CALLS = [
   { method: 'report', title: 'Here are the results', text: 'The catalog plus a result: Playwright\'s JSON report uploaded unchanged, or the cases format.' },
   { method: 'report', title: 'There are no results', text: 'Say why instead. The run is recorded as Incomplete, so a crash never looks like a pass.' },
   { method: 'check', title: 'Would this pass?', text: 'A dry run: validates the catalog and result, shows the outcome the check would give, and records nothing.' },
+  { method: 'link', title: 'This ticket covers these cases', text: 'After filing or updating a ticket for failing cases: `node assertchecks.mjs link --cases ID,ID --ticket URL`. The cases show the ticket and whether later runs fixed them.' },
 ]
 
 export const CASES_FORMAT: CodeSample = {

@@ -4,29 +4,29 @@ import { sql } from './db'
 import { project } from './queries'
 import { telemetry } from './telemetry'
 import { assemble, seenProblems, withoutData, type StoredProblem } from './problems'
-import type { ProblemKind, ProductionErrors } from '../lib/types'
+import type { ProblemKind, ProductionErrors, TicketLink } from '../lib/types'
 
 interface SourceRow { workspace_id: string; workspace_path: string; roles: string[] | null }
 interface ProblemRow {
   id: string; kind: ProblemKind; key: string; first_seen: Date; last_seen: Date
-  decision: 'ticket' | 'ignored' | null; ticket_url: string | null; reason: string | null
-  decided_by: string | null; decided_at: Date | null
+  decision: 'ticket' | 'ignored' | null; reason: string | null; decided_by: string | null; decided_at: Date | null
 }
+interface LinkRow { id: string; problem_id: string; url: string; attached_by: string; attached_at: Date }
 
 const portal = (path: string) => `https://portal.azure.com/#@/resource${path}/logs`
 
-function toStored(row: ProblemRow): StoredProblem {
+// Tickets now live in ticket_links; a 'ticket' decision left by ASSERT-36 is read as no decision.
+function toStored(row: ProblemRow, tickets: TicketLink[]): StoredProblem {
   return {
     id: row.id,
     kind: row.kind,
     key: row.key,
     firstSeen: row.first_seen,
     lastSeen: row.last_seen,
-    decision: row.decision,
-    ticketUrl: row.ticket_url,
-    reason: row.reason,
-    decidedBy: row.decided_by,
-    decidedAt: row.decided_at,
+    ignored: row.decision === 'ignored' && row.decided_at
+      ? { reason: row.reason ?? '', by: row.decided_by ?? 'unknown', at: row.decided_at.toISOString() }
+      : null,
+    tickets,
   }
 }
 
@@ -58,32 +58,46 @@ export async function productionErrors(userId: string, projectSlug: string): Pro
         last_seen = GREATEST(error_problems.last_seen, EXCLUDED.last_seen)
     `
   }
-  const stored = await sql()<ProblemRow[]>`
-    SELECT id, kind, key, first_seen, last_seen, decision, ticket_url, reason, decided_by, decided_at
-    FROM error_problems WHERE project_id = ${found.id}
-  `
-  return assemble({ project: info, stored: stored.map(toStored), data, now, portalUrl: portal(source.workspace_path) })
+  const [stored, links] = await Promise.all([
+    sql()<ProblemRow[]>`
+      SELECT id, kind, key, first_seen, last_seen, decision, reason, decided_by, decided_at
+      FROM error_problems WHERE project_id = ${found.id}
+    `,
+    sql()<LinkRow[]>`
+      SELECT id, problem_id, url, attached_by, attached_at FROM ticket_links
+      WHERE project_id = ${found.id} AND problem_id IS NOT NULL ORDER BY attached_at DESC, id DESC
+    `,
+  ])
+  const ticketsOf = new Map<string, TicketLink[]>()
+  for (const link of links) {
+    ticketsOf.set(link.problem_id, [...(ticketsOf.get(link.problem_id) ?? []), {
+      id: link.id, url: link.url, by: link.attached_by, at: link.attached_at.toISOString(),
+    }])
+  }
+  return assemble({
+    project: info,
+    stored: stored.map((row) => toStored(row, ticketsOf.get(row.id) ?? [])),
+    data,
+    now,
+    portalUrl: portal(source.workspace_path),
+  })
 }
 
-export type Decision =
-  | { decision: 'ticket'; ticketUrl: string }
-  | { decision: 'ignored'; reason: string }
-  | { decision: 'none' }
+export type Decision = { decision: 'ignored'; reason: string } | { decision: 'none' }
 
-// Attach a ticket, mark Not handling, or undo either. Returns false when the problem is not in a
-// project the user belongs to.
+// Mark Not handling, or undo it; tickets are attached through ticket links. Returns false when the
+// problem is not in a project the user belongs to.
 export async function decideProblem(
   user: { id: string; email: string }, projectSlug: string, problemId: string, decision: Decision,
 ): Promise<boolean> {
   const found = await project(user.id, projectSlug)
   if (!found) return false
-  const ticketUrl = decision.decision === 'ticket' ? decision.ticketUrl : null
   const reason = decision.decision === 'ignored' ? decision.reason : null
   const decided = decision.decision !== 'none'
   const rows = await sql()`
     UPDATE error_problems SET
       decision = ${decided ? decision.decision : null},
-      ticket_url = ${ticketUrl},
+      ticket_url = null,
       reason = ${reason},
       decided_by = ${decided ? user.email : null},
       decided_at = ${decided ? sql()`now()` : null}

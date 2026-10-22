@@ -2,7 +2,8 @@ import { Alert, App, Button, Card, Collapse, Descriptions, Empty, Flex, Form, Gr
 import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { decideProblem, getProductionErrors } from '../server/fns'
+import { attachTicket, decideProblem, getProductionErrors, removeTicket } from '../server/fns'
+import { AttachTicketModal, TicketUrl } from './tickets'
 import type { NoiseCategory, ProblemGroup, ProblemView, ProductionErrors } from '../lib/types'
 import { utc } from './status'
 import { ASSERTCHECKS_STYLE } from '../theme'
@@ -57,24 +58,20 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
   )
 }
 
-type Asking = { problem: ProblemView; decision: 'ticket' | 'ignored' }
-
-function DecisionModal({ asking, onCancel, onSave }: {
-  asking: Asking | null
+// Why a problem is not going to be handled; tickets go through the attach dialog.
+function NotHandlingModal({ problem, onCancel, onSave }: {
+  problem: ProblemView | null
   onCancel: () => void
   onSave: (value: string) => Promise<void>
 }) {
   const [form] = Form.useForm<{ value: string }>()
   const [saving, setSaving] = useState(false)
-  const ticket = asking?.decision === 'ticket'
-  useEffect(() => {
-    form.setFieldsValue({ value: ticket && asking.problem.decision?.kind === 'ticket' ? asking.problem.decision.url : '' })
-  }, [asking, form, ticket])
+  useEffect(() => { if (problem) form.setFieldsValue({ value: '' }) }, [problem, form])
   return (
     <Modal
-      open={asking !== null}
-      title={ticket ? 'Attach a ticket' : 'Not handling'}
-      okText={ticket ? 'Attach' : 'Mark not handling'}
+      open={problem !== null}
+      title="Not handling"
+      okText="Mark not handling"
       confirmLoading={saving}
       onCancel={onCancel}
       onOk={async () => {
@@ -84,26 +81,38 @@ function DecisionModal({ asking, onCancel, onSave }: {
       }}
       destroyOnHidden
     >
-      <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }}>{asking?.problem.key}</Typography.Paragraph>
+      <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }}>{problem?.key}</Typography.Paragraph>
       <Form form={form} layout="vertical">
         <Form.Item
           name="value"
-          label={ticket ? 'Linear or Plane ticket link' : 'Why it is not handled'}
-          rules={ticket
-            ? [{ required: true, type: 'url', message: 'Paste the Linear or Plane ticket link.' }, { max: 256 }]
-            : [{ required: true, whitespace: true, message: 'Say in one line why.' }, { max: 256 }]}
+          label="Why it is not handled"
+          rules={[{ required: true, whitespace: true, message: 'Say in one line why.' }, { max: 256 }]}
         >
-          <Input placeholder={ticket ? 'https://linear.app/… or https://app.plane.so/…' : 'e.g. browser extension, users are not affected'} />
+          <Input placeholder="e.g. browser extension, users are not affected" />
         </Form.Item>
       </Form>
     </Modal>
   )
 }
 
-function ProblemDetail({ problem }: { problem: ProblemView }) {
+function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: (link: string) => void }) {
   const { token } = theme.useToken()
   return (
     <Flex vertical gap="small">
+      {problem.tickets.length > 0 && (
+        <Flex vertical gap={token.marginXXS} align="flex-start" onClick={(event) => event.stopPropagation()}>
+          <Typography.Text strong>Tickets, newest first</Typography.Text>
+          {problem.tickets.map((ticket) => (
+            <Flex key={ticket.id} gap="small" wrap align="center">
+              <TicketUrl url={ticket.url} />
+              <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.at)}</Typography.Text>
+              <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
+                <Button size="small" type="link">Remove</Button>
+              </Popconfirm>
+            </Flex>
+          ))}
+        </Flex>
+      )}
       <Descriptions
         size="small"
         column={{ xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 3 }}
@@ -163,7 +172,8 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   const { message } = App.useApp()
   const [data, setData] = useState<ProductionErrors | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
-  const [asking, setAsking] = useState<Asking | null>(null)
+  const [ignoring, setIgnoring] = useState<ProblemView | null>(null)
+  const [attaching, setAttaching] = useState<ProblemView | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -175,17 +185,19 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   }, [project])
   useEffect(() => { void load() }, [load])
 
-  const decide = async (problem: ProblemView, decision: 'ticket' | 'ignored' | 'none', value?: string) => {
+  // Every change saves, closes its dialog and reloads; a failure says why.
+  const save = async (change: () => Promise<unknown>) => {
     try {
-      await decideProblem({
-        data: { project, problem: problem.id, decision, ticketUrl: decision === 'ticket' ? value : undefined, reason: decision === 'ignored' ? value : undefined },
-      })
-      setAsking(null)
+      await change()
+      setIgnoring(null)
+      setAttaching(null)
       await load()
     } catch (error) {
       message.error(`Saving failed: ${(error as Error).message}`)
     }
   }
+  const decide = (problem: ProblemView, decision: 'ignored' | 'none', reason?: string) =>
+    save(() => decideProblem({ data: { project, problem: problem.id, decision, reason } }))
 
   if (failed) return <Alert type="error" showIcon title="Production errors could not be loaded" description={failed} />
   if (!data) return <Card><Skeleton active /></Card>
@@ -222,32 +234,30 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   const inGroup = (group: ProblemGroup) => data.problems.filter((problem) => problem.group === group)
 
   const statusOf = (problem: ProblemView): ReactNode => {
-    const decision = problem.decision
-    if (decision?.kind === 'ticket') {
-      const since = problem.sinceTicket
-      return (
-        <Flex vertical gap={token.marginXXS} align="flex-start">
-          <Typography.Link href={decision.url} target="_blank" onClick={(event) => event.stopPropagation()} style={{ wordBreak: 'break-all' }}>
-            {decision.url} <ExportOutlined />
-          </Typography.Link>
-          <Flex gap="small" wrap align="center">
-            {since && since.count > 0
-              ? <Tag color="error">Still occurring: {plural(since.count, unit(problem))} since the ticket</Tag>
-              : <Tag>{since?.quietDays ? `No occurrence for ${plural(since.quietDays, 'day')} since the ticket` : 'No occurrence since the ticket'}</Tag>}
-            <Typography.Text type="secondary">by {decision.by}, {utc(decision.at)}</Typography.Text>
-          </Flex>
-        </Flex>
-      )
-    }
-    if (decision?.kind === 'ignored') {
+    if (problem.ignored) {
       return (
         <Flex vertical>
-          <Typography.Text>{decision.reason}</Typography.Text>
-          <Typography.Text type="secondary">Not handling, by {decision.by}, {utc(decision.at)}</Typography.Text>
+          <Typography.Text>{problem.ignored.reason}</Typography.Text>
+          <Typography.Text type="secondary">Not handling, by {problem.ignored.by}, {utc(problem.ignored.at)}</Typography.Text>
         </Flex>
       )
     }
-    return null
+    const newest = problem.tickets[0]
+    if (!newest) return null
+    const since = problem.sinceTicket
+    return (
+      <Flex vertical gap={token.marginXXS} align="flex-start">
+        <TicketUrl url={newest.url} />
+        <Flex gap="small" wrap align="center">
+          {since && since.count > 0
+            ? <Tag color="error">Still occurring: {plural(since.count, unit(problem))} since the ticket</Tag>
+            : <Tag>{since?.quietDays ? `No occurrence for ${plural(since.quietDays, 'day')} since the ticket` : 'No occurrence since the ticket'}</Tag>}
+          <Typography.Text type="secondary">
+            by {newest.by}, {utc(newest.at)}{problem.tickets.length > 1 ? ` · ${problem.tickets.length - 1} earlier ticket${problem.tickets.length > 2 ? 's' : ''}` : ''}
+          </Typography.Text>
+        </Flex>
+      </Flex>
+    )
   }
 
   const actionsOf = (problem: ProblemView): ReactNode => {
@@ -262,14 +272,14 @@ export function ProductionErrorsTab({ project }: { project: string }) {
         {children}
       </Flex>
     )
-    if (problem.decision?.kind === 'ticket') {
-      return stack(<><Button size="small" block onClick={() => setAsking({ problem, decision: 'ticket' })}>Change ticket</Button>{undo}</>)
+    if (problem.ignored) return stack(undo)
+    if (problem.tickets.length) {
+      return stack(<Button size="small" block onClick={() => setAttaching(problem)}>Add ticket</Button>)
     }
-    if (problem.decision?.kind === 'ignored') return stack(undo)
     return stack(
       <>
-        <Button size="small" block type="primary" onClick={() => setAsking({ problem, decision: 'ticket' })}>Attach ticket</Button>
-        <Button size="small" block onClick={() => setAsking({ problem, decision: 'ignored' })}>Not handling</Button>
+        <Button size="small" block type="primary" onClick={() => setAttaching(problem)}>Attach ticket</Button>
+        <Button size="small" block onClick={() => setIgnoring(problem)}>Not handling</Button>
       </>,
     )
   }
@@ -333,7 +343,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       locale={{ emptyText: <Empty description={empty} /> }}
       // The expand icon sits at the row's end so problem names line up with the card title; the whole row opens.
       expandable={{
-        expandedRowRender: (problem) => <ProblemDetail problem={problem} />,
+        expandedRowRender: (problem) => (
+          <ProblemDetail problem={problem} onRemove={(link) => save(() => removeTicket({ data: { project, link } }))} />
+        ),
         expandRowByClick: true,
         expandIconColumnIndex: columns.length,
         columnWidth: token.controlHeight,
@@ -414,10 +426,18 @@ export function ProductionErrorsTab({ project }: { project: string }) {
           },
         ].map((item) => ({ ...item, styles: { header: { paddingInline: cardPadding }, body: { paddingInline: cardPadding } } }))}
       />
-      <DecisionModal
-        asking={asking}
-        onCancel={() => setAsking(null)}
-        onSave={(value) => (asking ? decide(asking.problem, asking.decision, value) : Promise.resolve())}
+      <NotHandlingModal
+        problem={ignoring}
+        onCancel={() => setIgnoring(null)}
+        onSave={(value) => (ignoring ? decide(ignoring, 'ignored', value) : Promise.resolve())}
+      />
+      <AttachTicketModal
+        open={attaching !== null}
+        subject={attaching?.key}
+        onCancel={() => setAttaching(null)}
+        onSave={(url) => (attaching
+          ? save(() => attachTicket({ data: { project, ticket: url, problem: attaching.id } }))
+          : Promise.resolve())}
       />
     </Flex>
   )
