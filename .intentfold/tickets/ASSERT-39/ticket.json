@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-39",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-39",
+  "branch": "ASSERT-39-cap7-closed-tickets",
+  "base": "6775ab6ded6d0f9f499d86c75e1e104cc85bc66b",
+  "ports": { "web": 63039 }
+}

@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { publicOrigin, requirePerson } from '../../../server/client-tokens'
 import { bugReport, me, overview } from '../../../server/queries'
-import { recentBugReport } from '../../../lib/bug-report'
+import { latestBugReport } from '../../../lib/bug-report'
 
-// A check's failure report for the signed-in person, the same text as "Copy bugs from recent runs".
+// A check's failure report for the signed-in person, the same text as "Copy bugs from the latest run".
 // Without a project it lists the person's projects; without a check, the project's checks.
 export const Route = createFileRoute('/api/cli/bugs')({
   server: {
@@ -22,7 +22,7 @@ export const Route = createFileRoute('/api/cli/bugs')({
         }
         const report = await bugReport(person.id, project, check)
         if (!report) return Response.json({ error: 'not found' }, { status: 404 })
-        return new Response(recentBugReport(publicOrigin(request), report), { headers: { 'content-type': 'text/plain; charset=utf-8' } })
+        return new Response(latestBugReport(publicOrigin(request), report), { headers: { 'content-type': 'text/plain; charset=utf-8' } })
       },
     },
   },

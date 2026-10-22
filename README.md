@@ -45,7 +45,7 @@ node assertchecks.mjs logout
 
 `login` keeps the token in the person's own configuration directory (`~/.config/assertchecks/`),
 never in the repository, and never prints it; a sign-in not approved within 10 minutes is void.
-`bugs` prints a check's failure report, the same text as "Copy bugs from recent runs"; without a
+`bugs` prints a check's failure report, the same text as "Copy bugs from the latest run"; without a
 project or check it lists the choices and exits non-zero. `link` records that a ticket (an http(s)
 URL) covers cases in the project's current catalogs, as the assertchecks skill's cap7 does after
 filing it, attached under the person's email. The project can also come from `"project"` in the
