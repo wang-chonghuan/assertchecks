@@ -136,21 +136,14 @@ export interface CaseSpec {
   then: { id: string; expect: string }[]
 }
 
-// What a coding agent needs to file bug tickets from a check's recent full runs: every case that did
-// not pass in any of them, with its written spec and the details of its latest failure.
+// What a coding agent needs to file bug tickets from a check's latest full run: every case that did not
+// pass in it, with its written expectation, its result and its tickets.
 export interface BugReport {
   project: { slug: string; name: string }
   check: { slug: string; name: string; environment: string }
-  runs: { id: string; startedAt: string; trigger: Trigger; testSha: string | null; deployed: Versions | null }[]
-  cases: {
-    spec: CaseSpec
-    // Runs (newest first) in which the case did not pass, and its state in the newest run.
-    notPassedIn: string[]
-    ranIn: number
-    newest: 'passed' | 'not passed' | 'not in run'
-    last: { runId: string; result: CaseResult }
-    bug: CaseBug | null
-  }[]
+  // The newest finished full run with results; null before there is one.
+  run: { id: string; startedAt: string; trigger: Trigger; testSha: string | null; deployed: Versions | null } | null
+  cases: { spec: CaseSpec; result: CaseResult; bug: CaseBug | null }[]
 }
 
 // This case's result in one stored run; status is null when the run did not include the case.

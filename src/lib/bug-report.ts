@@ -14,7 +14,7 @@ interface RunContext {
 // The rules live in the assertchecks skill's cap7; the short form below is for an agent without it.
 const instructions = (project: string) => [
   'File bug tickets from the AssertChecks results below by following the assertchecks skill\'s cap7, in this project\'s repository and with its own ticket workflow (in an IntentFold project: cap2, type fix).',
-  'Without the skill: every case must end in a ticket. Product defects get one fix ticket per cause; test defects get fix tickets for the tests; when product and test cannot be told apart, or a rule and the product disagree, file a ticket that states the open question with the evidence for each reading, for its owner to investigate.',
+  'Without the skill: every case below ends with a ticket on it, or listed for a person. Product defects get one fix ticket per cause; test defects get fix tickets for the tests; when product and test cannot be told apart, or a rule and the product disagree, file a ticket that states the open question with the evidence for each reading, for its owner to investigate.',
   'Each case carries its written Given/When/Then and its latest failure; its test is assertchecks/tests/<case id>.spec.ts and its catalog entry is in assertchecks/e2e.json at the run\'s test commit. Put the run links, tested versions and case links in each ticket, and finish with the tickets per owner.',
   'Each case lists its tickets in AssertChecks, newest first. Never write to an existing ticket. Newest ticket open: leave the case to it. Newest ticket closed: when this run contains its fix (the deployed version for a product fix, the test commit for a test fix), file a new ticket that links it; when it does not, leave it, the fix is not deployed yet; when you cannot tell, list the case for a person. No ticket: file one, or link the case to an open ticket that already covers the same cause.',
   `After filing a ticket, or choosing an open one for a case, record it in AssertChecks with its client (/client/assertchecks.mjs): \`node assertchecks.mjs link --project ${project} --cases <ID,ID> --ticket <URL>\`. The client acts as the person signed in with \`node assertchecks.mjs login\`; when it is not signed in, run login and give the person the address it prints to approve.`,
@@ -77,32 +77,28 @@ function specLines(spec: CaseSpec, result: CaseResult | null, indent: string): s
   ]
 }
 
-// Every case that did not pass in the check's recent full runs, each with enough to file a ticket.
-export function recentBugReport(origin: string, report: BugReport): string {
-  const { project, check, runs, cases } = report
-  const runOf = new Map(runs.map((run) => [run.id, run]))
-  const caseLines = cases.flatMap((item, index) => {
-    const run = runOf.get(item.last.runId)!
-    return [
-      `${index + 1}. ${item.spec.id} — ${item.spec.title}`,
-      `   Did not pass in: ${item.notPassedIn.map((id) => `#${id}`).join(', ')} (${item.notPassedIn.length} of the ${item.ranIn} recent full runs it ran in); newest run: ${item.newest}`,
-      `   Latest failure, run #${run.id} (${day(run.startedAt)}, test commit ${run.testSha ?? 'not recorded'}): ${stopped(item.last.result)}`,
-      `   Error: ${firstLines(item.last.result.error, 6)}`,
-      ...(item.spec.failure ? [`   Known cause in the catalog: ${item.spec.failure}`] : []),
-      ...ticketLines(item.bug, '   '),
-      ...specLines(item.spec, item.last.result, '   '),
-      `   Case link: ${caseLink(origin, project.slug, check.slug, item.spec.id, run.id)}`,
-      '',
-    ]
-  })
+// Every case that did not pass in the check's latest full run, each with enough to file a ticket.
+export function latestBugReport(origin: string, report: BugReport): string {
+  const { project, check, run, cases } = report
+  const head = `Project: ${project.name} · Check: ${check.name} (environment ${check.environment})`
+  if (!run) return [...instructions(project.slug), '', head, 'No full run has reported results yet.'].join('\n')
+  const caseLines = cases.flatMap((item, index) => [
+    `${index + 1}. ${item.spec.id} — ${item.spec.title}`,
+    `   Result: ${stopped(item.result)}`,
+    `   Error: ${firstLines(item.result.error, 6)}`,
+    ...(item.spec.failure ? [`   Known cause in the catalog: ${item.spec.failure}`] : []),
+    ...ticketLines(item.bug, '   '),
+    ...specLines(item.spec, item.result, '   '),
+    `   Case link: ${caseLink(origin, project.slug, check.slug, item.spec.id, run.id)}`,
+    '',
+  ])
   return [
     ...instructions(project.slug),
     '',
-    `Project: ${project.name} · Check: ${check.name} (environment ${check.environment})`,
-    `Recent full runs, newest first:`,
-    ...runs.map((run) => `- #${run.id}, ${day(run.startedAt)}, ${run.trigger === 'schedule' ? 'scheduled' : 'manual'}, test commit ${run.testSha ?? 'not recorded'}, deployed ${versionText(run.deployed)}: ${runLink(origin, project.slug, check.slug, run.id)}`),
+    head,
+    `Latest full run: #${run.id}, ${day(run.startedAt)}, ${run.trigger === 'schedule' ? 'scheduled' : 'manual'}, test commit ${run.testSha ?? 'not recorded'}, deployed ${versionText(run.deployed)}: ${runLink(origin, project.slug, check.slug, run.id)}`,
     '',
-    `Cases that did not pass in at least one of them (${cases.length}):`,
+    `Cases that did not pass in it (${cases.length}):`,
     '',
     ...caseLines,
   ].join('\n').trimEnd()

@@ -14,8 +14,6 @@ import type {
 
 // How many stored runs the history lists, newest first.
 const HISTORY_RUNS = 50
-// How many recent full runs a bug report gathers failures from.
-const REPORT_RUNS = 10
 
 interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
@@ -436,51 +434,42 @@ export async function caseDetail(
   }
 }
 
-// Every case that did not pass in any of the check's recent full runs, with its spec from the newest
-// run's catalog and its most recent failing result, so one copy covers defects that come and go.
+// Every case that did not pass in the check's latest full run, with its spec from that run's catalog.
+// Earlier runs do not count: a failure that no longer happens is not filed, and one already filed carries
+// its ticket.
 export async function bugReport(userId: string, projectSlug: string, checkSlug: string): Promise<BugReport | null> {
   const found = await project(userId, projectSlug)
   if (!found) return null
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
-  const runs = await sql()<{
+  const [run] = await sql()<{
     id: string; started_at: Date; trigger: Trigger; test_sha: string | null
     deployed_start: Versions | null; deployed_end: Versions | null; summary: CaseResult[] | null
   }[]>`
     SELECT id, started_at, trigger, test_sha, deployed_start, deployed_end, summary FROM runs
     WHERE check_id = ${check.id} AND finished_at IS NOT NULL AND cases IS NULL AND summary IS NOT NULL
-    ORDER BY finished_at DESC, id DESC LIMIT ${REPORT_RUNS}
+    ORDER BY finished_at DESC, id DESC LIMIT 1
   `
-  const ids = [...new Set(runs.flatMap((run) => (run.summary ?? []).filter((item) => !casePassed(item)).map((item) => item.case)))]
-  const specs = runs.length && ids.length ? await sql()<{ spec: CaseSpec }[]>`
+  const failed = (run?.summary ?? []).filter((item) => !casePassed(item))
+  const ids = failed.map((item) => item.case)
+  const specs = ids.length ? await sql()<{ spec: CaseSpec }[]>`
     SELECT c AS spec FROM runs, jsonb_array_elements(CASE WHEN jsonb_typeof(catalog->'cases') = 'array' THEN catalog->'cases' ELSE '[]'::jsonb END) c
-    WHERE id = ${runs[0].id} AND c->>'id' = ANY(${ids})
+    WHERE id = ${run.id} AND c->>'id' = ANY(${ids})
   ` : []
   const specOf = new Map(specs.map((row) => [row.spec.id, row.spec]))
   const bugs = ids.length ? await caseBugs(found.id, ids) : new Map<string, CaseBug>()
-  const cases = ids.flatMap((id): BugReport['cases'] => {
-    const results = runs.map((run) => ({ runId: run.id, result: run.summary?.find((item) => item.case === id) ?? null }))
-    const notPassed = results.filter((item) => item.result && !casePassed(item.result))
-    // A case the newest catalog no longer has gives no spec to file from.
-    const spec = specOf.get(id)
-    if (!spec || !notPassed.length) return []
-    const newest = results[0].result
-    return [{
-      spec,
-      notPassedIn: notPassed.map((item) => item.runId),
-      ranIn: results.filter((item) => item.result).length,
-      newest: !newest ? 'not in run' : casePassed(newest) ? 'passed' : 'not passed',
-      last: { runId: notPassed[0].runId, result: notPassed[0].result! },
-      bug: bugs.get(id) ?? null,
-    }]
+  // A case the run's catalog does not have gives no spec to file from.
+  const cases = failed.flatMap((result): BugReport['cases'] => {
+    const spec = specOf.get(result.case)
+    return spec ? [{ spec, result, bug: bugs.get(result.case) ?? null }] : []
   }).sort((a, b) => a.spec.id.localeCompare(b.spec.id))
   return {
     project: { slug: found.slug, name: found.name },
     check: { slug: check.slug, name: check.name, environment: check.environment },
-    runs: runs.map((run) => ({
+    run: run ? {
       id: run.id, startedAt: run.started_at.toISOString(), trigger: run.trigger, testSha: run.test_sha,
       deployed: run.deployed_start ?? run.deployed_end,
-    })),
+    } : null,
     cases,
   }
 }

@@ -3,7 +3,7 @@ import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Empty, Fl
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
 import { CopyOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons'
-import { recentBugReport } from '../../../../../../lib/bug-report'
+import { latestBugReport } from '../../../../../../lib/bug-report'
 import {
   CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, Sha, ThenTag, utc,
 } from '../../../../../../components/status'
@@ -302,7 +302,7 @@ function CheckPage() {
           )}
           <Tabs
             defaultActiveKey={failed.length ? 'failed' : 'passed'}
-            // Every case that did not pass in the recent full runs, as a report a coding agent can file
+            // Every case that did not pass in the latest full run, as a report a coding agent can file
             // tickets from. The report is read when clicked; the clipboard receives it as a pending value
             // so a slow read does not lose the browser's permission to write.
             tabBarExtraContent={(
@@ -311,19 +311,19 @@ function CheckPage() {
                 icon={<CopyOutlined />}
                 onClick={async () => {
                   const pending = getBugReport({ data: { project: project.slug, check: check.slug } })
-                    .then((report) => ({ report, text: recentBugReport(window.location.origin, report) }))
+                    .then((report) => ({ report, text: latestBugReport(window.location.origin, report) }))
                   try {
                     await navigator.clipboard.write([new ClipboardItem({
                       'text/plain': pending.then(({ text }) => new Blob([text], { type: 'text/plain' })),
                     })])
                     const { report } = await pending
-                    message.success(`Copied ${report.cases.length} case${report.cases.length === 1 ? '' : 's'} from the last ${report.runs.length} full runs. Paste it to your coding agent to file the bug tickets.`)
+                    message.success(`Copied ${report.cases.length} case${report.cases.length === 1 ? '' : 's'} from run #${report.run?.id ?? '—'}. Paste it to your coding agent to file the bug tickets.`)
                   } catch {
                     message.error('Copying failed. Allow clipboard access for this page and try again.')
                   }
                 }}
               >
-                Copy bugs from recent runs
+                Copy bugs from the latest run
               </Button>
             )}
             items={[

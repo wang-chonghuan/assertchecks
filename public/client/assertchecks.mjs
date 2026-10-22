@@ -22,7 +22,7 @@
 // the token stays in their own configuration directory (credentials.json under $XDG_CONFIG_HOME or
 // ~/.config/assertchecks), never in the repository and never printed. If the command is stopped before
 // the approval, approving still signs the computer in. `bugs` prints a check's failure report, the same
-// text as "Copy bugs from recent runs"; without a project or check it lists the choices. `link` records
+// text as "Copy bugs from the latest run"; without a project or check it lists the choices. `link` records
 // that a ticket covers these cases, which must be in the project's current catalogs. The project comes
 // from --project or from "project" in assertchecks/config.json in the current directory.
 //
