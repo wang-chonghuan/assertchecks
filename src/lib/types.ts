@@ -116,8 +116,8 @@ export interface CheckDetail {
   history: RunHistoryItem[]
   // Group and tags of every case in the latest full run's catalog, keyed by case ID.
   caseMeta: Record<string, CaseMeta>
-  // Tickets of every case that has one, judged on this check, keyed by case ID.
-  tickets: Record<string, CaseTickets>
+  // Every case of the project that is a bug, keyed by case ID.
+  bugs: Record<string, CaseBug>
 }
 
 export interface CaseSpec {
@@ -149,7 +149,7 @@ export interface BugReport {
     ranIn: number
     newest: 'passed' | 'not passed' | 'not in run'
     last: { runId: string; result: CaseResult }
-    tickets: CaseTickets
+    bug: CaseBug | null
   }[]
 }
 
@@ -170,7 +170,7 @@ export interface CaseDetail {
   viewingLatest: boolean
   result: CaseResult | null
   history: CaseHistoryItem[]
-  tickets: CaseTickets
+  bug: CaseBug | null
 }
 
 // Production errors (ASSERT-36). A problem is one kind of failure across many requests or page visits;
@@ -229,41 +229,28 @@ export interface ProductionErrors {
   noise: { category: NoiseCategory; total: number; items: { item: string; count: number }[] }[]
 }
 
-// A case's tickets judged on one check (ASSERT-37). From the runs of that check that included the case
-// after the ticket was attached: none yet (waiting), the newest did not pass (failing), the newest
-// passed once (passing), or the two newest passed (verified, cap7's acceptance). Flaky is not passed.
-export type TicketState = 'waiting' | 'failing' | 'passing' | 'verified'
+// A bug is a failing case of the project, whatever environment it fails in (ASSERT-37). A person asks
+// three things: does it need a ticket, is a ticket on it, is it fixed.
+export type BugStatus = 'needs-ticket' | 'in-progress' | 'fixed'
 
-export interface TicketOnCheck extends TicketLink {
-  state: TicketState
-  // Runs of this check that included the case since the ticket was attached, oldest first.
-  since: { runId: string; passed: boolean }[]
-  failed: number
-  // When the case became verified under this ticket.
-  verifiedAt: string | null
-}
-
-export interface CaseTickets {
+export interface CaseBug {
+  status: BugStatus
   // Newest first.
-  tickets: TicketOnCheck[]
-  // The case fails now after one of its tickets had been verified.
-  recurred: boolean
+  tickets: TicketLink[]
+  // The ticket whose fix did not hold, when the case failed again after it was fixed.
+  previous: string | null
+  // When it became fixed: passed twice in a row on every check that ran it since the newest ticket.
+  fixedAt: string | null
 }
 
-// The project's tickets on cases, each with its cases and their state on every check.
-export interface ProjectTicket {
-  url: string
-  firstAt: string
-  by: string
-  // open: some case is not verified on some check; recent: all verified within 14 days; earlier: before.
-  section: 'open' | 'recent' | 'earlier'
-  verifiedAt: string | null
-  cases: { case: string; title: string; checks: { slug: string; name: string; state: TicketState; failed: number; runs: number }[] }[]
+export interface Bug extends CaseBug {
+  case: string
+  title: string
+  // A check of the project to open the case on.
+  check: string
 }
 
-export interface ProjectTickets {
+export interface ProjectBugs {
   project: { slug: string; name: string }
-  tickets: ProjectTicket[]
-  // Cases that did not pass in a check's newest full run and carry no ticket, with those checks.
-  untracked: { case: string; title: string; checks: { slug: string; name: string }[] }[]
+  bugs: Bug[]
 }

@@ -3,7 +3,7 @@ import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
 import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
 import { decideProblem as decide, productionErrors, type Decision } from './production-errors'
-import { attachTicket as attach, projectTicketsView, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
+import { attachTicket as attach, projectBugsView, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
 
 const text = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value || value.length > 256) throw new Error(`${field} is required`)
@@ -129,7 +129,7 @@ export const removeTicket = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
-// Read when the project's Tests tab shows its tickets.
-export const getProjectTickets = createServerFn({ method: 'GET' })
+// Read when the project's Tests tab shows its bugs.
+export const getProjectBugs = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
-  .handler(async ({ data }) => found(await projectTicketsView((await requireUser()).id, data.project)))
+  .handler(async ({ data }) => found(await projectBugsView((await requireUser()).id, data.project)))

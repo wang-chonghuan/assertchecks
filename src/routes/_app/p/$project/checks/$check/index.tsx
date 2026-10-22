@@ -8,7 +8,7 @@ import {
   CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, Sha, ThenTag, utc,
 } from '../../../../../../components/status'
 import { attachTicket, getBugReport, getCheck } from '../../../../../../server/fns'
-import { AttachTicketModal, TicketStateTag, TicketUrl } from '../../../../../../components/tickets'
+import { AttachTicketModal, BugStatusTag, BugTicketLine } from '../../../../../../components/tickets'
 import type { CaseResult, OutsideCase, RunHistoryItem, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 import { CheckSummary } from '../../../../../../components/check-summary'
@@ -35,7 +35,7 @@ function versionNames(start: Versions | null, end: Versions | null): string[] {
 const UNGROUPED_KEY = '\u0000ungrouped'
 
 function CheckPage() {
-  const { project, check, latest, caseMeta, history, viewingLatest, tickets } = Route.useLoaderData()
+  const { project, check, latest, caseMeta, history, viewingLatest, bugs } = Route.useLoaderData()
   const { message } = App.useApp()
   const router = useRouter()
   // Not passed cases picked for one ticket, and the cases the attach dialog is open for.
@@ -109,19 +109,16 @@ function CheckPage() {
   const caseWidth = token.controlHeight * 10
   const resultWidth = token.controlHeight * 5
   const ticketWidth = token.controlHeight * 7
-  // The newest ticket and what runs since say about it; earlier tickets are on the case page.
+  // Does this bug need a ticket, is one on it, is it fixed; the full history is on the case page.
   const ticketCell = (id: string) => {
-    const own = tickets[id]
-    const newest = own?.tickets[0]
+    const bug = bugs[id]
     return (
       <Flex vertical gap={token.marginXXS} align="flex-start">
-        {own?.recurred && <Tag color="error">Recurred after a verified fix</Tag>}
-        {newest && <TicketUrl url={newest.url} short />}
-        {newest && <TicketStateTag state={newest.state} failed={newest.failed} runs={newest.since.length} compact />}
-        {own && own.tickets.length > 1 && (
-          <Typography.Text type="secondary">{own.tickets.length - 1} earlier ticket{own.tickets.length > 2 ? 's' : ''}</Typography.Text>
+        {bug && <BugStatusTag status={bug.status} />}
+        {bug && <BugTicketLine bug={bug} />}
+        {bug?.status !== 'in-progress' && (
+          <Button size="small" onClick={() => setAttaching([id])}>Attach ticket</Button>
         )}
-        <Button size="small" onClick={() => setAttaching([id])}>{newest ? 'Add ticket' : 'Attach ticket'}</Button>
       </Flex>
     )
   }

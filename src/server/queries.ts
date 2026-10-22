@@ -5,10 +5,10 @@ import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import { catalogChanges } from './catalog-changes'
 import { caseMeta, type CaseMeta } from '../lib/organize'
-import { caseTickets, type CaseRun } from './tickets'
+import { caseStatus, type CaseRun } from './tickets'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type {
-  BugReport, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CaseTickets, CheckCard, CheckDetail, LatestRun, Me, OutsideCase,
+  BugReport, CaseBug, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase,
   Overview, PartialRun, RunHistoryItem, RunRow, TicketLink,
 } from '../lib/types'
 
@@ -136,8 +136,26 @@ export function runsByCase(runs: { id: string; finished_at: Date | null; summary
   return byCase
 }
 
-function ticketsOf(links: Map<string, TicketLink[]>, byCase: Map<string, CaseRun[]>): Record<string, CaseTickets> {
-  return Object.fromEntries([...links].map(([id, list]) => [id, caseTickets(list, byCase.get(id) ?? [])]))
+// The project's bugs, all or only these cases, each judged on every check of the project, with a check
+// to open it on: one where it fails now, else the first that ran it.
+export async function caseBugs(projectId: string, caseIds?: string[]): Promise<Map<string, CaseBug & { check: string }>> {
+  const [links, checks] = await Promise.all([
+    caseLinks(projectId, caseIds),
+    sql()<{ id: string; slug: string }[]>`SELECT id, slug FROM checks WHERE project_id = ${projectId} ORDER BY name`,
+  ])
+  const byCheck = (await Promise.all(checks.map((check) => recentRuns(check.id)))).map(runsByCase)
+  const ids = caseIds ?? [...new Set([...links.keys(), ...byCheck.flatMap((runs) => [...runs.keys()])])]
+  const bugs = new Map<string, CaseBug & { check: string }>()
+  for (const id of ids) {
+    const perCheck = byCheck.map((runs) => runs.get(id) ?? [])
+    const bug = caseStatus(links.get(id) ?? [], perCheck)
+    if (!bug) continue
+    const newest = (runs: CaseRun[]) => [...runs].sort((a, b) => b.finishedAt.getTime() - a.finishedAt.getTime())[0]
+    const failing = perCheck.findIndex((runs) => runs.length > 0 && !newest(runs).passed)
+    const ran = perCheck.findIndex((runs) => runs.length > 0)
+    bugs.set(id, { ...bug, check: checks[failing >= 0 ? failing : Math.max(ran, 0)]?.slug ?? '' })
+  }
+  return bugs
 }
 
 // The newest runs of a check with one case's result in each; null where the run did not include it.
@@ -355,7 +373,7 @@ export async function checkDetail(
       summary: latest.summary?.map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title })) ?? null,
     }
   }
-  const [runs, links] = await Promise.all([recentRuns(check.id), caseLinks(found.id)])
+  const [runs, bugs] = await Promise.all([recentRuns(check.id), caseBugs(found.id)])
   const history: RunHistoryItem[] = runs.map((row) => ({
     ...toRun(row, check.grace_seconds, now),
     caseCount: row.cases?.length ?? null,
@@ -369,7 +387,7 @@ export async function checkDetail(
     viewingLatest: !chosen,
     history,
     caseMeta: meta,
-    tickets: ticketsOf(links, runsByCase(runs)),
+    bugs: Object.fromEntries(bugs),
   }
 }
 
@@ -382,13 +400,13 @@ export async function caseDetail(
   if (!check) return null
   const latest = runId ? await finishedRun(check.id, runId) : await latestFinished(check.id)
   if (!latest) return null
-  const [[stored], runs, links] = await Promise.all([
+  const [[stored], runs, bugs] = await Promise.all([
     sql()<{ spec: CaseSpec | null }[]>`
       SELECT jsonb_path_query_first(catalog, '$.cases[*] ? (@.id == $id)', jsonb_build_object('id', ${caseId}::text)) AS spec
       FROM runs WHERE id = ${latest.id}
     `,
     caseRuns(check.id, caseId),
-    caseLinks(found.id, [caseId]),
+    caseBugs(found.id, [caseId]),
   ])
   const spec = stored?.spec
   if (!spec) return null
@@ -414,9 +432,7 @@ export async function caseDetail(
     viewingLatest: !runId,
     result: latest.summary?.find((item) => item.case === caseId) ?? null,
     history,
-    tickets: caseTickets(links.get(caseId) ?? [], runs
-      .filter((row) => row.finished_at !== null && row.result !== null)
-      .map((row) => ({ runId: row.id, finishedAt: row.finished_at!, passed: casePassed(row.result!) }))),
+    bug: bugs.get(caseId) ?? null,
   }
 }
 
@@ -441,9 +457,7 @@ export async function bugReport(userId: string, projectSlug: string, checkSlug: 
     WHERE id = ${runs[0].id} AND c->>'id' = ANY(${ids})
   ` : []
   const specOf = new Map(specs.map((row) => [row.spec.id, row.spec]))
-  // Tickets are judged on the check's whole recent history, partial runs included.
-  const [history, links] = ids.length ? await Promise.all([recentRuns(check.id), caseLinks(found.id, ids)]) : [[], new Map()]
-  const judged = ticketsOf(links, runsByCase(history))
+  const bugs = ids.length ? await caseBugs(found.id, ids) : new Map<string, CaseBug>()
   const cases = ids.flatMap((id): BugReport['cases'] => {
     const results = runs.map((run) => ({ runId: run.id, result: run.summary?.find((item) => item.case === id) ?? null }))
     const notPassed = results.filter((item) => item.result && !casePassed(item.result))
@@ -457,7 +471,7 @@ export async function bugReport(userId: string, projectSlug: string, checkSlug: 
       ranIn: results.filter((item) => item.result).length,
       newest: !newest ? 'not in run' : casePassed(newest) ? 'passed' : 'not passed',
       last: { runId: notPassed[0].runId, result: notPassed[0].result! },
-      tickets: judged[id] ?? { tickets: [], recurred: false },
+      bug: bugs.get(id) ?? null,
     }]
   }).sort((a, b) => a.spec.id.localeCompare(b.spec.id))
   return {

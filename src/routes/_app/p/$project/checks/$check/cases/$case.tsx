@@ -1,13 +1,13 @@
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Divider, Empty, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
+import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { useState } from 'react'
 import { caseBugReport } from '../../../../../../../lib/bug-report'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
-import type { CaseHistoryItem, CaseTickets } from '../../../../../../../lib/types'
+import type { CaseBug, CaseHistoryItem } from '../../../../../../../lib/types'
 import { attachTicket, getCase, removeTicket } from '../../../../../../../server/fns'
-import { AttachTicketModal, TicketStateTag, TicketUrl } from '../../../../../../../components/tickets'
+import { AttachTicketModal, BugStatusTag, TicketUrl, ticketLabel } from '../../../../../../../components/tickets'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
 import { UNGROUPED, caseMeta } from '../../../../../../../lib/organize'
 
@@ -36,7 +36,7 @@ function Steps({ items }: { items: string[] }) {
 // catalog's organizing fields and the raw error output wait in collapsed sections.
 function CasePage() {
   const { token } = theme.useToken()
-  const { project, check, spec, run, result, history, viewingLatest, deployed, tickets } = Route.useLoaderData()
+  const { project, check, spec, run, result, history, viewingLatest, deployed, bug } = Route.useLoaderData()
   const { message } = App.useApp()
   const router = useRouter()
   const [attaching, setAttaching] = useState(false)
@@ -49,7 +49,7 @@ function CasePage() {
       deployed,
       spec,
       result,
-      tickets,
+      bug,
       history: history.slice(0, 10).map((item) => ({
         runId: item.run.id,
         status: item.status === null ? 'not in run' : item.failed && item.status === 'passed' ? 'failed' : item.status,
@@ -165,8 +165,7 @@ function CasePage() {
         </Flex>
       </Card>
       <CaseTicketsCard
-        tickets={tickets}
-        checkName={check.name}
+        bug={bug}
         onAttach={() => setAttaching(true)}
         onRemove={async (link) => {
           try {
@@ -245,53 +244,41 @@ function CaseHistory({ history, shownId, project, check, caseId }: {
   )
 }
 
-// Every ticket this case was given. The newest is the one later runs judge; earlier ones are kept as
-// history, with when they were attached.
-function CaseTicketsCard({ tickets, checkName, onAttach, onRemove }: {
-  tickets: CaseTickets; checkName: string; onAttach: () => void; onRemove: (link: string) => Promise<void>
+const SAY: Record<CaseBug['status'], (bug: CaseBug) => string> = {
+  'needs-ticket': (bug) => bug.previous
+    ? `It failed again after ${ticketLabel(bug.previous)} had fixed it. Attach a new ticket.`
+    : 'It fails and no ticket covers it yet.',
+  'in-progress': () => 'A ticket is on it. It counts as fixed once it passes twice in a row in every environment.',
+  fixed: () => 'Passed twice in a row in every environment since its newest ticket.',
+}
+
+// Is a ticket on this bug, is it fixed, and every ticket it was given, newest first.
+function CaseTicketsCard({ bug, onAttach, onRemove }: {
+  bug: CaseBug | null; onAttach: () => void; onRemove: (link: string) => Promise<void>
 }) {
   const { token } = theme.useToken()
-  const [newest, ...earlier] = tickets.tickets
-  const remove = (id: string) => (
-    <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(id)}>
-      <Button size="small" type="link">Remove</Button>
-    </Popconfirm>
-  )
+  const tickets = bug?.tickets ?? []
   return (
-    <Card title={`Tickets (${tickets.tickets.length})`} extra={<Button onClick={onAttach}>{newest ? 'Add ticket' : 'Attach ticket'}</Button>}>
+    <Card title="Tickets" extra={<Button onClick={onAttach}>Attach ticket</Button>}>
       <Flex vertical gap="middle">
-        {tickets.recurred && (
-          <Alert type="error" showIcon title="Recurred" description="This case fails again after one of its tickets had been verified fixed." />
-        )}
-        {!newest && <Empty description="No ticket yet. Tickets are shared by every check of this project." />}
-        {newest && (
-          <Flex vertical gap={token.marginXXS} align="flex-start">
-            <TicketUrl url={newest.url} />
-            <Flex gap="small" wrap align="center">
-              <TicketStateTag state={newest.state} failed={newest.failed} runs={newest.since.length} />
-              <Typography.Text type="secondary">on {checkName} · by {newest.by}, {utc(newest.at)}</Typography.Text>
-              {remove(newest.id)}
+        {bug
+          ? (
+            <Flex gap="small" align="baseline" wrap>
+              <BugStatusTag status={bug.status} />
+              <Typography.Text>{SAY[bug.status](bug)}</Typography.Text>
             </Flex>
-            {newest.since.length > 0 && (
-              <Flex gap={token.marginXXS} wrap align="center">
-                <Typography.Text type="secondary">Runs since:</Typography.Text>
-                {newest.since.map((item) => (
-                  <Tag key={item.runId} color={item.passed ? 'success' : 'error'}>#{item.runId} {item.passed ? 'passed' : 'not passed'}</Tag>
-                ))}
-              </Flex>
-            )}
-          </Flex>
-        )}
-        {earlier.length > 0 && (
+          )
+          : <Typography.Text type="secondary">Not a bug: it passes and has no ticket.</Typography.Text>}
+        {tickets.length > 0 && (
           <Flex vertical gap={token.marginXS}>
-            <Divider style={{ margin: 0 }} />
-            <Typography.Text strong>Earlier tickets</Typography.Text>
-            {earlier.map((ticket) => (
+            {tickets.map((ticket) => (
               <Flex key={ticket.id} vertical align="flex-start">
                 <TicketUrl url={ticket.url} />
                 <Flex gap="small" wrap align="center">
                   <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.at)}</Typography.Text>
-                  {remove(ticket.id)}
+                  <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
+                    <Button size="small" type="link">Remove</Button>
+                  </Popconfirm>
                 </Flex>
               </Flex>
             ))}

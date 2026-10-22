@@ -3,7 +3,7 @@ import { Card, Col, Empty, Flex, Row, Tabs, Typography, theme } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
-import { ProjectTicketsCard } from '../../../../components/tickets'
+import { ProjectBugsCard } from '../../../../components/tickets'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 
@@ -47,11 +47,11 @@ function OverviewPage() {
       ))}
     </Row>
   )
-  // The tickets on this project's cases, grouped by ticket, under the checks they come from.
+  // The project's bugs under the checks they come from.
   const tests = (
     <Flex vertical gap="middle">
       {cards}
-      <ProjectTicketsCard key={project.slug} project={project.slug} />
+      <ProjectBugsCard key={project.slug} project={project.slug} />
     </Flex>
   )
 

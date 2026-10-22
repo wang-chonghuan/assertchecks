@@ -49,8 +49,9 @@ are not compared), and records nothing. The client runs it with
 `node assertchecks.mjs check --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]`.
 `link` records that a ticket (an http(s) URL) covers some cases of the check's project, as the
 assertchecks skill's cap7 does after filing it: `node assertchecks.mjs link --cases ID,ID --ticket URL`.
-The cases must be in the check's newest catalog. A case keeps every ticket it is given; each is shown
-as waiting, still failing, passing or verified (the two newest runs since it was attached passed).
+The cases must be in the check's newest catalog. A failing case is a bug of the project, in whatever
+environment it fails; it needs a ticket, is in progress (a ticket is on it), or is fixed (since its
+newest ticket, every check that ran it passed it twice in a row). Its tickets are all kept.
 
 `result` is an envelope: `{"format": "playwright", "report": <Playwright JSON report>}` (case IDs come
 from the test title prefix `E2E-001: …`, Then IDs from step titles `Then A1: …`), or

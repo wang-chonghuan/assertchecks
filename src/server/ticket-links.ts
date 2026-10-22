@@ -1,9 +1,9 @@
 // Tickets on cases and on production problems (ASSERT-37): attach, remove, and the project's tickets
 // grouped by ticket. Every read and write goes through the user's membership.
 import { sql } from './db'
-import { caseLinks, project, recentRuns, runsByCase } from './queries'
-import { projectTickets } from './tickets'
-import type { ProjectTickets } from '../lib/types'
+import { caseBugs, project } from './queries'
+import { projectBugs } from './tickets'
+import type { ProjectBugs } from '../lib/types'
 
 export type Subject = { cases: string[] } | { problem: string }
 
@@ -52,45 +52,23 @@ export async function removeTicket(user: { id: string }, projectSlug: string, li
   return rows.length === 1
 }
 
-// The project's case tickets grouped by ticket, each case judged on every check of the project.
-export async function projectTicketsView(userId: string, projectSlug: string): Promise<ProjectTickets | null> {
+// The project's bugs for the Tests tab: those needing a ticket, those in progress, those fixed lately.
+export async function projectBugsView(userId: string, projectSlug: string): Promise<ProjectBugs | null> {
   const found = await project(userId, projectSlug)
   if (!found) return null
-  const [links, checks] = await Promise.all([
-    caseLinks(found.id),
-    sql()<{ id: string; slug: string; name: string }[]>`SELECT id, slug, name FROM checks WHERE project_id = ${found.id} ORDER BY name`,
-  ])
-  const runs = await Promise.all(checks.map((check) => recentRuns(check.id)))
-  const byCheck = runs.map(runsByCase)
-  // Cases failing in each check's newest full run that no ticket covers yet.
-  const untracked = new Map<string, { slug: string; name: string }[]>()
-  checks.forEach((check, index) => {
-    const newest = runs[index].find((run) => run.finished_at !== null && run.cases === null)
-    if (!newest) return
-    for (const [id, results] of byCheck[index]) {
-      if (links.has(id) || !results.some((result) => result.runId === newest.id && !result.passed)) continue
-      untracked.set(id, [...(untracked.get(id) ?? []), { slug: check.slug, name: check.name }])
-    }
-  })
-  const ids = [...new Set([...links.keys(), ...untracked.keys()])]
-  // Titles from each check's newest catalog that names the case.
+  const bugs = await caseBugs(found.id)
+  const ids = [...bugs.keys()]
+  // Titles from the newest catalog that names the case.
   const titles = ids.length ? await sql()<{ id: string; title: string }[]>`
-      SELECT DISTINCT ON (c->>'id') c->>'id' AS id, c->>'title' AS title
-      FROM runs r JOIN checks k ON k.id = r.check_id,
-           jsonb_array_elements(CASE WHEN jsonb_typeof(r.catalog->'cases') = 'array' THEN r.catalog->'cases' ELSE '[]'::jsonb END) c
-      WHERE k.project_id = ${found.id} AND c->>'id' = ANY(${ids})
-      ORDER BY c->>'id', r.finished_at DESC NULLS LAST
-    ` : []
+    SELECT DISTINCT ON (c->>'id') c->>'id' AS id, c->>'title' AS title
+    FROM runs r JOIN checks k ON k.id = r.check_id,
+         jsonb_array_elements(CASE WHEN jsonb_typeof(r.catalog->'cases') = 'array' THEN r.catalog->'cases' ELSE '[]'::jsonb END) c
+    WHERE k.project_id = ${found.id} AND c->>'id' = ANY(${ids})
+    ORDER BY c->>'id', r.finished_at DESC NULLS LAST
+  ` : []
   const titleOf = new Map(titles.map((row) => [row.id, row.title ?? '']))
   return {
     project: { slug: found.slug, name: found.name },
-    tickets: projectTickets({
-      links: [...links].flatMap(([id, list]) => list.map((link) => ({ ...link, case: id }))),
-      checks: checks.map((check, index) => ({ slug: check.slug, name: check.name, runs: byCheck[index] })),
-      titles: titleOf,
-      now: new Date(),
-    }),
-    untracked: [...untracked].map(([id, list]) => ({ case: id, title: titleOf.get(id) ?? '', checks: list }))
-      .sort((a, b) => a.case.localeCompare(b.case)),
+    bugs: projectBugs([...bugs].map(([id, bug]) => ({ ...bug, case: id, title: titleOf.get(id) ?? '' })), new Date()),
   }
 }
