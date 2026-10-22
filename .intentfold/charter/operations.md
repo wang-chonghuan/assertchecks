@@ -81,14 +81,18 @@ pnpm build
 
 **Acceptance**
 
-- Browser: the built-in or headed Chrome at 1440×900 and 390×844, signed in locally as a
-  ticket-scoped Clerk test email (`<ticket>+clerk_test@example.com`, which the Clerk development
-  instance accepts with code `424242` and sends no mail) added with `pnpm admin user:add`. Delete
-  that Clerk test user from the development instance's Users page with the rest of the test data.
-- Push API: `curl` against the local or production origin with a ticket-scoped check's token.
+- Sandbox: acceptance data lives in the standing project `sandbox` (checks `dev` and `prod`, error
+  source the BF workspace, read-only). Its members are the owner, `chonghuan.wang@narrativebanking.com`,
+  who reviews it with his own account, and `sandbox+clerk_test@example.com`, which the agent signs in
+  with (the Clerk development instance accepts code `424242` and sends no mail). Its ping tokens are in
+  `.credentials.local` as `sandbox/dev` and `sandbox/prod`; read them with awk, never print them.
+- Browser: the built-in or headed Chrome at 1440×900 and 390×844, signed in locally as
+  `sandbox+clerk_test@example.com`. Review links for the owner point at `/p/sandbox`.
+- Push API: the client or `curl` against the local origin with a sandbox check's token.
 - Data: `psql "$DATABASE_URL"` with `set search_path to "assertchecks-schema"` for read-only checks.
-- Ticket-scoped test data: create it with `pnpm admin project:add`, `check:add`, `user:add` and
-  `member:add`; remove it with the CLI, never with hand-written SQL:
+- A check that needs a project of its own (another member set, a non-member's 404) creates a
+  ticket-scoped project with `pnpm admin project:add`, `check:add` and `member:add` and removes it
+  with the CLI, never with hand-written SQL:
 
 ```bash
 pnpm admin project:remove <slug> --confirm <slug>
@@ -179,15 +183,15 @@ check targeted the wrong surface, then rerun the same check.
 **Deploy from the merged revision.** A successful deploy command is not completion; the post-deploy
 check is.
 
-**Ticket-scoped test data.** Because local runs use the production database, acceptance creates its
-own project, users and checks named after the ticket (for example `assert-12-test`), never attaches
-them to a real user, and removes them with the CLI as soon as the evidence is recorded.
+**Sandbox data.** Local runs use the production database, so acceptance writes only to `sandbox` or to
+a ticket-scoped project. The sandbox stays between tickets so the owner can see the latest work
+without switching accounts; a ticket may add runs, tickets and checks there and leaves them for review.
 
 ## Redlines
 
 1. **Recording a criterion as passed when its check did not run** — forbidden outright.
 2. **Changing or deleting data of real projects (`nsdk`, `bf`) or their users from an acceptance
-   check** — forbidden outright. Acceptance writes only to ticket-scoped test objects.
+   check** — forbidden outright. Acceptance writes only to `sandbox` and ticket-scoped test objects.
 3. **Creating or deleting cloud resources** — not without the human's explicit approval.
 4. **Deploying this project for the first time** — not without the human's explicit approval.
 5. **Changing production schema, infrastructure, ingress, scaling, or required environment keys** —
