@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-38",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-38",
   "branch": "ASSERT-38-client-login-bugs",
