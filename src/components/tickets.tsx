@@ -1,7 +1,8 @@
 // Bugs and their tickets (ASSERT-37). A person asks three things about a bug: does it need a ticket, is a
 // ticket on it, is it fixed. These pieces answer only that.
 import { Link } from '@tanstack/react-router'
-import { Alert, Card, Collapse, Divider, Flex, Form, Input, Modal, Skeleton, Tag, Typography, theme } from 'antd'
+import { Alert, Card, Collapse, Flex, Form, Input, Modal, Skeleton, Table, Tag, Typography, theme } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import { useEffect, useState, type ReactNode } from 'react'
 import { getProjectBugs } from '../server/fns'
@@ -94,23 +95,33 @@ export function BugTicketLine({ bug }: { bug: CaseBug }) {
   )
 }
 
+// The bugs as a table like every other list on the site, so rows take the theme's padding and hover.
 function BugList({ bugs, project }: { bugs: Bug[]; project: string }) {
   const { token } = theme.useToken()
-  return (
-    <Flex vertical>
-      {bugs.map((bug, index) => (
-        <Flex key={bug.case} vertical gap={token.marginXS}>
-          {index > 0 && <Divider style={{ margin: 0 }} />}
-          <Flex gap="small" align="baseline" wrap>
-            <BugStatusTag status={bug.status} />
+  const columns: TableColumnsType<Bug> = [
+    {
+      title: 'Status',
+      key: 'status',
+      width: token.controlHeight * 4,
+      onCell: () => ({ style: { verticalAlign: 'top' } }),
+      render: (_, bug) => <BugStatusTag status={bug.status} />,
+    },
+    {
+      title: 'Bug',
+      key: 'bug',
+      onCell: () => ({ style: { verticalAlign: 'top' } }),
+      render: (_, bug) => (
+        <Flex vertical>
+          <Typography.Text>
             <Link to="/p/$project/checks/$check/cases/$case" params={{ project, check: bug.check, case: bug.case }}>{bug.case}</Link>
-            <Typography.Text>{bug.title}</Typography.Text>
-          </Flex>
+            {' '}{bug.title}
+          </Typography.Text>
           <BugTicketLine bug={bug} />
         </Flex>
-      ))}
-    </Flex>
-  )
+      ),
+    },
+  ]
+  return <Table rowKey="case" size="middle" pagination={false} tableLayout="fixed" showHeader={false} columns={columns} dataSource={bugs} />
 }
 
 // The project's bugs: those needing a ticket first, then those in progress; fixed ones folded.
