@@ -16,6 +16,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AppPIndexRouteImport } from './routes/_app/p/index'
 import { Route as AppPProjectIndexRouteImport } from './routes/_app/p/$project/index'
 import { Route as ApiPingTokenCheckRouteImport } from './routes/api/ping/$token/check'
+import { Route as ApiPingTokenLinkRouteImport } from './routes/api/ping/$token/link'
 import { Route as ApiPingTokenReportRouteImport } from './routes/api/ping/$token/report'
 import { Route as ApiPingTokenStartRouteImport } from './routes/api/ping/$token/start'
 import { Route as AppPProjectChecksCheckIndexRouteImport } from './routes/_app/p/$project/checks/$check/index'
@@ -55,6 +56,11 @@ const ApiPingTokenCheckRoute = ApiPingTokenCheckRouteImport.update({
   path: '/api/ping/$token/check',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPingTokenLinkRoute = ApiPingTokenLinkRouteImport.update({
+  id: '/api/ping/$token/link',
+  path: '/api/ping/$token/link',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPingTokenReportRoute = ApiPingTokenReportRouteImport.update({
   id: '/api/ping/$token/report',
   path: '/api/ping/$token/report',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/p/': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
+  '/api/ping/$token/link': typeof ApiPingTokenLinkRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project/': typeof AppPProjectIndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/p': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
+  '/api/ping/$token/link': typeof ApiPingTokenLinkRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project': typeof AppPProjectIndexRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/_app/p/': typeof AppPIndexRoute
   '/api/ping/$token/check': typeof ApiPingTokenCheckRoute
+  '/api/ping/$token/link': typeof ApiPingTokenLinkRoute
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/_app/p/$project/': typeof AppPProjectIndexRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/p/'
     | '/api/ping/$token/check'
+    | '/api/ping/$token/link'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project/'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/p'
     | '/api/ping/$token/check'
+    | '/api/ping/$token/link'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/_app/p/'
     | '/api/ping/$token/check'
+    | '/api/ping/$token/link'
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/_app/p/$project/'
@@ -162,6 +174,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   ApiPingTokenCheckRoute: typeof ApiPingTokenCheckRoute
+  ApiPingTokenLinkRoute: typeof ApiPingTokenLinkRoute
   ApiPingTokenReportRoute: typeof ApiPingTokenReportRoute
   ApiPingTokenStartRoute: typeof ApiPingTokenStartRoute
 }
@@ -217,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPingTokenCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ping/$token/link': {
+      id: '/api/ping/$token/link'
+      path: '/api/ping/$token/link'
+      fullPath: '/api/ping/$token/link'
+      preLoaderRoute: typeof ApiPingTokenLinkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/ping/$token/report': {
       id: '/api/ping/$token/report'
       path: '/api/ping/$token/report'
@@ -270,6 +290,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   ApiPingTokenCheckRoute: ApiPingTokenCheckRoute,
+  ApiPingTokenLinkRoute: ApiPingTokenLinkRoute,
   ApiPingTokenReportRoute: ApiPingTokenReportRoute,
   ApiPingTokenStartRoute: ApiPingTokenStartRoute,
 }

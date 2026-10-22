@@ -32,7 +32,8 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   catalogs), `ingest` (push API writes and the dry run), `queries` (membership-scoped reads), `fns`
   (server functions used by routes), `telemetry` (the KQL that reads a workspace and de-duplicates
   failures), `problems` (pure assembly of the production-errors view) and `production-errors` (its
-  membership-scoped reads, problem upserts and decisions).
+  membership-scoped reads, problem upserts and decisions), `tickets` (pure judgement of tickets
+  on cases from run results) and `ticket-links` (attaching, removing and listing tickets by ticket).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
   (`connect-guide`) that both the homepage and "Copy for your agent" render.
 - `public/schemas/` — the published catalog and result formats; `public/client/assertchecks.mjs` — the
@@ -60,7 +61,8 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   Google uses the owner's OAuth client in Google Cloud project `assertchecks-auth`). Access comes
   only from users and memberships created with the CLI, matched by the verified email; an email the
   CLI never added can sign in but sees no project.
-- Check state is derived on read; no stored status table.
+- Check state is derived on read; no stored status table. A ticket's state on a case is derived the
+  same way, from the check's runs since the ticket was attached; only the link itself is stored.
 - Every read is scoped by the signed-in user's memberships; a miss is a 404.
 - Ping tokens are stored only as hashes; passwords and sessions are not stored (Clerk holds sessions).
 - One database: the easy-app PostgreSQL schema serves production and local development alike, so

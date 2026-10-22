@@ -116,6 +116,8 @@ export interface CheckDetail {
   history: RunHistoryItem[]
   // Group and tags of every case in the latest full run's catalog, keyed by case ID.
   caseMeta: Record<string, CaseMeta>
+  // Every case of the project that is a bug, keyed by case ID.
+  bugs: Record<string, CaseBug>
 }
 
 export interface CaseSpec {
@@ -147,6 +149,7 @@ export interface BugReport {
     ranIn: number
     newest: 'passed' | 'not passed' | 'not in run'
     last: { runId: string; result: CaseResult }
+    bug: CaseBug | null
   }[]
 }
 
@@ -167,6 +170,7 @@ export interface CaseDetail {
   viewingLatest: boolean
   result: CaseResult | null
   history: CaseHistoryItem[]
+  bug: CaseBug | null
 }
 
 // Production errors (ASSERT-36). A problem is one kind of failure across many requests or page visits;
@@ -175,9 +179,9 @@ export type ProblemKind = 'error' | 'slow'
 export type ProblemGroup = 'triage' | 'ticket' | 'quiet' | 'ignored'
 export type NoiseCategory = 'client' | 'scanner' | 'aborted' | 'analytics' | 'script'
 
-export type ProblemDecision =
-  | { kind: 'ticket'; url: string; by: string; at: string }
-  | { kind: 'ignored'; reason: string; by: string; at: string }
+// A ticket attached to a case or a problem. A subject keeps every ticket it ever had; none replaces another.
+export interface TicketLink { id: string; url: string; by: string; at: string }
+export interface ProblemIgnored { reason: string; by: string; at: string }
 
 export interface ProblemView {
   id: string
@@ -192,8 +196,11 @@ export interface ProblemView {
   count7d: number
   // Everything the workspace still holds (90 days).
   count90d: number
-  decision: ProblemDecision | null
-  // With a ticket: failures since it was attached; quietDays when none occurred since then.
+  // Marked Not handling, with why; otherwise null.
+  ignored: ProblemIgnored | null
+  // Newest first.
+  tickets: TicketLink[]
+  // With a ticket: failures since the newest was attached; quietDays when none occurred since then.
   sinceTicket: { count: number; quietDays: number | null } | null
   // Other problems that showed up in the same period, by key.
   together: string[]
@@ -220,4 +227,30 @@ export interface ProductionErrors {
   problems: ProblemView[]
   // The last 7 days of what is never a problem.
   noise: { category: NoiseCategory; total: number; items: { item: string; count: number }[] }[]
+}
+
+// A bug is a failing case of the project, whatever environment it fails in (ASSERT-37). A person asks
+// three things: does it need a ticket, is a ticket on it, is it fixed.
+export type BugStatus = 'needs-ticket' | 'in-progress' | 'fixed'
+
+export interface CaseBug {
+  status: BugStatus
+  // Newest first.
+  tickets: TicketLink[]
+  // The ticket whose fix did not hold, when the case failed again after it was fixed.
+  previous: string | null
+  // When it became fixed: passed twice in a row on every check that ran it since the newest ticket.
+  fixedAt: string | null
+}
+
+export interface Bug extends CaseBug {
+  case: string
+  title: string
+  // A check of the project to open the case on.
+  check: string
+}
+
+export interface ProjectBugs {
+  project: { slug: string; name: string }
+  bugs: Bug[]
 }

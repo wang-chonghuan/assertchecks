@@ -176,3 +176,21 @@ test('report exits non-zero when AssertChecks names format errors', async () => 
   assert.deepEqual(lines, ['AssertChecks run 8: incomplete'])
   assert.deepEqual(warnings, ['format error: catalog: missing version'])
 })
+
+test('link sends the cases and the ticket and prints what was linked', async () => {
+  const answers = (calls) => async (url, init = {}) => {
+    calls.push({ url: String(url), body: JSON.parse(init.body) })
+    return Response.json({ linked: ['E2E-094'], already: ['E2E-151'] })
+  }
+  const { calls, lines, options } = harness({}, answers)
+  const code = await run(['link', '--cases', 'E2E-094,E2E-151', '--ticket', 'https://linear.app/x/issue/ENG-1'], options)
+  assert.equal(code, 0)
+  assert.equal(calls[0].url, `${DEFAULT_ORIGIN}/api/ping/secret-token/link`)
+  assert.deepEqual(calls[0].body, { cases: ['E2E-094', 'E2E-151'], ticket: 'https://linear.app/x/issue/ENG-1' })
+  assert.deepEqual(lines, ['AssertChecks: https://linear.app/x/issue/ENG-1 linked to E2E-094; already linked: E2E-151'])
+})
+
+test('link needs cases and a ticket', async () => {
+  const { options } = harness()
+  await assert.rejects(run(['link', '--cases', 'E2E-094'], options), /--ticket/)
+})

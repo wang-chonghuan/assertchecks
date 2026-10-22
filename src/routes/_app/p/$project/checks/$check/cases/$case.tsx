@@ -1,11 +1,13 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Table, Tag, Typography, theme } from 'antd'
+import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
+import { useState } from 'react'
 import { caseBugReport } from '../../../../../../../lib/bug-report'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
-import type { CaseHistoryItem } from '../../../../../../../lib/types'
-import { getCase } from '../../../../../../../server/fns'
+import type { CaseBug, CaseHistoryItem } from '../../../../../../../lib/types'
+import { attachTicket, getCase, removeTicket } from '../../../../../../../server/fns'
+import { AttachTicketModal, BugStatusTag, TicketUrl, ticketLabel } from '../../../../../../../components/tickets'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
 import { UNGROUPED, caseMeta } from '../../../../../../../lib/organize'
 
@@ -34,8 +36,10 @@ function Steps({ items }: { items: string[] }) {
 // catalog's organizing fields and the raw error output wait in collapsed sections.
 function CasePage() {
   const { token } = theme.useToken()
-  const { project, check, spec, run, result, history, viewingLatest, deployed } = Route.useLoaderData()
+  const { project, check, spec, run, result, history, viewingLatest, deployed, bug } = Route.useLoaderData()
   const { message } = App.useApp()
+  const router = useRouter()
+  const [attaching, setAttaching] = useState(false)
   const copyReport = async () => {
     const text = caseBugReport({
       origin: window.location.origin,
@@ -45,6 +49,7 @@ function CasePage() {
       deployed,
       spec,
       result,
+      bug,
       history: history.slice(0, 10).map((item) => ({
         runId: item.run.id,
         status: item.status === null ? 'not in run' : item.failed && item.status === 'passed' ? 'failed' : item.status,
@@ -159,6 +164,32 @@ function CasePage() {
           <Collapse ghost size="small" items={more} />
         </Flex>
       </Card>
+      <CaseTicketsCard
+        bug={bug}
+        onAttach={() => setAttaching(true)}
+        onRemove={async (link) => {
+          try {
+            await removeTicket({ data: { project: project.slug, link } })
+            await router.invalidate()
+          } catch (error) {
+            message.error(`Removing failed: ${(error as Error).message}`)
+          }
+        }}
+      />
+      <AttachTicketModal
+        open={attaching}
+        subject={`${spec.id} · ${spec.title}`}
+        onCancel={() => setAttaching(false)}
+        onSave={async (url) => {
+          try {
+            await attachTicket({ data: { project: project.slug, ticket: url, cases: [spec.id] } })
+            setAttaching(false)
+            await router.invalidate()
+          } catch (error) {
+            message.error(`Attaching failed: ${(error as Error).message}`)
+          }
+        }}
+      />
       {history.length > 0 && (
         <Card title="Result in each run">
           <CaseHistory history={history} shownId={run.id} project={project.slug} check={check.slug} caseId={spec.id} />
@@ -210,5 +241,50 @@ function CaseHistory({ history, shownId, project, check, caseId }: {
         style: { cursor: 'pointer', background: item.run.id === shownId ? token.controlItemBgActive : undefined },
       })}
     />
+  )
+}
+
+const SAY: Record<CaseBug['status'], (bug: CaseBug) => string> = {
+  'needs-ticket': (bug) => bug.previous
+    ? `It failed again after ${ticketLabel(bug.previous)} had fixed it. Attach a new ticket.`
+    : 'It fails and no ticket covers it yet.',
+  'in-progress': () => 'A ticket is on it. It counts as fixed once it passes twice in a row in every environment.',
+  fixed: () => 'Passed twice in a row in every environment since its newest ticket.',
+}
+
+// Is a ticket on this bug, is it fixed, and every ticket it was given, newest first.
+function CaseTicketsCard({ bug, onAttach, onRemove }: {
+  bug: CaseBug | null; onAttach: () => void; onRemove: (link: string) => Promise<void>
+}) {
+  const { token } = theme.useToken()
+  const tickets = bug?.tickets ?? []
+  return (
+    <Card title="Tickets" extra={<Button onClick={onAttach}>Attach ticket</Button>}>
+      <Flex vertical gap="middle">
+        {bug
+          ? (
+            <Flex gap="small" align="baseline" wrap>
+              <BugStatusTag status={bug.status} />
+              <Typography.Text>{SAY[bug.status](bug)}</Typography.Text>
+            </Flex>
+          )
+          : <Typography.Text type="secondary">Not a bug: it passes and has no ticket.</Typography.Text>}
+        {tickets.length > 0 && (
+          <Flex vertical gap={token.marginXS}>
+            {tickets.map((ticket) => (
+              <Flex key={ticket.id} vertical align="flex-start">
+                <TicketUrl url={ticket.url} />
+                <Flex gap="small" wrap align="center">
+                  <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.at)}</Typography.Text>
+                  <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
+                    <Button size="small" type="link">Remove</Button>
+                  </Popconfirm>
+                </Flex>
+              </Flex>
+            ))}
+          </Flex>
+        )}
+      </Flex>
+    </Card>
   )
 }

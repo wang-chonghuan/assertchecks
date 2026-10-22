@@ -5,10 +5,11 @@ import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import { catalogChanges } from './catalog-changes'
 import { caseMeta, type CaseMeta } from '../lib/organize'
+import { caseStatus, type CaseRun } from './tickets'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type {
-  BugReport, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase, Overview,
-  PartialRun, RunHistoryItem, RunRow,
+  BugReport, CaseBug, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase,
+  Overview, PartialRun, RunHistoryItem, RunRow, TicketLink,
 } from '../lib/types'
 
 // How many stored runs the history lists, newest first.
@@ -95,7 +96,7 @@ async function finishedRun(checkId: string, runId: string): Promise<LatestDbRow 
 }
 
 // The newest runs of a check, any kind, with what each needs for one history row.
-async function recentRuns(checkId: string): Promise<(RunDbRow & {
+export async function recentRuns(checkId: string): Promise<(RunDbRow & {
   cases: string[] | null; summary: CaseResult[] | null; deployed_start: Versions | null; deployed_end: Versions | null
 })[]> {
   return sql()`
@@ -104,6 +105,57 @@ async function recentRuns(checkId: string): Promise<(RunDbRow & {
     FROM runs WHERE check_id = ${checkId}
     ORDER BY started_at DESC, id DESC LIMIT ${HISTORY_RUNS}
   `
+}
+
+interface LinkRow { id: string; case_id: string; url: string; attached_by: string; attached_at: Date }
+
+// The tickets attached to the project's cases, all of them or only these cases, by case ID.
+export async function caseLinks(projectId: string, caseIds?: string[]): Promise<Map<string, TicketLink[]>> {
+  const rows = await sql()<LinkRow[]>`
+    SELECT id, case_id, url, attached_by, attached_at FROM ticket_links
+    WHERE project_id = ${projectId} AND case_id IS NOT NULL ${caseIds ? sql()`AND case_id = ANY(${caseIds})` : sql()``}
+  `
+  const links = new Map<string, TicketLink[]>()
+  for (const row of rows) {
+    links.set(row.case_id, [...(links.get(row.case_id) ?? []), {
+      id: row.id, url: row.url, by: row.attached_by, at: row.attached_at.toISOString(),
+    }])
+  }
+  return links
+}
+
+// Each case's results in these runs, finished runs only, for judging its tickets.
+export function runsByCase(runs: { id: string; finished_at: Date | null; summary: CaseResult[] | null }[]): Map<string, CaseRun[]> {
+  const byCase = new Map<string, CaseRun[]>()
+  for (const run of runs) {
+    if (!run.finished_at) continue
+    for (const item of run.summary ?? []) {
+      byCase.set(item.case, [...(byCase.get(item.case) ?? []), { runId: run.id, finishedAt: run.finished_at, passed: casePassed(item) }])
+    }
+  }
+  return byCase
+}
+
+// The project's bugs, all or only these cases, each judged on every check of the project, with a check
+// to open it on: one where it fails now, else the first that ran it.
+export async function caseBugs(projectId: string, caseIds?: string[]): Promise<Map<string, CaseBug & { check: string }>> {
+  const [links, checks] = await Promise.all([
+    caseLinks(projectId, caseIds),
+    sql()<{ id: string; slug: string }[]>`SELECT id, slug FROM checks WHERE project_id = ${projectId} ORDER BY name`,
+  ])
+  const byCheck = (await Promise.all(checks.map((check) => recentRuns(check.id)))).map(runsByCase)
+  const ids = caseIds ?? [...new Set([...links.keys(), ...byCheck.flatMap((runs) => [...runs.keys()])])]
+  const bugs = new Map<string, CaseBug & { check: string }>()
+  for (const id of ids) {
+    const perCheck = byCheck.map((runs) => runs.get(id) ?? [])
+    const bug = caseStatus(links.get(id) ?? [], perCheck)
+    if (!bug) continue
+    const newest = (runs: CaseRun[]) => [...runs].sort((a, b) => b.finishedAt.getTime() - a.finishedAt.getTime())[0]
+    const failing = perCheck.findIndex((runs) => runs.length > 0 && !newest(runs).passed)
+    const ran = perCheck.findIndex((runs) => runs.length > 0)
+    bugs.set(id, { ...bug, check: checks[failing >= 0 ? failing : Math.max(ran, 0)]?.slug ?? '' })
+  }
+  return bugs
 }
 
 // The newest runs of a check with one case's result in each; null where the run did not include it.
@@ -321,7 +373,7 @@ export async function checkDetail(
       summary: latest.summary?.map((item) => ({ ...item, title: specs.get(item.case)?.title ?? item.title })) ?? null,
     }
   }
-  const runs = await recentRuns(check.id)
+  const [runs, bugs] = await Promise.all([recentRuns(check.id), caseBugs(found.id)])
   const history: RunHistoryItem[] = runs.map((row) => ({
     ...toRun(row, check.grace_seconds, now),
     caseCount: row.cases?.length ?? null,
@@ -335,6 +387,7 @@ export async function checkDetail(
     viewingLatest: !chosen,
     history,
     caseMeta: meta,
+    bugs: Object.fromEntries(bugs),
   }
 }
 
@@ -347,12 +400,13 @@ export async function caseDetail(
   if (!check) return null
   const latest = runId ? await finishedRun(check.id, runId) : await latestFinished(check.id)
   if (!latest) return null
-  const [[stored], runs] = await Promise.all([
+  const [[stored], runs, bugs] = await Promise.all([
     sql()<{ spec: CaseSpec | null }[]>`
       SELECT jsonb_path_query_first(catalog, '$.cases[*] ? (@.id == $id)', jsonb_build_object('id', ${caseId}::text)) AS spec
       FROM runs WHERE id = ${latest.id}
     `,
     caseRuns(check.id, caseId),
+    caseBugs(found.id, [caseId]),
   ])
   const spec = stored?.spec
   if (!spec) return null
@@ -378,6 +432,7 @@ export async function caseDetail(
     viewingLatest: !runId,
     result: latest.summary?.find((item) => item.case === caseId) ?? null,
     history,
+    bug: bugs.get(caseId) ?? null,
   }
 }
 
@@ -402,6 +457,7 @@ export async function bugReport(userId: string, projectSlug: string, checkSlug: 
     WHERE id = ${runs[0].id} AND c->>'id' = ANY(${ids})
   ` : []
   const specOf = new Map(specs.map((row) => [row.spec.id, row.spec]))
+  const bugs = ids.length ? await caseBugs(found.id, ids) : new Map<string, CaseBug>()
   const cases = ids.flatMap((id): BugReport['cases'] => {
     const results = runs.map((run) => ({ runId: run.id, result: run.summary?.find((item) => item.case === id) ?? null }))
     const notPassed = results.filter((item) => item.result && !casePassed(item.result))
@@ -415,6 +471,7 @@ export async function bugReport(userId: string, projectSlug: string, checkSlug: 
       ranIn: results.filter((item) => item.result).length,
       newest: !newest ? 'not in run' : casePassed(newest) ? 'passed' : 'not passed',
       last: { runId: notPassed[0].runId, result: notPassed[0].result! },
+      bug: bugs.get(id) ?? null,
     }]
   }).sort((a, b) => a.spec.id.localeCompare(b.spec.id))
   return {

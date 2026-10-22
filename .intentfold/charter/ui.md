@@ -20,7 +20,8 @@ Pages under `src/routes/`; shared presentational pieces under `src/components/`:
 product mark), `status.tsx` (outcome/status tags and notices), `check-summary.tsx` (the environment
 card shared by project cards, the check page and the homepage example), `how-it-works.tsx` (the
 homepage diagram), `production-errors.tsx` (the project page's Production errors tab, with its
-30-day bars, which antd has no component for) and `page-frame.ts` (the content width and side gutter every page and section uses).
+30-day bars, which antd has no component for), `tickets.tsx` (the attach dialog, a ticket's
+link and state, and the project's tickets grouped by ticket) and `page-frame.ts` (the content width and side gutter every page and section uses).
 `src/styles.css` holds structural rules only: the self-hosted font face and the homepage's breakpoint
 switches. Prefer an antd component or documented composition over a new component. An Ant component
 is overridden only when tokens cannot do it, in `src/components/ant-overrides/`, one file per

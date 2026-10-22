@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Empty, Flex, Select, Table, Tabs, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
@@ -7,7 +7,8 @@ import { recentBugReport } from '../../../../../../lib/bug-report'
 import {
   CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, Sha, ThenTag, utc,
 } from '../../../../../../components/status'
-import { getBugReport, getCheck } from '../../../../../../server/fns'
+import { attachTicket, getBugReport, getCheck } from '../../../../../../server/fns'
+import { AttachTicketModal, BugStatusTag, BugTicketLine } from '../../../../../../components/tickets'
 import type { CaseResult, OutsideCase, RunHistoryItem, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 import { CheckSummary } from '../../../../../../components/check-summary'
@@ -34,8 +35,12 @@ function versionNames(start: Versions | null, end: Versions | null): string[] {
 const UNGROUPED_KEY = '\u0000ungrouped'
 
 function CheckPage() {
-  const { project, check, latest, caseMeta, history, viewingLatest } = Route.useLoaderData()
+  const { project, check, latest, caseMeta, history, viewingLatest, bugs } = Route.useLoaderData()
   const { message } = App.useApp()
+  const router = useRouter()
+  // Not passed cases picked for one ticket, and the cases the attach dialog is open for.
+  const [selected, setSelected] = useState<string[]>([])
+  const [attaching, setAttaching] = useState<string[] | null>(null)
   // Case links keep the run being viewed, so a case opens with that run's result.
   const runSearch = viewingLatest || !latest ? {} : { run: Number(latest.id) }
   const { token } = theme.useToken()
@@ -102,7 +107,21 @@ function CheckPage() {
 
   // Fixed leading widths keep columns aligned across group sections.
   const caseWidth = token.controlHeight * 10
-  const resultWidth = token.controlHeight * 4
+  const resultWidth = token.controlHeight * 5
+  const ticketWidth = token.controlHeight * 7
+  // Does this bug need a ticket, is one on it, is it fixed; the full history is on the case page.
+  const ticketCell = (id: string) => {
+    const bug = bugs[id]
+    return (
+      <Flex vertical gap={token.marginXXS} align="flex-start">
+        {bug && <BugStatusTag status={bug.status} />}
+        {bug && <BugTicketLine bug={bug} />}
+        {bug?.status !== 'in-progress' && (
+          <Button size="small" onClick={() => setAttaching([id])}>Attach ticket</Button>
+        )}
+      </Flex>
+    )
+  }
   const failedColumns: TableColumnsType<CaseResult> = [
     {
       title: 'Case',
@@ -128,13 +147,14 @@ function CheckPage() {
         )
       },
     },
+    { title: 'Ticket', key: 'ticket', width: ticketWidth, render: (_, item) => ticketCell(item.case) },
     {
       title: 'Error',
       dataIndex: 'error',
       // Phones read the error on the expanded row or the case page instead of scrolling sideways.
       responsive: ['md'],
       render: (error: string | null) => firstLine(error)
-        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: token.controlHeight * 16 }}>{firstLine(error)}</Typography.Text>
+        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: '100%' }}>{firstLine(error)}</Typography.Text>
         : <Typography.Text type="secondary">—</Typography.Text>,
     },
   ]
@@ -152,9 +172,18 @@ function CheckPage() {
       rowKey="case"
       size="small"
       pagination={false}
-      scroll={{ x: 'max-content' }}
+      // Fixed widths keep every group section's columns on the same lines; phones scroll inside the card.
+      tableLayout="fixed"
+      scroll={{ x: token.controlHeight * 26 }}
       columns={failedColumns}
       dataSource={rows}
+      // Selections across group sections add up to one list for a shared ticket.
+      rowSelection={{
+        selectedRowKeys: selected.filter((id) => rows.some((row) => row.case === id)),
+        onChange: (keys) => setSelected((previous) => [
+          ...previous.filter((id) => !rows.some((row) => row.case === id)), ...keys.map(String),
+        ]),
+      }}
       locale={{ emptyText: <Empty description="No failed cases in the latest run." /> }}
       expandable={{
         rowExpandable: (item) => Boolean(item.error),
@@ -298,7 +327,23 @@ function CheckPage() {
               </Button>
             )}
             items={[
-              { key: 'failed', label: `Not passed (${failed.length})`, children: byGroup(failed, (item) => item.case, failedTable) },
+              {
+                key: 'failed',
+                label: `Not passed (${failed.length})`,
+                children: (
+                  <Flex vertical gap="small">
+                    {failed.length > 0 && (
+                      <Flex gap="small" align="center" wrap>
+                        <Button disabled={!selected.length} onClick={() => setAttaching(selected)}>
+                          Attach one ticket to {selected.length || 'the'} selected case{selected.length === 1 ? '' : 's'}
+                        </Button>
+                        <Typography.Text type="secondary">For cases with the same cause.</Typography.Text>
+                      </Flex>
+                    )}
+                    {byGroup(failed, (item) => item.case, failedTable)}
+                  </Flex>
+                ),
+              },
               {
                 key: 'passed',
                 label: `Passed (${passed.length})`,
@@ -323,6 +368,22 @@ function CheckPage() {
           />
         </Card>
       )}
+      <AttachTicketModal
+        open={attaching !== null}
+        subject={attaching?.join(', ')}
+        onCancel={() => setAttaching(null)}
+        onSave={async (url) => {
+          try {
+            await attachTicket({ data: { project: project.slug, ticket: url, cases: attaching ?? [] } })
+            message.success(`Ticket attached to ${attaching?.join(', ')}.`)
+            setAttaching(null)
+            setSelected([])
+            await router.invalidate()
+          } catch (error) {
+            message.error(`Attaching failed: ${(error as Error).message}`)
+          }
+        }}
+      />
     </Flex>
   )
 }

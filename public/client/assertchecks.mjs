@@ -7,9 +7,12 @@
 //                                [--version NAME=URL]...
 //   node assertchecks.mjs report --run-id ID --exit-code N --error "why there is no report"
 //   node assertchecks.mjs check  --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]
+//   node assertchecks.mjs link   --cases ID,ID --ticket URL
 //
 // `check` is a dry run: it validates the catalog (and the result, when given) against the published
 // formats at /schemas/ and shows how the check would judge it, without recording a run.
+// `link` records that a ticket covers these cases of the check's project; AssertChecks then shows the
+// ticket on the cases and judges it from later runs. The cases must be in the check's newest catalog.
 //
 // Environment: ASSERTCHECKS_PING_TOKEN (required, never printed), ASSERTCHECKS_ORIGIN (optional).
 // `start` prints only the run ID. A version URL must return JSON with a 40-character `sha`; each read
@@ -113,6 +116,7 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
       playwright: { type: 'string' },
       catalog: { type: 'string' },
       error: { type: 'string' },
+      ticket: { type: 'string' },
     },
   })
   const token = env.ASSERTCHECKS_PING_TOKEN
@@ -192,7 +196,15 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
     return 0
   }
 
-  throw new Error('usage: assertchecks.mjs start | report | check (see the header of this file)')
+  if (command === 'link') {
+    if (!cases?.length || !values.ticket) throw new Error('link needs --cases ID,ID and --ticket URL')
+    const reply = await post(origin, token, 'link', { cases, ticket: values.ticket }, fetchImpl)
+    out(`AssertChecks: ${values.ticket} linked to ${reply.linked.length ? reply.linked.join(', ') : 'no new cases'}` +
+      `${reply.already.length ? `; already linked: ${reply.already.join(', ')}` : ''}`)
+    return 0
+  }
+
+  throw new Error('usage: assertchecks.mjs start | report | check | link (see the header of this file)')
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

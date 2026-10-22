@@ -2,6 +2,7 @@ import { sql } from './db'
 import { hashToken } from './crypto'
 import { containsSensitive, judge, type Selection, type Trigger, type Versions } from './judge'
 import { catalogErrors, resultErrors } from './schema'
+import { ticketUrl } from './ticket-links'
 
 export const MAX_BODY_BYTES = 5 * 1024 * 1024
 
@@ -42,9 +43,9 @@ function namedCases(value: unknown): string[] | null {
   return value as string[]
 }
 
-async function findCheck(token: string): Promise<{ id: string; selection: Selection } | null> {
-  const [check] = await sql()<{ id: string; selection: Selection }[]>`
-    SELECT id, selection FROM checks WHERE ping_token_hash = ${hashToken(token)}
+async function findCheck(token: string): Promise<{ id: string; selection: Selection; project_id: string; slug: string } | null> {
+  const [check] = await sql()<{ id: string; selection: Selection; project_id: string; slug: string }[]>`
+    SELECT id, selection, project_id, slug FROM checks WHERE ping_token_hash = ${hashToken(token)}
   `
   return check ?? null
 }
@@ -230,4 +231,37 @@ export async function checkReport(token: string, text: string): Promise<Reply> {
     skipVersions: true,
   })
   return { status: 200, body: { valid: true, outcome: verdict.outcome, reason: verdict.reason } }
+}
+
+// Record that a ticket covers some cases of this check's project, as cap7 does after filing it. The
+// cases must be in the check's newest catalog, so a mistyped ID is refused instead of linked to nothing.
+export async function linkCases(token: string, text: string): Promise<Reply> {
+  const check = await findCheck(token)
+  if (!check) return fail(404, 'unknown token')
+  let cases: string[]
+  let url: string
+  try {
+    const body = parseJson(text)
+    const named = namedCases(body.cases)
+    if (!named) throw new Error('cases must be a non-empty list of unique case IDs')
+    cases = named
+    url = ticketUrl(body.ticket)
+  } catch (error) {
+    return fail(400, (error as Error).message)
+  }
+  const [newest] = await sql()<{ ids: string[] | null }[]>`
+    SELECT (SELECT array_agg(c->>'id') FROM jsonb_array_elements(catalog->'cases') c) AS ids FROM runs
+    WHERE check_id = ${check.id} AND jsonb_typeof(catalog->'cases') = 'array'
+    ORDER BY finished_at DESC NULLS LAST, id DESC LIMIT 1
+  `
+  const known = new Set(newest?.ids ?? [])
+  const unknown = cases.filter((id) => !known.has(id))
+  if (unknown.length) return fail(400, `not in this check's newest catalog: ${unknown.join(', ')}`)
+  const added = await sql()<{ case_id: string }[]>`
+    INSERT INTO ticket_links ${sql()(cases.map((id) => ({ project_id: check.project_id, case_id: id, url, attached_by: `client (check ${check.slug})` })),
+      'project_id', 'case_id', 'url', 'attached_by')}
+    ON CONFLICT DO NOTHING RETURNING case_id
+  `
+  const linked = added.map((row) => row.case_id)
+  return { status: 200, body: { linked, already: cases.filter((id) => !linked.includes(id)) } }
 }
