@@ -254,3 +254,10 @@ export interface ProjectBugs {
   project: { slug: string; name: string }
   bugs: Bug[]
 }
+
+// A client sign-in request as its approval page shows it (ASSERT-38).
+export interface ClientLogin {
+  code: string
+  requestedAt: string
+  state: 'waiting' | 'approved' | 'expired'
+}

@@ -108,6 +108,14 @@ export const FORMAT_INTRO = 'The client makes these calls. A producer that is no
 export const FORMAT_SAMPLES: CodeSample[] = [
   { label: 'Partial run of named cases', lang: 'bash', code: 'node assertchecks.mjs start --cases E2E-014,E2E-031' },
   {
+    // A ping token only reports runs; people read failures and link tickets as themselves.
+    label: 'Failures and tickets, as a signed-in person',
+    lang: 'bash',
+    code: `node assertchecks.mjs login
+node assertchecks.mjs bugs --project shop --check staging
+node assertchecks.mjs link --project shop --cases E2E-014 --ticket https://linear.app/…/ENG-1702`,
+  },
+  {
     label: 'No results',
     lang: 'bash',
     code: `node assertchecks.mjs report --run-id "$run_id" --exit-code "$code" \\
@@ -120,7 +128,6 @@ export const FORMAT_CALLS = [
   { method: 'report', title: 'Here are the results', text: 'The catalog plus a result: Playwright\'s JSON report uploaded unchanged, or the cases format.' },
   { method: 'report', title: 'There are no results', text: 'Say why instead. The run is recorded as Incomplete, so a crash never looks like a pass.' },
   { method: 'check', title: 'Would this pass?', text: 'A dry run: validates the catalog and result, shows the outcome the check would give, and records nothing.' },
-  { method: 'link', title: 'This ticket covers these cases', text: 'After filing or updating a ticket for failing cases: `node assertchecks.mjs link --cases ID,ID --ticket URL`. The cases show the ticket and whether later runs fixed them.' },
 ]
 
 export const CASES_FORMAT: CodeSample = {

@@ -13,6 +13,7 @@ const USAGE = `usage: pnpm admin <command>
   member:remove <email> <project-slug>  revoke a user's access to a project
   project:remove <slug> --confirm <slug>     delete a project with its checks, runs and memberships
   user:remove <email> --confirm <email>      delete a user with its memberships
+  client:revoke <email>                 sign the user's AssertChecks clients out on every computer
   check:add <project-slug> <check-slug> --name <name> --env <env> --period <seconds|none> --grace <seconds>
             [--select-status active] [--select-run regular]
   check:update <project-slug> <check-slug> [--slug] [--name] [--env] [--period <seconds|none>] [--grace]
@@ -131,6 +132,14 @@ async function main(): Promise<void> {
       if (values.confirm?.toLowerCase() !== email.toLowerCase()) throw new Error(`refusing: repeat the email with --confirm ${email}`)
       await one(db`DELETE FROM users WHERE email = ${email.toLowerCase()} RETURNING id`, 'unknown user')
       console.log(`removed ${email.toLowerCase()} with its memberships`)
+      return
+    }
+    case 'client:revoke': {
+      const [email] = need(1)
+      const rows = await db`
+        DELETE FROM client_tokens WHERE user_id = (SELECT id FROM users WHERE email = ${email.toLowerCase()}) RETURNING id
+      `
+      console.log(`signed out ${rows.length} client sign-in(s) of ${email.toLowerCase()}`)
       return
     }
     case 'check:add': {
