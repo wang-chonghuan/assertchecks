@@ -3,7 +3,7 @@
 // Zero dependencies, Node 20+. Served by AssertChecks at /client/assertchecks.mjs so it always matches
 // the server.
 //
-// A check's runs, with its ping token in ASSERTCHECKS_PING_TOKEN (never printed):
+// A check's runs, with its ping token in ASSERTCHECKS_PING_TOKEN (never printed); check works without it:
 //   node assertchecks.mjs start  [--trigger schedule|manual] [--cases ID,ID] [--version NAME=URL]...
 //   node assertchecks.mjs report --run-id ID --exit-code N --playwright results.json --catalog e2e.json
 //                                [--version NAME=URL]...
@@ -17,7 +17,8 @@
 //   node assertchecks.mjs logout
 //
 // `check` is a dry run: it validates the catalog (and the result, when given) against the published
-// formats at /schemas/ and shows how the check would judge it, without recording a run.
+// formats at /schemas/, needing no token, and with a check's ping token also shows how that check would
+// judge it; it never records a run.
 // `login` prints an address where the person approves this computer with their AssertChecks account;
 // the token stays in their own configuration directory (credentials.json under $XDG_CONFIG_HOME or
 // ~/.config/assertchecks), never in the repository and never printed. If the command is stopped before
@@ -26,7 +27,8 @@
 // that a ticket covers these cases, which must be in the project's current catalogs. The project comes
 // from --project or from "project" in assertchecks/config.json in the current directory.
 //
-// Environment: ASSERTCHECKS_PING_TOKEN (for start, report, check), ASSERTCHECKS_ORIGIN (optional).
+// Environment: ASSERTCHECKS_PING_TOKEN (for start and report; check judges with it and checks only
+// the format without it), ASSERTCHECKS_ORIGIN (optional).
 // `start` prints only the run ID. A version URL must return JSON with a 40-character `sha`; each read
 // is tried up to three times (waiting 2 s, then 4 s) before it is recorded as unreadable.
 import { execFileSync } from 'node:child_process'
@@ -115,6 +117,18 @@ async function post(origin, token, step, body, fetchImpl) {
   return reply
 }
 
+async function postFormat(origin, body, fetchImpl) {
+  const response = await fetchImpl(`${origin}/api/check`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  const reply = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(`AssertChecks check failed: HTTP ${response.status} ${reply.error ?? ''}`.trim())
+  return reply
+}
+
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // The person's sign-ins, one per AssertChecks origin, in their own configuration directory.
@@ -189,7 +203,7 @@ async function awaitApproval({ origin, env, token, url, fetchImpl, out, sleep })
   }
 }
 
-const PING_COMMANDS = ['start', 'report', 'check']
+const PING_COMMANDS = ['start', 'report']
 
 export async function run(argv, { env = process.env, fetchImpl = fetch, out = console.log, log = console.error, sleep = wait, cwd = process.cwd() } = {}) {
   const { positionals, values } = parseArgs({
@@ -277,13 +291,14 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
       body.exitCode = exitCode
       body.result = { format: 'playwright', report: JSON.parse(readFileSync(values.playwright, 'utf8')) }
     }
-    const reply = await post(origin, token, 'check', body, fetchImpl)
+    // Without a check's token only the format is checked; with one, the result is also judged.
+    const reply = token ? await post(origin, token, 'check', body, fetchImpl) : await postFormat(origin, body, fetchImpl)
     if (!reply.valid) {
       for (const problem of reply.errors) log(`format error: ${problem}`)
       out('AssertChecks dry run: invalid; nothing was recorded')
       return 1
     }
-    out(`AssertChecks dry run: valid${reply.outcome ? `, would be ${reply.outcome}${reply.reason ? ` (${reply.reason})` : ''}` : ''}; nothing was recorded`)
+    out(`AssertChecks dry run: valid${reply.outcome ? `, would be ${reply.outcome}${reply.reason ? ` (${reply.reason})` : ''}` : ''}${token ? '' : ' format (no check token, so not judged)'}; nothing was recorded`)
     return 0
   }
 

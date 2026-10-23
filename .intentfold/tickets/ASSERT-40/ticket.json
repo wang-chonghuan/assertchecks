@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-40",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-40",
+  "branch": "ASSERT-40-check-without-token",
+  "base": "50a11c1a8fd1108a49035bab8c5aa31d5d5e49e7",
+  "ports": {
+    "web": 63040
+  }
+}

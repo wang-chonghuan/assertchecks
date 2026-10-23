@@ -60,14 +60,16 @@ token as a bearer.
 | `POST /api/ping/:token/start` | `{testSha, runner: {kind, runUrl}, trigger, cases?, deployed: {name: sha}}` | `{runId}` |
 | `POST /api/ping/:token/report` | `{runId?, exitCode, testSha, trigger, cases?, deployedEnd: {name: sha}, result, catalog}` or `{runId?, exitCode, error}` | `{runId, outcome, errors?}` |
 | `POST /api/ping/:token/check` | `{catalog, result?, exitCode?, cases?}` | `{valid, errors?, outcome?, reason?}` |
+| `POST /api/check` (no token) | `{catalog, result?, exitCode?, cases?}` | `{valid, errors?}` |
 
 The format is fixed and published as JSON Schema: `/schemas/catalog.schema.json` (the catalog's core
 fields; projects may add their own, which are kept and ignored) and `/schemas/result.schema.json`.
 The server validates every report against these same files. A report that does not match is recorded
 as `incomplete`, and the reply lists each wrong field (`errors`, for example
 `catalog.cases[0].then[0]: missing expect`); the client then exits non-zero. `check` is a dry run:
-it validates a catalog, and a result when given, judges it against the check's selection (versions
-are not compared), and records nothing. The client runs it with
+it validates a catalog, and a result when given, and records nothing. It needs no token; with a
+check's ping token it also judges the result against that check's selection (versions are not
+compared). The client runs it with
 `node assertchecks.mjs check --catalog e2e.json [--playwright results.json --exit-code N] [--cases ID,ID]`.
 A failing case is a bug of the project, in whatever
 environment it fails; it needs a ticket, is in progress (a ticket is on it), or is fixed (since its

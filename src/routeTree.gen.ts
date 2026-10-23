@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ApiCheckRouteImport } from './routes/api/check'
 import { Route as AppCliCodeRouteImport } from './routes/_app/cli/$code'
 import { Route as AppPIndexRouteImport } from './routes/_app/p/index'
 import { Route as ApiCliBugsRouteImport } from './routes/api/cli/bugs'
@@ -42,6 +43,11 @@ const LoginRoute = LoginRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCheckRoute = ApiCheckRouteImport.update({
+  id: '/api/check',
+  path: '/api/check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppCliCodeRoute = AppCliCodeRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/api/check': typeof ApiCheckRoute
   '/cli/$code': typeof AppCliCodeRoute
   '/api/cli/bugs': typeof ApiCliBugsRoute
   '/api/cli/link': typeof ApiCliLinkRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/api/check': typeof ApiCheckRoute
   '/cli/$code': typeof AppCliCodeRoute
   '/api/cli/bugs': typeof ApiCliBugsRoute
   '/api/cli/link': typeof ApiCliLinkRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/api/check': typeof ApiCheckRoute
   '/_app/cli/$code': typeof AppCliCodeRoute
   '/api/cli/bugs': typeof ApiCliBugsRoute
   '/api/cli/link': typeof ApiCliLinkRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/privacy'
+    | '/api/check'
     | '/cli/$code'
     | '/api/cli/bugs'
     | '/api/cli/link'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/privacy'
+    | '/api/check'
     | '/cli/$code'
     | '/api/cli/bugs'
     | '/api/cli/link'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/privacy'
+    | '/api/check'
     | '/_app/cli/$code'
     | '/api/cli/bugs'
     | '/api/cli/link'
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
+  ApiCheckRoute: typeof ApiCheckRoute
   ApiCliBugsRoute: typeof ApiCliBugsRoute
   ApiCliLinkRoute: typeof ApiCliLinkRoute
   ApiCliSessionRoute: typeof ApiCliSessionRoute
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/check': {
+      id: '/api/check'
+      path: '/api/check'
+      fullPath: '/api/check'
+      preLoaderRoute: typeof ApiCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/cli/$code': {
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
+  ApiCheckRoute: ApiCheckRoute,
   ApiCliBugsRoute: ApiCliBugsRoute,
   ApiCliLinkRoute: ApiCliLinkRoute,
   ApiCliSessionRoute: ApiCliSessionRoute,
