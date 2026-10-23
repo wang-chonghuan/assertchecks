@@ -250,3 +250,16 @@ test('login saves the token before approval, privately, and never prints it', as
     `Signed in to ${DEFAULT_ORIGIN} as a@example.com`,
   ])
 })
+
+test('check without a ping token checks only the format, at the public endpoint', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'assertchecks-'))
+  writeFileSync(join(dir, 'e2e.json'), JSON.stringify({ version: 1, cases: [] }))
+  const answers = (calls) => async (url, init = {}) => {
+    calls.push({ url: String(url), body: JSON.parse(init.body) })
+    return Response.json({ valid: true })
+  }
+  const { calls, lines, options } = harness({ ASSERTCHECKS_PING_TOKEN: '' }, answers)
+  assert.equal(await run(['check', '--catalog', join(dir, 'e2e.json')], options), 0)
+  assert.equal(calls[0].url, `${DEFAULT_ORIGIN}/api/check`)
+  assert.deepEqual(lines, ['AssertChecks dry run: valid format (no check token, so not judged); nothing was recorded'])
+})

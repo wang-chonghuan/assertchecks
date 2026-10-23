@@ -200,9 +200,9 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
 
 // A dry run: validates a catalog, and optionally a result, as a report would be, judges it against
 // the check's selection, and records nothing.
-export async function checkReport(token: string, text: string): Promise<Reply> {
-  const check = await findCheck(token)
-  if (!check) return fail(404, 'unknown token')
+// The format half of the dry run: the catalog, and the result when given, against the published formats.
+// It needs no check, so anyone can run it before committing a catalog; nothing is recorded.
+function dryRunFormat(text: string): Reply | { body: Record<string, unknown>; cases: string[] | null; hasResult: boolean } {
   let body: Record<string, unknown>
   let cases: string[] | null
   try {
@@ -218,6 +218,21 @@ export async function checkReport(token: string, text: string): Promise<Reply> {
   }
   const errors = [...catalogErrors(body.catalog), ...(hasResult ? resultErrors(body.result) : [])]
   if (errors.length) return { status: 200, body: { valid: false, errors } }
+  return { body, cases, hasResult }
+}
+
+export function checkFormat(text: string): Reply {
+  const format = dryRunFormat(text)
+  return 'status' in format ? format : { status: 200, body: { valid: true } }
+}
+
+// With a check's token the dry run also judges the result against that check's selection.
+export async function checkReport(token: string, text: string): Promise<Reply> {
+  const check = await findCheck(token)
+  if (!check) return fail(404, 'unknown token')
+  const format = dryRunFormat(text)
+  if ('status' in format) return format
+  const { body, cases, hasResult } = format
   if (!hasResult) return { status: 200, body: { valid: true } }
   const verdict = judge({
     result: body.result,

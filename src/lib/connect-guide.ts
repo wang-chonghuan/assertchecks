@@ -68,7 +68,7 @@ export const CONNECT_STEPS: ConnectStep[] = [
   },
   {
     title: 'Check it with a dry run',
-    text: 'Validate the catalog, and a report if you have one, before the first real run. Wrong fields are printed with their path, and nothing is recorded.',
+    text: 'Validate the catalog, and a report if you have one, before the first real run and whenever the catalog changes. It needs no token; wrong fields are printed with their path, and nothing is recorded. With the check\'s ping token set, it also shows how that check would judge the report.',
     samples: [{
       label: 'Dry run',
       lang: 'bash',
@@ -127,7 +127,7 @@ export const FORMAT_CALLS = [
   { method: 'start', title: 'A run began', text: 'The trigger, the named cases of a partial run, and each tested component\'s deployed SHA. Returns the run ID.' },
   { method: 'report', title: 'Here are the results', text: 'The catalog plus a result: Playwright\'s JSON report uploaded unchanged, or the cases format.' },
   { method: 'report', title: 'There are no results', text: 'Say why instead. The run is recorded as Incomplete, so a crash never looks like a pass.' },
-  { method: 'check', title: 'Would this pass?', text: 'A dry run: validates the catalog and result, shows the outcome the check would give, and records nothing.' },
+  { method: 'check', title: 'Would this pass?', text: 'A dry run: validates the catalog and result, shows the outcome the check would give, and records nothing. Format only, with no token: `POST /api/check`.' },
 ]
 
 export const CASES_FORMAT: CodeSample = {
