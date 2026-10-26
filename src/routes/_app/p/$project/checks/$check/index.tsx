@@ -102,7 +102,8 @@ function CheckPage() {
   // Fixed leading widths keep columns aligned across group sections.
   const caseWidth = token.controlHeight * 10
   const resultWidth = token.controlHeight * 5
-  const ticketWidth = token.controlHeight * 7
+  // The expand and the select column share one width, so expanded content can line up with the case.
+  const markWidth = token.controlHeight
   // Does this bug need a ticket, is one on it, is it fixed; the full history is on the case page.
   const ticketCell = (id: string) => {
     const bug = bugs[id]
@@ -141,7 +142,8 @@ function CheckPage() {
         )
       },
     },
-    { title: 'Ticket', key: 'ticket', width: ticketWidth, render: (_, item) => ticketCell(item.case) },
+    // The last column takes the spare width, so the fixed ones keep theirs.
+    { title: 'Ticket', key: 'ticket', render: (_, item) => ticketCell(item.case) },
   ]
   const passedColumns: TableColumnsType<CaseResult> = [
     { title: 'Case', dataIndex: 'case', render: (id: string, item) => caseLink(id, item.title) },
@@ -164,6 +166,7 @@ function CheckPage() {
       dataSource={rows}
       // Selections across group sections add up to one list for a shared ticket.
       rowSelection={{
+        columnWidth: markWidth,
         selectedRowKeys: selected.filter((id) => rows.some((row) => row.case === id)),
         onChange: (keys) => setSelected((previous) => [
           ...previous.filter((id) => !rows.some((row) => row.case === id)), ...keys.map(String),
@@ -172,7 +175,9 @@ function CheckPage() {
       locale={{ emptyText: <Empty description="No failed cases in the latest run." /> }}
       expandable={{
         rowExpandable: (item) => Boolean(item.error),
-        expandedRowRender: (item) => <ErrorLog log={item.error ?? ''} />,
+        columnWidth: markWidth,
+        // The error starts under the case text: past the expand and the select column.
+        expandedRowRender: (item) => <div style={{ paddingInlineStart: markWidth * 2 }}><ErrorLog log={item.error ?? ''} /></div>,
       }}
     />
   )

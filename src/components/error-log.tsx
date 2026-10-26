@@ -1,10 +1,10 @@
-import { App, Button, Tooltip, theme } from 'antd'
+import { App, Button, Tooltip } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { space, text } from '../infui/tokens'
 
-// A test's or a request's error output as a code block, with a copy button in its corner.
+// A test's or a request's error output in the code style, with a copy button at its top right. No box
+// of its own: it sits in an expanded row or a card, and a box there would be a card inside a card.
 export function ErrorLog({ log }: { log: string }) {
-  const { token } = theme.useToken()
   const { message } = App.useApp()
   const copy = async () => {
     try {
@@ -15,7 +15,7 @@ export function ErrorLog({ log }: { log: string }) {
     }
   }
   return (
-    <div style={{ position: 'relative', background: token.colorFillQuaternary, borderRadius: token.borderRadiusLG, padding: space.group }}>
+    <div style={{ position: 'relative' }}>
       <Tooltip title="Copy">
         <Button
           size="small"
@@ -23,11 +23,11 @@ export function ErrorLog({ log }: { log: string }) {
           icon={<CopyOutlined />}
           aria-label="Copy the error"
           onClick={(event) => { event.stopPropagation(); void copy() }}
-          style={{ position: 'absolute', top: space.stack, insetInlineEnd: space.stack }}
+          style={{ position: 'absolute', top: 0, insetInlineEnd: 0 }}
         />
       </Tooltip>
       {/* Room on the right so the first line never runs under the button. */}
-      <pre style={{ ...text.code, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0, paddingInlineEnd: space.block }}>{log.trim()}</pre>
+      <pre style={{ ...text.code, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0, paddingInlineEnd: space.section }}>{log.trim()}</pre>
     </div>
   )
 }
