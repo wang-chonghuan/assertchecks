@@ -130,7 +130,7 @@ function HomePage() {
                     Assertion monitoring for your products
                   </Typography.Title>
                   <Typography.Paragraph style={{ ...text.lead, margin: 0, maxWidth: ASSERTCHECKS_STYLE.heroTextWidth }}>
-                    Be the first to know about production errors and end-to-end failures.
+                    Be the first to know about test failures and errors in production.
                   </Typography.Paragraph>
                   <Flex vertical gap={space.stack}>
                     {HERO_POINTS.map((point) => (
