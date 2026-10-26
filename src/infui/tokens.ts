@@ -31,7 +31,7 @@ export const ASSERTCHECKS_STYLE = {
   fontSize: 16, // body, navigation, buttons
   fontSizeSM: 14, // card descriptions
   fontSizeLG: 20, // emphasised lead text, card titles
-  fontSizeHeading1: 52, // hero headline: one step above the section titles, level with the example card
+  fontSizeHeading1: 44, // hero headline: one step above the section titles
   fontSizeHeading2: 40, // section titles
   fontSizeHeading3: 30, // card headings
   fontSizeHeading4: 26, // block titles
@@ -44,7 +44,7 @@ export const ASSERTCHECKS_STYLE = {
   lineHeightHeading4: 32, // 26 px
   lineHeightHeading3: 36, // 30 px
   lineHeightHeading2: 48, // 40 px
-  lineHeightHeading1: 60, // 52 px
+  lineHeightHeading1: 52, // 44 px
   // Single-line display text, where line spacing never shows: the big pass count and the wordmark.
   lineHeightSingle: 1,
   fontWeightHeading: 500, // headings and emphasis
@@ -52,7 +52,6 @@ export const ASSERTCHECKS_STYLE = {
   fontWeightLabel: 600,
   fontWeightWordmark: 700,
   letterSpacingWordmark: '-0.02em',
-  fontWeightDisplay: 400, // the hero headline
   fontWeightButton: 600,
   // The control height before the compact algorithm, which turns it into 32 px. Button needs it again
   // because its own algorithm would otherwise compact the already-compact height a second time.
@@ -103,7 +102,7 @@ export const text = {
     fontFamily: style.fontFamily,
     fontSize: `clamp(${style.fontSizeHeading2}px, 5.3vw, ${style.fontSizeHeading1}px)`,
     lineHeight: `max(${style.lineHeightHeading2}px, ${style.lineHeightHeading1 / style.fontSizeHeading1}em)`,
-    fontWeight: style.fontWeightDisplay,
+    fontWeight: style.fontWeightHeading,
     color: style.text,
   },
   heading1: textStyle(style.fontSizeHeading2, style.lineHeightHeading2, style.fontWeightHeading, style.text), // section titles

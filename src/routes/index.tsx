@@ -115,7 +115,8 @@ function HomePage() {
             borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
           }}
         >
-          <div style={section}>
+          {/* The hero sits closer to the header than a section does, so the example card is not framed by empty bands. */}
+          <div style={{ ...section, paddingBlock: space.block }}>
             <Row gutter={[space.section, space.block]} align="middle">
               <Col xs={24} lg={13}>
                 <Flex vertical gap={space.group} align="start">

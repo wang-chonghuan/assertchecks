@@ -34,8 +34,8 @@ function AppLayout() {
         }}
       >
         <Flex align="center" gap={space.stack} style={{ ...pageFrame, height: '100%' }}>
-          {/* Signed in, the mark leads back to the projects, not to the public homepage. */}
-          <Link to="/p" aria-label={`${PRODUCT_NAME} projects`}><Brand /></Link>
+          {/* The mark always leads to the homepage; the project selector leads to the projects. */}
+          <Link to="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></Link>
           {me.projects.length > 0 && (
             <Select
               aria-label="Project"
