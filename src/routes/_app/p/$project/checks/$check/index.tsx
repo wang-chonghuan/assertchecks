@@ -398,13 +398,11 @@ function RunHistory({ history, shownId, project, check }: {
       render: (_, run) => (
         <Flex gap={space.stack} align="center" wrap>
           {(!run.tally || run.timedOut || run.outcome === 'incomplete' || run.outcome === 'running') && <OutcomeTag run={run} />}
+          {/* Failed of the cases that ran, as one badge: red when any failed, green when none did. */}
           {run.tally && (
-            <Typography.Text style={run.tally.failed > 0 ? { ...text.body, color: token.colorError } : text.body}>
-              {run.tally.failed > 0
-                ? `${run.tally.failed} failed of ${run.tally.ran}`
-                : `${run.tally.passed} of ${run.tally.ran} passed`}
-              {run.tally.incomplete > 0 ? `, ${run.tally.incomplete} incomplete` : ''}
-            </Typography.Text>
+            <Tag color={run.tally.failed > 0 ? 'error' : 'success'}>
+              {run.tally.failed}/{run.tally.ran} failed{run.tally.incomplete > 0 ? ` · ${run.tally.incomplete} incomplete` : ''}
+            </Tag>
           )}
         </Flex>
       ),
