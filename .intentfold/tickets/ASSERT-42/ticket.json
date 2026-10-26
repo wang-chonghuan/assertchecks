@@ -1,10 +1,12 @@
 {
   "ticket": "ASSERT-42",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-42",
   "branch": "ASSERT-42-ui-clarity",
   "base": "c805a47591029599555a108ac390f99c814c6577",
-  "ports": { "web": 63042 }
+  "ports": {
+    "web": 63042
+  }
 }
