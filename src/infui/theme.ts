@@ -24,6 +24,7 @@ export const theme: ThemeConfig = {
     borderRadius: style.radius,
     borderRadiusLG: style.cardRadius,
     fontFamily: style.fontFamily,
+    fontFamilyCode: style.fontFamilyCode,
     fontSize: style.fontSize,
     fontSizeSM: style.fontSizeSM,
     fontSizeLG: style.fontSizeLG,

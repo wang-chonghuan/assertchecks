@@ -6,7 +6,7 @@ import { ProductionErrorsTab } from '../../../../components/production-errors'
 import { ProjectBugsCard } from '../../../../components/tickets'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
-import { space } from '../../../../infui/tokens'
+import { space, text } from '../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/')({
   // ?tab=errors opens Production errors; Tests is the default tab.
@@ -57,7 +57,7 @@ function OverviewPage() {
 
   return (
     <Flex vertical gap={space.group}>
-      <Typography.Title level={4} style={{ margin: 0 }}>{project.name}</Typography.Title>
+      <Typography.Title level={4} style={{ ...text.heading2, margin: 0 }}>{project.name}</Typography.Title>
       <Tabs
         activeKey={tab ?? 'tests'}
         onChange={(key) => navigate({ to: '/p/$project', params: { project: project.slug }, search: key === 'errors' ? { tab: 'errors' } : {} })}

@@ -1,5 +1,6 @@
 import { Tag, Tooltip, Typography } from 'antd'
 import type { CaseStatus, CheckStatus, Outcome, RunRow, ThenStatus } from '../lib/types'
+import { text } from '../infui/tokens'
 
 // All timestamps are shown in UTC so server and client render identical text.
 export function utc(iso: string | null): string {
@@ -16,7 +17,7 @@ export function duration(seconds: number): string {
 }
 
 export function Sha({ value }: { value: string | null | undefined }) {
-  if (!value) return <Typography.Text type="secondary">not recorded</Typography.Text>
+  if (!value) return <Typography.Text style={text.caption}>not recorded</Typography.Text>
   return (
     <Tooltip title={value}>
       <Typography.Text code copyable={{ text: value }}>{value.slice(0, 12)}</Typography.Text>

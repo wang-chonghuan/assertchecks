@@ -1,5 +1,5 @@
 import { theme } from 'antd'
-import { lines, space, type } from '../infui/tokens'
+import { lines, space, text } from '../infui/tokens'
 
 // The homepage "How it works" diagram: one run from the project's repository to its results page.
 // Drawn twice, wide and tall, because a wide diagram scaled down to a phone makes its text unreadable;
@@ -60,7 +60,7 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
   const width = wide ? 1320 : 360
   const height = wide ? middle + ac / 2 + 10 : boxes.team.y + team + 10
   const marker = `arrow-${layout}`
-  const font = { fontFamily: token.fontFamily }
+  const font = { fontFamily: text.body.fontFamily }
 
   return (
     <svg
@@ -91,9 +91,9 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
         return (
           <g key={`${edge.label}`}>
             <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={token.colorTextSecondary} strokeWidth={1.5} markerEnd={`url(#${marker})`} />
-            <text x={lx} y={ly} textAnchor={anchor} fill={token.colorText} fontSize={type.body.fontSize} fontWeight={token.fontWeightStrong} style={font}>{edge.label}</text>
+            <text x={lx} y={ly} textAnchor={anchor} fill={text.label.color} fontSize={text.label.fontSize} fontWeight={text.label.fontWeight} style={font}>{edge.label}</text>
             {edge.detail && (
-              <text x={lx} y={ly + textLine} textAnchor={anchor} fill={token.colorTextSecondary} fontSize={type.small.fontSize} style={font}>{edge.detail}</text>
+              <text x={lx} y={ly + textLine} textAnchor={anchor} fill={text.caption.color} fontSize={text.caption.fontSize} style={font}>{edge.detail}</text>
             )}
           </g>
         )
@@ -113,11 +113,11 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
               stroke={node.accent ? token.colorPrimary : token.colorBorder}
               strokeWidth={node.accent ? 1.5 : 1}
             />
-            <text x={box.x + PAD} y={box.y + PAD + titleLine / 2} dominantBaseline="central" fill={node.accent ? token.colorPrimary : token.colorText} fontSize={type.lead.fontSize} fontWeight={token.fontWeightStrong} style={font}>
+            <text x={box.x + PAD} y={box.y + PAD + titleLine / 2} dominantBaseline="central" fill={node.accent ? token.colorPrimary : text.heading3.color} fontSize={text.heading3.fontSize} fontWeight={text.heading3.fontWeight} style={font}>
               {node.title}
             </text>
             {node.lines.map((line, index) => (
-              <text key={line} x={box.x + PAD} y={box.y + PAD + titleLine + (index + 0.5) * textLine} dominantBaseline="central" fill={token.colorTextSecondary} fontSize={type.body.fontSize} style={font}>
+              <text key={line} x={box.x + PAD} y={box.y + PAD + titleLine + (index + 0.5) * textLine} dominantBaseline="central" fill={text.caption.color} fontSize={text.caption.fontSize} style={font}>
                 {node.accent ? `✓ ${line}` : line}
               </text>
             ))}

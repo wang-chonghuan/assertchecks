@@ -17,8 +17,8 @@ export function Brand({ size = 'default' }: { size?: 'default' | 'large' }) {
         gap: mark.gap,
         whiteSpace: 'nowrap',
         fontSize: mark.fontSize,
-        fontWeight: 700,
-        letterSpacing: '-0.02em',
+        fontWeight: mark.fontWeight,
+        letterSpacing: mark.letterSpacing,
         lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle,
         color: token.colorText,
       }}

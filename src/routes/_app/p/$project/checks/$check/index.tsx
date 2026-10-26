@@ -13,7 +13,7 @@ import type { CaseResult, OutsideCase, RunHistoryItem, Versions } from '../../..
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 import { CheckSummary } from '../../../../../../components/check-summary'
 import { UNGROUPED, groupOrder, type CaseMeta } from '../../../../../../lib/organize'
-import { space } from '../../../../../../infui/tokens'
+import { space, text } from '../../../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
   // ?run=<number> opens an older run from the history; without it the page shows the latest full run.
@@ -80,7 +80,7 @@ function CheckPage() {
           return (
             <Flex key={group ?? UNGROUPED_KEY} vertical gap={space.stack}>
               <Flex align="center" gap={space.stack}>
-                <Typography.Text strong type={group === null ? 'secondary' : undefined}>{group ?? UNGROUPED}</Typography.Text>
+                <Typography.Text style={group === null ? text.caption : text.label}>{group ?? UNGROUPED}</Typography.Text>
                 <Tag variant="filled">{inGroup.length}</Tag>
               </Flex>
               {table(inGroup, index === 0)}
@@ -99,7 +99,7 @@ function CheckPage() {
         </Link>
         {extra}
       </Flex>
-      <Typography.Text type="secondary">{title.replace(/^[A-Z0-9-]+:\s*/, '')}</Typography.Text>
+      <Typography.Text style={text.body}>{title.replace(/^[A-Z0-9-]+:\s*/, '')}</Typography.Text>
     </Flex>
   )
   // The first line of a native error is its message; the rest is call-site detail for the expanded row.
@@ -156,7 +156,7 @@ function CheckPage() {
       responsive: ['md'],
       render: (error: string | null) => firstLine(error)
         ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: '100%' }}>{firstLine(error)}</Typography.Text>
-        : <Typography.Text type="secondary">—</Typography.Text>,
+        : <Typography.Text style={text.caption}>—</Typography.Text>,
     },
   ]
   const passedColumns: TableColumnsType<CaseResult> = [
@@ -297,7 +297,7 @@ function CheckPage() {
                 style={{ minWidth: token.controlHeight * 5 }}
               />
               {filtered && (
-                <Typography.Text type="secondary">Showing {showing} of {ids.length} cases</Typography.Text>
+                <Typography.Text style={text.caption}>Showing {showing} of {ids.length} cases</Typography.Text>
               )}
             </Flex>
           )}
@@ -338,7 +338,7 @@ function CheckPage() {
                         <Button disabled={!selected.length} onClick={() => setAttaching(selected)}>
                           Attach one ticket to {selected.length || 'the'} selected case{selected.length === 1 ? '' : 's'}
                         </Button>
-                        <Typography.Text type="secondary">For cases with the same cause.</Typography.Text>
+                        <Typography.Text style={text.caption}>For cases with the same cause.</Typography.Text>
                       </Flex>
                     )}
                     {byGroup(failed, (item) => item.case, failedTable)}
@@ -395,7 +395,7 @@ function Explained({ title, help }: { title: string; help: string }) {
     <Flex gap={space.stack} align="center">
       {title}
       <Tooltip title={help}>
-        <Typography.Text type="secondary" aria-label={`About ${title}`}><QuestionCircleOutlined /></Typography.Text>
+        <Typography.Text style={text.caption} aria-label={`About ${title}`}><QuestionCircleOutlined /></Typography.Text>
       </Tooltip>
     </Flex>
   )
@@ -410,7 +410,7 @@ function RunHistory({ history, shownId, project, check }: {
   const pageSize = 5
   const shownIndex = history.findIndex((run) => run.id === shownId)
   const columns: TableColumnsType<RunHistoryItem> = [
-    { title: 'Run', dataIndex: 'id', render: (id: string) => <Typography.Text strong={id === shownId}>#{id}</Typography.Text> },
+    { title: 'Run', dataIndex: 'id', render: (id: string) => <Typography.Text style={id === shownId ? text.label : undefined}>#{id}</Typography.Text> },
     { title: 'Started', dataIndex: 'startedAt', render: (at: string) => utc(at) },
     {
       title: 'Kind',
@@ -429,7 +429,7 @@ function RunHistory({ history, shownId, project, check }: {
         <Flex gap={space.stack} align="center" wrap>
           <OutcomeTag run={run} />
           {run.tally && (
-            <Typography.Text type="secondary">
+            <Typography.Text style={text.caption}>
               {run.tally.failed > 0
                 ? `${run.tally.failed} failed of ${run.tally.ran}`
                 : `${run.tally.passed} of ${run.tally.ran} passed`}
@@ -452,13 +452,13 @@ function RunHistory({ history, shownId, project, check }: {
           <Flex vertical onClick={(event) => event.stopPropagation()}>
             {Object.keys(deployed).sort().map((name) => (
               <Flex key={name} gap={space.stack} align="center">
-                <Typography.Text type="secondary">{name}</Typography.Text>
+                <Typography.Text style={text.caption}>{name}</Typography.Text>
                 <Sha value={deployed[name]} />
               </Flex>
             ))}
           </Flex>
         )
-        : <Typography.Text type="secondary">not recorded</Typography.Text>,
+        : <Typography.Text style={text.caption}>not recorded</Typography.Text>,
     },
   ]
   return (

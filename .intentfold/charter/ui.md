@@ -41,13 +41,19 @@ else and no colour literal appears outside it.
   page). Ant's own margin and padding tokens are collapsed by the compact algorithm (`margin` and
   `marginSM` are both 8 px) and stay inside Ant's components; pages and components never use them or
   Flex's named gaps.
-- Type comes only from `type` pairs (font size with its px line height, every line a multiple of 4),
-  spread whole; drawings that lay out text use `lines`; single-line display text uses
-  `lineHeightSingle`. Card and button labels get theirs through the configs in `theme.ts`.
+- Every piece of text takes exactly one `text` style, by what it is, and each style fixes family, size,
+  line height (px, a multiple of 4), weight and colour. There are ten, no more: `display` (the homepage
+  headline), `heading1` (section titles), `heading2` (page titles), `heading3` (card and block titles),
+  `lead` (an introduction under a headline), `body` (reading text and descriptions), `label` (a name,
+  a count, the selected item), `caption` (times, authors, hints, empty values), `code` (IDs, commits,
+  commands) and `eyebrow` (the kicker above a section title). A title's look comes from its style,
+  not its heading level; `secondary` and `strong` are not used. Drawings that lay out text use
+  `lines`; single-line display text keeps `lineHeightSingle`. Card titles and button labels get theirs
+  through the configs in `theme.ts`; the product mark has its own sizes in `brand`.
 - Colours come from theme tokens (`theme.useToken()`), which take theirs from the table.
 
-`pnpm check:infui` fails on any page or component that sets spacing, font size, line height or colour
-another way.
+`pnpm check:infui` fails on any page or component that sets spacing, a text style or a colour another
+way.
 
 **Layout and responsive**
 

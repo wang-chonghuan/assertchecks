@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
 import { getMe } from '../server/fns'
-import { ASSERTCHECKS_STYLE, heroTitle, space, type } from '../infui/tokens'
+import { ASSERTCHECKS_STYLE, space, text } from '../infui/tokens'
 import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
 import { CheckStatusTag } from '../components/status'
@@ -113,13 +113,12 @@ function HomePage() {
                     level={1}
                     style={{
                       margin: 0,
-                      ...heroTitle,
-                      fontWeight: ASSERTCHECKS_STYLE.fontWeightDisplay,
+                      ...text.display,
                     }}
                   >
                     Know every assertion still holds.
                   </Typography.Title>
-                  <Typography.Paragraph style={{ margin: 0, ...type.lead, color: token.colorTextSecondary, maxWidth: ASSERTCHECKS_STYLE.heroTextWidth }}>
+                  <Typography.Paragraph style={{ ...text.lead, margin: 0, maxWidth: ASSERTCHECKS_STYLE.heroTextWidth }}>
                     Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
                     arrived on time, ran in full, and which assertion failed.
                   </Typography.Paragraph>
@@ -129,7 +128,7 @@ function HomePage() {
                   </Flex>
                   <Flex gap={space.group} wrap>
                     {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
-                      <Typography.Text key={item} type="secondary">
+                      <Typography.Text key={item} style={text.body}>
                         <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: space.inline }} />
                         {item}
                       </Typography.Text>
@@ -154,7 +153,7 @@ function HomePage() {
                 color={token.colorWarning}
                 bg={token.colorWarningBg}
                 title="On time?"
-                text="A scheduled run that misses its grace period turns the check Late."
+                description="A scheduled run that misses its grace period turns the check Late."
               />
             </Col>
             <Col xs={24} md={8}>
@@ -163,7 +162,7 @@ function HomePage() {
                 color={token.colorPrimary}
                 bg={token.colorPrimaryBg}
                 title="Complete?"
-                text="A required case that did not run, was skipped or flaky makes the run Incomplete, never Passed."
+                description="A required case that did not run, was skipped or flaky makes the run Incomplete, never Passed."
               />
             </Col>
             <Col xs={24} md={8}>
@@ -172,7 +171,7 @@ function HomePage() {
                 color={token.colorError}
                 bg={token.colorErrorBg}
                 title="Correct?"
-                text="One failed Then fails the run, and the page opens on that case and its error."
+                description="One failed Then fails the run, and the page opens on that case and its error."
               />
             </Col>
           </Row>
@@ -185,7 +184,7 @@ function HomePage() {
             <SectionTitle
               eyebrow="How it works"
               title="How a run reaches your team"
-              text="No SDK. Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
+              description="No SDK. Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
             />
             <Card style={{ marginBottom: space.group }}>
               <HowItWorks />
@@ -193,8 +192,8 @@ function HomePage() {
             <Card style={{ borderColor: token.colorPrimaryBorder, background: token.colorPrimaryBg }}>
               <Flex justify="space-between" align="center" gap={space.group} wrap>
                 <Flex vertical gap={space.stack} style={{ flex: '1 1 320px', minWidth: 0 }}>
-                  <Typography.Title level={5} style={{ margin: 0 }}>Connect a project with your coding agent</Typography.Title>
-                  <Typography.Text type="secondary">
+                  <Typography.Title level={5} style={{ ...text.heading3, margin: 0 }}>Connect a project with your coding agent</Typography.Title>
+                  <Typography.Text style={text.body}>
                     Copies every step, command and the report format as Markdown, ready to paste.
                   </Typography.Text>
                   <Flex gap={space.stack} wrap>
@@ -214,7 +213,7 @@ function HomePage() {
 
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
         <Flex justify="center" align="center" wrap gap={space.stack} style={{ ...container, paddingBlock: space.block }}>
-          <Typography.Text type="secondary">© {new Date().getUTCFullYear()} {PRODUCT_NAME}. All rights reserved.</Typography.Text>
+          <Typography.Text style={text.caption}>© {new Date().getUTCFullYear()} {PRODUCT_NAME}. All rights reserved.</Typography.Text>
           <Typography.Link href="/privacy">Privacy</Typography.Link>
         </Flex>
       </footer>
@@ -254,20 +253,20 @@ function ExampleCard() {
   )
 }
 
-function SectionTitle({ eyebrow, title, text }: { eyebrow: string; title: string; text?: string }) {
+function SectionTitle({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
   const { token } = theme.useToken()
   return (
     <Flex vertical gap={space.stack} style={{ marginBottom: space.block, maxWidth: token.screenLG }}>
-      <Typography.Text strong style={{ color: token.colorPrimary, textTransform: 'uppercase', letterSpacing: '0.08em', ...type.small }}>
+      <Typography.Text style={text.eyebrow}>
         {eyebrow}
       </Typography.Text>
-      <Typography.Title level={2} style={{ margin: 0 }}>{title}</Typography.Title>
-      {text && <Typography.Paragraph type="secondary" style={{ margin: 0 }}>{text}</Typography.Paragraph>}
+      <Typography.Title level={2} style={{ ...text.heading1, margin: 0 }}>{title}</Typography.Title>
+      {description && <Typography.Paragraph style={{ ...text.body, margin: 0 }}>{description}</Typography.Paragraph>}
     </Flex>
   )
 }
 
-function Pillar({ icon, color, bg, title, text }: { icon: ReactNode; color: string; bg: string; title: string; text: string }) {
+function Pillar({ icon, color, bg, title, description }: { icon: ReactNode; color: string; bg: string; title: string; description: string }) {
   const { token } = theme.useToken()
   return (
     <Card style={{ height: '100%' }}>
@@ -275,19 +274,18 @@ function Pillar({ icon, color, bg, title, text }: { icon: ReactNode; color: stri
         <Flex
           align="center"
           justify="center"
-          style={{ width: token.controlHeightLG, height: token.controlHeightLG, borderRadius: token.borderRadius, background: bg, color, fontSize: type.heading4.fontSize }}
+          style={{ width: token.controlHeightLG, height: token.controlHeightLG, borderRadius: token.borderRadius, background: bg, color, fontSize: text.heading2.fontSize }}
         >
           {icon}
         </Flex>
-        <Typography.Title level={5} style={{ margin: 0 }}>{title}</Typography.Title>
-        <Typography.Text type="secondary">{text}</Typography.Text>
+        <Typography.Title level={5} style={{ ...text.heading3, margin: 0 }}>{title}</Typography.Title>
+        <Typography.Text style={text.body}>{description}</Typography.Text>
       </Flex>
     </Card>
   )
 }
 
 function CopyForAgent({ large = false }: { large?: boolean }) {
-  const { token } = theme.useToken()
   const { message } = App.useApp()
   const copy = async () => {
     try {
@@ -303,7 +301,6 @@ function CopyForAgent({ large = false }: { large?: boolean }) {
       size="large"
       icon={<CopyOutlined />}
       onClick={copy}
-      style={large ? { fontWeight: token.fontWeightStrong } : undefined}
     >
       Copy for your agent
     </Button>

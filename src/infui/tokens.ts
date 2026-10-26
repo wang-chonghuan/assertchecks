@@ -26,6 +26,7 @@ export const ASSERTCHECKS_STYLE = {
   cardHeaderHeight: 44,
   headerHeight: 52,
   // Type, all measured on adsy.com: Space Grotesk (self-hosted in public/fonts/space-grotesk/).
+  fontFamilyCode: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace",
   fontFamily: "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   fontSize: 16, // body, navigation, buttons
   fontSizeSM: 14, // card descriptions
@@ -47,6 +48,10 @@ export const ASSERTCHECKS_STYLE = {
   // Single-line display text, where line spacing never shows: the big pass count and the wordmark.
   lineHeightSingle: 1,
   fontWeightHeading: 500, // headings and emphasis
+  fontWeightBody: 400,
+  fontWeightLabel: 600,
+  fontWeightWordmark: 700,
+  letterSpacingWordmark: '-0.02em',
   fontWeightDisplay: 400, // the hero headline
   fontWeightButton: 600,
   // The control height before the compact algorithm, which turns it into 32 px. Button needs it again
@@ -87,31 +92,40 @@ export const space = {
   section: style.spaceSection,
 } as const
 
-// Each type size with its line height in px. A style that sets a font size spreads the whole pair, so
-// text always sits on the 4 px line scale. Drawings that lay out text themselves use `lines` below.
-const pair = (fontSize: number, lineHeight: number) => ({ fontSize, lineHeight: `${lineHeight}px` })
-export const type = {
-  small: pair(style.fontSizeSM, style.lineHeightSM),
-  body: pair(style.fontSize, style.lineHeightBase),
-  lead: pair(style.fontSizeLG, style.lineHeightLG),
-  heading4: pair(style.fontSizeHeading4, style.lineHeightHeading4),
-  heading3: pair(style.fontSizeHeading3, style.lineHeightHeading3),
-  heading2: pair(style.fontSizeHeading2, style.lineHeightHeading2),
-  heading1: pair(style.fontSizeHeading1, style.lineHeightHeading1),
+// Text styles. Every piece of text takes exactly one, by what it is; each fixes the family, size, line
+// height (px, a multiple of 4), weight and colour. Ten at most, as in Material's and Apple's type scales:
+// a few headings, the reading text, and the small roles around it.
+const textStyle = (fontSize: number, lineHeight: number, fontWeight: number, color: string) =>
+  ({ fontFamily: style.fontFamily, fontSize, lineHeight: `${lineHeight}px`, fontWeight, color }) as const
+export const text = {
+  // The homepage headline only: grows with the window from Heading 2 to Heading 1.
+  display: {
+    fontFamily: style.fontFamily,
+    fontSize: `clamp(${style.fontSizeHeading2}px, 5.3vw, ${style.fontSizeHeading1}px)`,
+    lineHeight: `max(${style.lineHeightHeading2}px, ${style.lineHeightHeading1 / style.fontSizeHeading1}em)`,
+    fontWeight: style.fontWeightDisplay,
+    color: style.text,
+  },
+  heading1: textStyle(style.fontSizeHeading2, style.lineHeightHeading2, style.fontWeightHeading, style.text), // section titles
+  heading2: textStyle(style.fontSizeHeading4, style.lineHeightHeading4, style.fontWeightHeading, style.text), // page titles
+  heading3: textStyle(style.fontSizeLG, style.lineHeightLG, style.fontWeightHeading, style.text), // card and block titles
+  lead: textStyle(style.fontSizeLG, style.lineHeightLG, style.fontWeightBody, style.text), // an introduction under a headline
+  body: textStyle(style.fontSizeSM, style.lineHeightSM, style.fontWeightBody, style.text), // reading text and descriptions
+  label: textStyle(style.fontSizeSM, style.lineHeightSM, style.fontWeightLabel, style.text), // a name, a count or the selected item
+  caption: textStyle(style.fontSizeSM, style.lineHeightSM, style.fontWeightBody, style.textSecondary), // times, authors, hints, empty values
+  code: { ...textStyle(style.fontSizeSM, style.lineHeightSM, style.fontWeightBody, style.text), fontFamily: style.fontFamilyCode }, // IDs, commits, commands
+  eyebrow: { ...textStyle(style.fontSizeSM, style.lineHeightSM, style.fontWeightLabel, style.primary), textTransform: 'uppercase', letterSpacing: '0.08em' }, // the kicker above a section title
 } as const
-export const lines = { small: style.lineHeightSM, body: style.lineHeightBase, lead: style.lineHeightLG } as const
+// Line heights for drawings that lay text out themselves.
+export const lines = { body: style.lineHeightSM, lead: style.lineHeightLG } as const
 
 // The product mark at its two sizes: the wordmark, the tile and the check inside it, the tile's corner
 // and the gap to the wordmark, all in proportion to the wordmark.
 const mark = (fontSize: number) => {
   const tile = Math.round(fontSize * 1.3)
-  return { fontSize, tile, iconSize: Math.round(tile * 0.58), tileRadius: Math.round(tile * 0.3), gap: Math.round(fontSize * 0.45) }
+  return {
+    fontFamily: style.fontFamily, fontSize, fontWeight: style.fontWeightWordmark, letterSpacing: style.letterSpacingWordmark,
+    tile, iconSize: Math.round(tile * 0.58), tileRadius: Math.round(tile * 0.3), gap: Math.round(fontSize * 0.45),
+  }
 }
 export const brand = { default: mark(style.fontSizeLG), large: mark(style.fontSizeHeading4) } as const
-
-// The homepage headline grows with the window from Heading 2 to Heading 1; its line never gets tighter
-// than Heading 2's as it shrinks.
-export const heroTitle = {
-  fontSize: `clamp(${style.fontSizeHeading2}px, 5.3vw, ${style.fontSizeHeading1}px)`,
-  lineHeight: `max(${style.lineHeightHeading2}px, ${style.lineHeightHeading1 / style.fontSizeHeading1}em)`,
-} as const

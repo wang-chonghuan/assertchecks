@@ -6,7 +6,7 @@ import { attachTicket, decideProblem, getProductionErrors, removeTicket } from '
 import { AttachTicketModal, TicketUrl } from './tickets'
 import type { NoiseCategory, ProblemGroup, ProblemView, ProductionErrors } from '../lib/types'
 import { utc } from './status'
-import { ASSERTCHECKS_STYLE, space, type } from '../infui/tokens'
+import { ASSERTCHECKS_STYLE, space, text } from '../infui/tokens'
 
 const NOISE_LABEL: Record<NoiseCategory, string> = {
   client: '4xx responses',
@@ -49,11 +49,11 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
         ))}
       </Flex>
       <Flex justify="space-between" gap={space.stack}>
-        <Typography.Text type="secondary">{daily[0]?.day}</Typography.Text>
-        {wide && <Typography.Text type="secondary">{peakText}</Typography.Text>}
-        <Typography.Text type="secondary">{daily.at(-1)?.day}</Typography.Text>
+        <Typography.Text style={text.caption}>{daily[0]?.day}</Typography.Text>
+        {wide && <Typography.Text style={text.caption}>{peakText}</Typography.Text>}
+        <Typography.Text style={text.caption}>{daily.at(-1)?.day}</Typography.Text>
       </Flex>
-      {!wide && <Typography.Text type="secondary">{peakText}</Typography.Text>}
+      {!wide && <Typography.Text style={text.caption}>{peakText}</Typography.Text>}
     </Flex>
   )
 }
@@ -81,7 +81,7 @@ function NotHandlingModal({ problem, onCancel, onSave }: {
       }}
       destroyOnHidden
     >
-      <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }}>{problem?.key}</Typography.Paragraph>
+      <Typography.Paragraph style={text.body} ellipsis={{ rows: 2 }}>{problem?.key}</Typography.Paragraph>
       <Form form={form} layout="vertical">
         <Form.Item
           name="value"
@@ -101,11 +101,11 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
     <Flex vertical gap={space.stack}>
       {problem.tickets.length > 0 && (
         <Flex vertical gap={space.stack} align="flex-start" onClick={(event) => event.stopPropagation()}>
-          <Typography.Text strong>Tickets, newest first</Typography.Text>
+          <Typography.Text style={text.label}>Tickets, newest first</Typography.Text>
           {problem.tickets.map((ticket) => (
             <Flex key={ticket.id} gap={space.stack} wrap align="center">
               <TicketUrl url={ticket.url} />
-              <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.at)}</Typography.Text>
+              <Typography.Text style={text.caption}>by {ticket.by}, {utc(ticket.at)}</Typography.Text>
               <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
                 <Button size="small" type="link">Remove</Button>
               </Popconfirm>
@@ -140,7 +140,7 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
       )}
       {problem.latest && (
         <Flex vertical gap={space.stack}>
-          <Typography.Text strong>Latest failure, {utc(problem.latest.at)}</Typography.Text>
+          <Typography.Text style={text.label}>Latest failure, {utc(problem.latest.at)}</Typography.Text>
           <Typography.Text style={{ wordBreak: 'break-word' }}>{problem.latest.type ? `${problem.latest.type}: ` : ''}{problem.latest.message}</Typography.Text>
           {problem.latest.stack && (
             <pre
@@ -153,8 +153,7 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
                 padding: space.stack,
                 borderRadius: token.borderRadius,
                 background: token.colorFillQuaternary,
-                fontFamily: token.fontFamilyCode,
-                ...type.small,
+                ...text.code,
               }}
             >
               {problem.latest.stack}
@@ -206,8 +205,8 @@ export function ProductionErrorsTab({ project }: { project: string }) {
         <Empty
           description={
             <Flex vertical>
-              <Typography.Text strong>Not connected</Typography.Text>
-              <Typography.Text type="secondary">
+              <Typography.Text style={text.label}>Not connected</Typography.Text>
+              <Typography.Text style={text.body}>
                 This project's production telemetry is not connected, so its errors are unknown. An operator connects it with{' '}
                 <Typography.Text code>pnpm admin source:set</Typography.Text>.
               </Typography.Text>
@@ -237,7 +236,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       return (
         <Flex vertical>
           <Typography.Text>{problem.ignored.reason}</Typography.Text>
-          <Typography.Text type="secondary">Not handling, by {problem.ignored.by}, {utc(problem.ignored.at)}</Typography.Text>
+          <Typography.Text style={text.caption}>Not handling, by {problem.ignored.by}, {utc(problem.ignored.at)}</Typography.Text>
         </Flex>
       )
     }
@@ -251,7 +250,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
           {since && since.count > 0
             ? <Tag color="error">Still occurring: {plural(since.count, unit(problem))} since the ticket</Tag>
             : <Tag>{since?.quietDays ? `No occurrence for ${plural(since.quietDays, 'day')} since the ticket` : 'No occurrence since the ticket'}</Tag>}
-          <Typography.Text type="secondary">
+          <Typography.Text style={text.caption}>
             by {newest.by}, {utc(newest.at)}{problem.tickets.length > 1 ? ` · ${problem.tickets.length - 1} earlier ticket${problem.tickets.length > 2 ? 's' : ''}` : ''}
           </Typography.Text>
         </Flex>
@@ -296,9 +295,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
             <Flex gap={space.stack} wrap align="center">
               {problem.isNew && <Tag color="processing">New</Tag>}
               {problem.kind === 'slow' && <Tag color="warning">Slow</Tag>}
-              <Typography.Text strong style={{ wordBreak: 'break-word' }}>{problem.key}</Typography.Text>
+              <Typography.Text style={{ ...text.label, wordBreak: 'break-word' }}>{problem.key}</Typography.Text>
             </Flex>
-            <Typography.Text type="secondary" style={{ wordBreak: 'break-word' }}>
+            <Typography.Text style={{ ...text.body, wordBreak: 'break-word' }}>
               {problem.slow
                 ? `p95 ${problem.slow.p95Ms} ms in its latest slow hour, usually ${problem.slow.usualMs} ms`
                 : [problem.place, problem.browser ? 'Browser' : problem.role].filter(Boolean).join(' · ') || '—'}
@@ -321,7 +320,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       render: (_, problem) => (
         <Flex vertical>
           <Typography.Text>{plural(problem.count7d, unit(problem))} in 7 days</Typography.Text>
-          <Typography.Text type="secondary">{problem.count90d} in 90 days</Typography.Text>
+          <Typography.Text style={text.caption}>{problem.count90d} in 90 days</Typography.Text>
         </Flex>
       ),
     },
@@ -367,11 +366,11 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       <Card>
         <Flex vertical gap={space.group}>
           <Flex vertical gap={space.stack}>
-            <Typography.Text strong style={type.lead}>
+            <Typography.Text style={text.heading3}>
               {headline.triage} to triage ({triageNow.length} this week{headline.isNew ? `, ${headline.isNew} new` : ''}) · {headline.ticket} with a ticket
               {headline.ticket ? `, ${headline.stillOccurring} still occurring` : ''} · {plural(headline.last24h, 'failure')} in the last 24 h ({headline.previous24h} the day before)
             </Typography.Text>
-            <Typography.Text type="secondary">
+            <Typography.Text style={text.body}>
               Failures that need handling: one failed request or page visit counts once, noise excluded. Read {utc(data.checkedAt)}
               {data.portalUrl && <> · <Typography.Link href={data.portalUrl} target="_blank">Open in Azure <ExportOutlined /></Typography.Link></>}
             </Typography.Text>
@@ -409,12 +408,12 @@ export function ProductionErrorsTab({ project }: { project: string }) {
               <Flex vertical gap={space.group} style={{ maxWidth: token.controlHeight * 20 }}>
                 {data.noise.map((group) => (
                   <Flex key={group.category} vertical>
-                    <Typography.Text strong>{NOISE_LABEL[group.category]} · {group.total}</Typography.Text>
+                    <Typography.Text style={text.label}>{NOISE_LABEL[group.category]} · {group.total}</Typography.Text>
                     {group.items.length === 0
-                      ? <Typography.Text type="secondary">None</Typography.Text>
+                      ? <Typography.Text style={text.caption}>None</Typography.Text>
                       : group.items.map((item) => (
                           <Flex key={item.item} justify="space-between" gap={space.stack}>
-                            <Typography.Text type="secondary" style={{ wordBreak: 'break-word' }}>{item.item}</Typography.Text>
+                            <Typography.Text style={{ ...text.caption, wordBreak: 'break-word' }}>{item.item}</Typography.Text>
                             <Typography.Text>{item.count}</Typography.Text>
                           </Flex>
                         ))}
