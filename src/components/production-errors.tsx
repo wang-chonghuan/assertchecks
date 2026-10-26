@@ -4,6 +4,7 @@ import { ExportOutlined, MoreOutlined, QuestionCircleOutlined } from '@ant-desig
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { attachTicket, decideProblem, getProductionErrors, removeTicket } from '../server/fns'
 import { AttachTicketModal, TicketUrl } from './tickets'
+import { ErrorLog } from './error-log'
 import type { NoiseCategory, ProblemGroup, ProblemView, ProductionErrors } from '../lib/types'
 import { utc } from './status'
 import { ASSERTCHECKS_STYLE, space, text } from '../infui/tokens'
@@ -141,23 +142,7 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
         <Flex vertical gap={space.stack}>
           <Typography.Text style={text.label}>Latest failure on {utc(problem.latest.at)}</Typography.Text>
           <Typography.Text style={{ wordBreak: 'break-word' }}>{problem.latest.type ? `${problem.latest.type}: ` : ''}{problem.latest.message}</Typography.Text>
-          {problem.latest.stack && (
-            <pre
-              style={{
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                margin: 0,
-                maxHeight: token.controlHeight * 10,
-                overflow: 'auto',
-                padding: space.stack,
-                borderRadius: token.borderRadius,
-                background: token.colorFillQuaternary,
-                ...text.code,
-              }}
-            >
-              {problem.latest.stack}
-            </pre>
-          )}
+          {problem.latest.stack && <ErrorLog log={problem.latest.stack} />}
         </Flex>
       )}
     </Flex>

@@ -12,6 +12,7 @@ import { AttachTicketModal, BugStatusTag, BugTicketLine } from '../../../../../.
 import type { CaseResult, OutsideCase, RunHistoryItem, Versions } from '../../../../../../lib/types'
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 import { CheckSummary } from '../../../../../../components/check-summary'
+import { ErrorLog } from '../../../../../../components/error-log'
 import { UNGROUPED, groupOrder, type CaseMeta } from '../../../../../../lib/organize'
 import { space, text } from '../../../../../../infui/tokens'
 
@@ -98,10 +99,6 @@ function CheckPage() {
       <Typography.Text style={text.body}>{title.replace(/^[A-Z0-9-]+:\s*/, '')}</Typography.Text>
     </Flex>
   )
-  // The first line of a native error is its message; the rest is call-site detail for the expanded row.
-  const firstLine = (error: string | null) =>
-    error?.split('\n').find((line) => line.trim())?.trim().replace(/^Error:\s*/, '') ?? null
-
   // Fixed leading widths keep columns aligned across group sections.
   const caseWidth = token.controlHeight * 10
   const resultWidth = token.controlHeight * 5
@@ -145,15 +142,6 @@ function CheckPage() {
       },
     },
     { title: 'Ticket', key: 'ticket', width: ticketWidth, render: (_, item) => ticketCell(item.case) },
-    {
-      title: 'Error',
-      dataIndex: 'error',
-      // Phones read the error on the expanded row or the case page instead of scrolling sideways.
-      responsive: ['md'],
-      render: (error: string | null) => firstLine(error)
-        ? <Typography.Text ellipsis={{ tooltip: false }} style={{ maxWidth: '100%' }}>{firstLine(error)}</Typography.Text>
-        : <Typography.Text style={text.caption}>—</Typography.Text>,
-    },
   ]
   const passedColumns: TableColumnsType<CaseResult> = [
     { title: 'Case', dataIndex: 'case', render: (id: string, item) => caseLink(id, item.title) },
@@ -171,7 +159,7 @@ function CheckPage() {
       pagination={false}
       // Fixed widths keep every group section's columns on the same lines; phones scroll inside the card.
       tableLayout="fixed"
-      scroll={{ x: token.controlHeight * 26 }}
+      scroll={{ x: token.controlHeight * 20 }}
       columns={failedColumns}
       dataSource={rows}
       // Selections across group sections add up to one list for a shared ticket.
@@ -184,7 +172,7 @@ function CheckPage() {
       locale={{ emptyText: <Empty description="No failed cases in the latest run." /> }}
       expandable={{
         rowExpandable: (item) => Boolean(item.error),
-        expandedRowRender: (item) => <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{item.error}</pre>,
+        expandedRowRender: (item) => <ErrorLog log={item.error ?? ''} />,
       }}
     />
   )

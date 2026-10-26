@@ -3,6 +3,7 @@ import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Pop
 import { CopyOutlined } from '@ant-design/icons'
 import { useState } from 'react'
 import { caseBugReport } from '../../../../../../../lib/bug-report'
+import { ErrorLog } from '../../../../../../../components/error-log'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
 import type { CaseBug, CaseHistoryItem } from '../../../../../../../lib/types'
@@ -160,7 +161,7 @@ function CasePage() {
           {result?.error && (
             <Flex vertical gap={space.stack}>
               <Typography.Text style={text.label}>Error</Typography.Text>
-              <pre style={{ ...text.code, whiteSpace: 'pre-wrap', margin: 0 }}>{result.error}</pre>
+              <ErrorLog log={result.error} />
             </Flex>
           )}
           <Collapse ghost size="small" items={more} />
