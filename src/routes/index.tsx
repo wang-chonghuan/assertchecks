@@ -118,22 +118,14 @@ function HomePage() {
                       ...text.display,
                     }}
                   >
-                    Know every assertion still holds.
+                    Check every test assertion and production error
                   </Typography.Title>
                   <Typography.Paragraph style={{ ...text.lead, margin: 0, maxWidth: ASSERTCHECKS_STYLE.heroTextWidth }}>
-                    Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
-                    arrived on time, ran in full, and which assertion failed.
+                    {PRODUCT_NAME} judges each end-to-end test run assertion by assertion in every environment. It groups
+                    production errors into problems. Each failure is tracked to its ticket.
                   </Typography.Paragraph>
                   <Flex gap={space.stack} wrap>
                     {primary}
-                  </Flex>
-                  <Flex gap={space.group} wrap>
-                    {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
-                      <Typography.Text key={item} style={text.body}>
-                        <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: space.inline }} />
-                        {item}
-                      </Typography.Text>
-                    ))}
                   </Flex>
                 </Flex>
               </Col>
