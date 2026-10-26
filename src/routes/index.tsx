@@ -186,7 +186,7 @@ function HomePage() {
           <div style={section}>
             <SectionTitle
               eyebrow="How it works"
-              title="One run, from your CI to your team"
+              title="How a run reaches your team"
               text="No SDK. Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
             />
             <Card style={{ marginBottom: token.margin }}>

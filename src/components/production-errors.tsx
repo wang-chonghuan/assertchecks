@@ -223,8 +223,8 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       <Alert
         type="error"
         showIcon
-        title="Production telemetry could not be read, so these errors are unknown"
-        description={data.error}
+        title="Production telemetry could not be read"
+        description={`The errors below are unknown until it can. ${data.error}`}
         action={data.portalUrl ? <Button href={data.portalUrl} target="_blank" icon={<ExportOutlined />}>Azure</Button> : undefined}
       />
     )

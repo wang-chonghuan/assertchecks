@@ -109,7 +109,7 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
               height={box.h}
               rx={token.borderRadiusLG}
               fill={node.accent ? token.colorPrimaryBg : token.colorBgContainer}
-              stroke={node.accent ? token.colorPrimary : token.colorBorderSecondary}
+              stroke={node.accent ? token.colorPrimary : token.colorBorder}
               strokeWidth={node.accent ? 1.5 : 1}
             />
             <text x={box.x + PAD} y={box.y + PAD + titleLine / 2} dominantBaseline="central" fill={node.accent ? token.colorPrimary : token.colorText} fontSize={token.fontSizeLG} fontWeight={token.fontWeightStrong} style={font}>
