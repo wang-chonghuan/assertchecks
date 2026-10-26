@@ -4,6 +4,7 @@ import {
   AlertOutlined,
   ArrowRightOutlined,
   BugOutlined,
+  CheckCircleOutlined,
   ClockCircleOutlined,
   CopyOutlined,
   FileDoneOutlined,
@@ -21,9 +22,16 @@ import { pageFrame } from '../infui/page-frame'
 import { FORMAT_LINKS, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
 
+// What the product does, one line each, under the hero's headline.
+const HERO_POINTS = [
+  'End-to-end failures reported from every run.',
+  'Production errors sorted into problems.',
+  'Every issue tracked to a ticket.',
+]
+
 export const Route = createFileRoute('/')({
   loader: async () => ({ me: await getMe() }),
-  head: () => ({ meta: [{ title: `${PRODUCT_NAME} · End-to-end assertion monitoring` }] }),
+  head: () => ({ meta: [{ title: `${PRODUCT_NAME} · Assertion monitoring for your products` }] }),
   component: HomePage,
 })
 
@@ -118,12 +126,19 @@ function HomePage() {
                       ...text.display,
                     }}
                   >
-                    Check every test assertion and production error
+                    Assertion monitoring for your products
                   </Typography.Title>
                   <Typography.Paragraph style={{ ...text.lead, margin: 0, maxWidth: ASSERTCHECKS_STYLE.heroTextWidth }}>
-                    {PRODUCT_NAME} judges each end-to-end test run assertion by assertion in every environment. It groups
-                    production errors into problems. Each failure is tracked to its ticket.
+                    Anything that must never break surfaces the moment it does.
                   </Typography.Paragraph>
+                  <Flex vertical gap={space.stack}>
+                    {HERO_POINTS.map((point) => (
+                      <Typography.Text key={point} style={text.body}>
+                        <CheckCircleOutlined style={{ color: token.colorSuccess, marginInlineEnd: space.stack }} />
+                        {point}
+                      </Typography.Text>
+                    ))}
+                  </Flex>
                   <Flex gap={space.stack} wrap>
                     {primary}
                   </Flex>
