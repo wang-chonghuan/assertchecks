@@ -2,7 +2,7 @@ import { Alert, Descriptions, Flex, Popover, Typography, theme } from 'antd'
 import { InfoCircleOutlined, LoadingOutlined } from '@ant-design/icons'
 import { OutcomeTag, duration, utc } from './status'
 import type { CatalogChange, CheckCard } from '../lib/types'
-import { ASSERTCHECKS_STYLE } from '../theme'
+import { ASSERTCHECKS_STYLE, space, text } from '../infui/tokens'
 
 // The overview of one environment's latest run, shared by the project page cards, the check page and
 // the homepage example, so all three always look the same. It answers one question: of the cases that
@@ -26,17 +26,13 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
   const legend = segments.filter((segment) => segment !== headline && segment.value > 0)
   // Only an unusual outcome needs its own tag; a plain pass or fail is already the card's status.
   const unusual = latest && (latest.timedOut || latest.outcome === 'incomplete')
-  const small = { fontSize: token.fontSizeSM, lineHeight: token.lineHeightSM }
-  const lead = { fontSize: token.fontSizeLG, lineHeight: token.lineHeightLG }
-  // Vertical rhythm in grid units (4 px), independent of the compact algorithm's smaller margins.
-  const unit = token.sizeUnit
 
   return (
     <Flex vertical>
       {(check.catalogChanges.length > 0 || check.active) && (
-        <Flex vertical gap={unit * 2} style={{ marginBottom: unit * 3 }}>
+        <Flex vertical gap={space.stack} style={{ marginBottom: space.group }}>
           {check.active && (
-            <Typography.Text type={check.active.timedOut ? 'warning' : 'secondary'} style={small}>
+            <Typography.Text style={check.active.timedOut ? { ...text.caption, color: token.colorWarning } : text.caption}>
               {check.active.timedOut
                 ? `A newer run started ${utc(check.active.startedAt)} and timed out without reporting.`
                 : <><LoadingOutlined /> A newer run started {utc(check.active.startedAt)} and is still running.</>}
@@ -48,18 +44,18 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
 
       {latest && counts && headline ? (
         <>
-          <Flex align="baseline" justify="space-between" gap="small" wrap style={{ marginBottom: unit * 3 }}>
-            <Flex align="baseline" gap={token.marginXS}>
-              <span style={{ fontSize: token.fontSizeHeading2, fontWeight: token.fontWeightStrong, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: counts.failed > 0 ? token.colorError : token.colorText }}>
+          <Flex align="baseline" justify="space-between" gap={space.stack} wrap style={{ marginBottom: space.group }}>
+            <Flex align="baseline" gap={space.stack}>
+              <span style={{ ...text.heading1, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: counts.failed > 0 ? token.colorError : token.colorText }}>
                 {headline.value}
               </span>
               {/* The subject is cases, never runs: "19 failed of 160 cases tested", or "160 cases passed". */}
               {counts.passed === ran ? (
-                <Typography.Text style={lead}>{ran === 1 ? 'case' : 'cases'} passed</Typography.Text>
+                <Typography.Text style={text.lead}>{ran === 1 ? 'case' : 'cases'} passed</Typography.Text>
               ) : (
                 <>
-                  <Typography.Text style={lead}>{headline.label}</Typography.Text>
-                  <Typography.Text type="secondary" style={lead}>of {ran} {ran === 1 ? 'case' : 'cases'} tested</Typography.Text>
+                  <Typography.Text style={text.lead}>{headline.label}</Typography.Text>
+                  <Typography.Text style={{ ...text.lead, color: text.caption.color }}>of {ran} {ran === 1 ? 'case' : 'cases'} tested</Typography.Text>
                 </>
               )}
             </Flex>
@@ -67,42 +63,42 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
           </Flex>
 
           <Flex role="img" aria-label={segments.map((segment) => `${segment.value} ${segment.label}`).join(', ')}
-            gap={token.lineWidth * 2} style={{ height: unit * 2, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
+            gap={token.lineWidth * 2} style={{ height: ASSERTCHECKS_STYLE.summaryBarHeight, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
             {segments.filter((segment) => segment.value > 0).map((segment) => (
               <div key={segment.key} style={{ flex: segment.value, background: segment.color }} />
             ))}
           </Flex>
 
           {legend.length > 0 && (
-            <Flex wrap style={{ gap: `${token.marginXXS}px ${token.margin}px`, marginTop: unit * 2 }}>
+            <Flex wrap style={{ gap: `${space.stack}px ${space.group}px`, marginTop: space.stack }}>
               {legend.map((segment) => (
-                <Flex key={segment.key} align="center" gap={token.marginXXS}>
-                  <span aria-hidden style={{ width: token.marginXS, height: token.marginXS, borderRadius: '50%', background: segment.color }} />
-                  <Typography.Text strong>{segment.value}</Typography.Text>
-                  <Typography.Text type="secondary">{segment.label}</Typography.Text>
+                <Flex key={segment.key} align="center" gap={space.inline}>
+                  <span aria-hidden style={{ width: ASSERTCHECKS_STYLE.dotSize, height: ASSERTCHECKS_STYLE.dotSize, borderRadius: '50%', background: segment.color }} />
+                  <Typography.Text style={text.label}>{segment.value}</Typography.Text>
+                  <Typography.Text style={text.caption}>{segment.label}</Typography.Text>
                 </Flex>
               ))}
             </Flex>
           )}
 
           {latest.reason && latest.outcome === 'incomplete' && (
-            <Alert type="warning" showIcon title={latest.reason} style={{ marginTop: unit * 3 }} />
+            <Alert type="warning" showIcon title={latest.reason} style={{ marginTop: space.group }} />
           )}
         </>
       ) : (
-        <Typography.Text type="secondary" style={lead}>No runs yet</Typography.Text>
+        <Typography.Text style={{ ...text.lead, color: text.caption.color }}>No runs yet</Typography.Text>
       )}
 
       <Flex
         align="center"
-        gap={token.marginXXS}
+        gap={space.inline}
         style={{
-          marginTop: unit * 4,
-          paddingTop: unit * 3,
+          marginTop: space.group,
+          paddingTop: space.group,
           borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}`,
         }}
       >
-        <Typography.Text type="secondary" style={small}>
+        <Typography.Text style={text.caption}>
           {latest ? `Ran ${utc(latest.finishedAt)}` : schedule(check)}
         </Typography.Text>
         {latest && (
@@ -112,7 +108,7 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
             content={<div onClick={(event) => event.stopPropagation()}><RunInfo check={check} /></div>}
             trigger={['hover', 'click']}
           >
-            <Typography.Text type="secondary" style={small} aria-label="About this run" role="button" tabIndex={0}
+            <Typography.Text style={text.caption} aria-label="About this run" role="button" tabIndex={0}
               onClick={(event) => event.stopPropagation()}>
               <InfoCircleOutlined />
             </Typography.Text>
@@ -175,14 +171,14 @@ function CatalogChangeNotice({ changes, compact }: { changes: CatalogChange[]; c
       showIcon
       title={`${changes.length} required case${changes.length === 1 ? '' : 's'} left the run since the previous one`}
       description={
-        <Flex vertical gap="small">
+        <Flex vertical gap={space.stack}>
           {shown.map((change) => (
             <Typography.Text key={change.case}>
               <Typography.Text code>{change.case}</Typography.Text> {change.title} — {changeText(change)}
             </Typography.Text>
           ))}
           {changes.length > shown.length && (
-            <Typography.Text type="secondary">and {changes.length - shown.length} more on the check page</Typography.Text>
+            <Typography.Text style={text.caption}>and {changes.length - shown.length} more on the check page</Typography.Text>
           )}
         </Flex>
       }

@@ -10,6 +10,7 @@ import { attachTicket, getCase, removeTicket } from '../../../../../../../server
 import { AttachTicketModal, BugStatusTag, TicketUrl, ticketLabel } from '../../../../../../../components/tickets'
 import { PRODUCT_NAME } from '../../../../../../../components/brand'
 import { UNGROUPED, caseMeta } from '../../../../../../../lib/organize'
+import { ASSERTCHECKS_STYLE, space, text } from '../../../../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/cases/$case')({
   // ?run=<number> shows the case as an older run found it; without it, as the latest full run did.
@@ -26,7 +27,7 @@ export const Route = createFileRoute('/_app/p/$project/checks/$check/cases/$case
 
 function Steps({ items }: { items: string[] }) {
   return (
-    <ol style={{ margin: 0, paddingInlineStart: '1.25em' }}>
+    <ol style={{ margin: 0, paddingInlineStart: ASSERTCHECKS_STYLE.listIndent }}>
       {items.map((item, index) => <li key={index}>{item}</li>)}
     </ol>
   )
@@ -81,13 +82,13 @@ function CasePage() {
           size="small"
           column={1}
           items={[
-            { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text type="secondary">{UNGROUPED}</Typography.Text> },
+            { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text style={text.caption}>{UNGROUPED}</Typography.Text> },
             {
               key: 'tags',
               label: 'Tags',
               children: meta.tags.length
-                ? <Flex gap="small" wrap>{meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex>
-                : <Typography.Text type="secondary">—</Typography.Text>,
+                ? <Flex gap={space.stack} wrap>{meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex>
+                : <Typography.Text style={text.caption}>—</Typography.Text>,
             },
             ...(spec.type ? [{ key: 'type', label: 'Type', children: spec.type.toUpperCase() }] : []),
             { key: 'policy', label: 'Runs', children: spec.run === 'on-demand' ? 'On demand, only when named' : 'In every regular run' },
@@ -99,7 +100,7 @@ function CasePage() {
   ]
 
   return (
-    <Flex vertical gap="middle">
+    <Flex vertical gap={space.group}>
       <Breadcrumb
         items={[
           { title: <Link to="/p/$project" params={{ project: project.slug }}>{project.name}</Link> },
@@ -113,9 +114,9 @@ function CasePage() {
           ? <CaseStatusTag status={failed && result.status === 'passed' ? 'failed' : result.status} />
           : <Tag>Not in this run</Tag>}
       >
-        <Flex vertical gap="middle">
-          <Flex gap="small" wrap>
-            <Typography.Text type="secondary">
+        <Flex vertical gap={space.group}>
+          <Flex gap={space.stack} wrap>
+            <Typography.Text style={text.caption}>
               {viewingLatest ? 'Latest run' : `Run #${run.id}`}, {utc(run.startedAt)}
               {!result
                 ? ' · not in this run'
@@ -149,9 +150,9 @@ function CasePage() {
                 key: 'then',
                 label: 'Then',
                 children: (
-                  <Flex vertical gap="small">
+                  <Flex vertical gap={space.stack}>
                     {spec.then.map((then) => (
-                      <Flex key={then.id} gap="small" align="baseline">
+                      <Flex key={then.id} gap={space.stack} align="baseline">
                         <span style={{ flex: 'none' }}><ThenTag id={then.id} status={thenStatus.get(then.id) ?? 'not_run'} caseStatus={result?.status ?? 'missing'} /></span>
                         <Typography.Text>{then.expect}</Typography.Text>
                       </Flex>
@@ -208,7 +209,7 @@ function CaseHistory({ history, shownId, project, check, caseId }: {
   const pageSize = 10
   const shownIndex = history.findIndex((item) => item.run.id === shownId)
   const columns: TableColumnsType<CaseHistoryItem> = [
-    { title: 'Run', key: 'run', render: (_, item) => <Typography.Text strong={item.run.id === shownId}>#{item.run.id}</Typography.Text> },
+    { title: 'Run', key: 'run', render: (_, item) => <Typography.Text style={item.run.id === shownId ? text.label : undefined}>#{item.run.id}</Typography.Text> },
     { title: 'Started', key: 'started', render: (_, item) => utc(item.run.startedAt) },
     {
       title: 'Kind',
@@ -219,7 +220,7 @@ function CaseHistory({ history, shownId, project, check, caseId }: {
       title: 'This case',
       key: 'status',
       render: (_, item) => item.status === null
-        ? <Typography.Text type="secondary">Not in this run</Typography.Text>
+        ? <Typography.Text style={text.caption}>Not in this run</Typography.Text>
         : <CaseStatusTag status={item.failed && item.status === 'passed' ? 'failed' : item.status} />,
     },
   ]
@@ -256,26 +257,25 @@ const SAY: Record<CaseBug['status'], (bug: CaseBug) => string> = {
 function CaseTicketsCard({ bug, onAttach, onRemove }: {
   bug: CaseBug | null; onAttach: () => void; onRemove: (link: string) => Promise<void>
 }) {
-  const { token } = theme.useToken()
   const tickets = bug?.tickets ?? []
   return (
     <Card title="Tickets" extra={<Button onClick={onAttach}>Attach ticket</Button>}>
-      <Flex vertical gap="middle">
+      <Flex vertical gap={space.group}>
         {bug
           ? (
-            <Flex gap="small" align="baseline" wrap>
+            <Flex gap={space.stack} align="baseline" wrap>
               <BugStatusTag status={bug.status} />
               <Typography.Text>{SAY[bug.status](bug)}</Typography.Text>
             </Flex>
           )
-          : <Typography.Text type="secondary">Not a bug: it passes and has no ticket.</Typography.Text>}
+          : <Typography.Text style={text.caption}>Not a bug: it passes and has no ticket.</Typography.Text>}
         {tickets.length > 0 && (
-          <Flex vertical gap={token.marginXS}>
+          <Flex vertical gap={space.stack}>
             {tickets.map((ticket) => (
               <Flex key={ticket.id} vertical align="flex-start">
                 <TicketUrl url={ticket.url} />
-                <Flex gap="small" wrap align="center">
-                  <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.at)}</Typography.Text>
+                <Flex gap={space.stack} wrap align="center">
+                  <Typography.Text style={text.caption}>by {ticket.by}, {utc(ticket.at)}</Typography.Text>
                   <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
                     <Button size="small" type="link">Remove</Button>
                   </Popconfirm>

@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts tests/*.test.mjs",
     "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
-    "admin": "tsx --env-file-if-exists=.env scripts/admin.ts"
+    "admin": "tsx --env-file-if-exists=.env scripts/admin.ts",
+    "check:infui": "tsx scripts/check-infui.ts"
   },
   "dependencies": {
     "@ant-design/cssinjs": "2.1.2",

@@ -1,11 +1,12 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Card, Col, Empty, Flex, Row, Tabs, Typography, theme } from 'antd'
+import { Card, Col, Empty, Flex, Row, Tabs, Typography } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
 import { ProjectBugsCard } from '../../../../components/tickets'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
+import { space, text } from '../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/')({
   // ?tab=errors opens Production errors; Tests is the default tab.
@@ -18,13 +19,12 @@ export const Route = createFileRoute('/_app/p/$project/')({
 function OverviewPage() {
   const { project, checks } = Route.useLoaderData()
   const { tab } = Route.useSearch()
-  const { token } = theme.useToken()
   const navigate = useNavigate()
 
   const cards = checks.length === 0 ? (
     <Card><Empty description="No checks in this project yet." /></Card>
   ) : (
-    <Row gutter={[token.margin, token.margin]}>
+    <Row gutter={[space.group, space.group]}>
       {checks.map((check) => (
         <Col key={check.slug} xs={24} md={12} xl={8}>
           <Card
@@ -33,7 +33,7 @@ function OverviewPage() {
             onClick={() => navigate({ to: '/p/$project/checks/$check', params: { project: project.slug, check: check.slug } })}
             style={{ height: '100%', cursor: 'pointer' }}
             // The header has no rule, so the body starts close under the title.
-            styles={{ body: { paddingTop: token.paddingXXS } }}
+            styles={{ body: { paddingTop: space.inline } }}
             title={
               <Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>
                 {check.name}
@@ -49,15 +49,15 @@ function OverviewPage() {
   )
   // The project's bugs under the checks they come from.
   const tests = (
-    <Flex vertical gap="middle">
+    <Flex vertical gap={space.group}>
       {cards}
       <ProjectBugsCard key={project.slug} project={project.slug} />
     </Flex>
   )
 
   return (
-    <Flex vertical gap="middle">
-      <Typography.Title level={4} style={{ margin: 0 }}>{project.name}</Typography.Title>
+    <Flex vertical gap={space.group}>
+      <Typography.Title level={4} style={{ ...text.heading2, margin: 0 }}>{project.name}</Typography.Title>
       <Tabs
         activeKey={tab ?? 'tests'}
         onChange={(key) => navigate({ to: '/p/$project', params: { project: project.slug }, search: key === 'errors' ? { tab: 'errors' } : {} })}

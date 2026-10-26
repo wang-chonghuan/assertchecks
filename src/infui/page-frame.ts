@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { ASSERTCHECKS_STYLE } from '../theme'
+import { ASSERTCHECKS_STYLE } from './tokens'
 
 const { pageWidth, pageGutterMin, pageGutterMax } = ASSERTCHECKS_STYLE
 

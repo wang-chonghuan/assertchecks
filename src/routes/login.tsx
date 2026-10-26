@@ -3,7 +3,8 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Flex, Typography, theme } from 'antd'
 import { getMe } from '../server/fns'
 import { Brand } from '../components/brand'
-import { pageGutter } from '../components/page-frame'
+import { pageGutter } from '../infui/page-frame'
+import { space, text } from '../infui/tokens'
 
 // Only a path on this site, so the sign-in page cannot send anyone elsewhere.
 const samePath = (value: unknown) => typeof value === 'string' && /^\/(?![/\\])/.test(value) ? value : undefined
@@ -21,9 +22,9 @@ function LoginPage() {
   const { token } = theme.useToken()
   const after = Route.useSearch().redirect ?? '/p'
   return (
-    <Flex vertical justify="center" align="center" gap={token.marginLG} style={{ minHeight: '100vh', paddingInline: pageGutter, background: token.colorBgLayout }}>
+    <Flex vertical justify="center" align="center" gap={space.group} style={{ minHeight: '100vh', paddingInline: pageGutter, background: token.colorBgLayout }}>
       <a href="/" aria-label="AssertChecks home"><Brand size="large" /></a>
-      <Typography.Text type="secondary">Sign in to see your projects' checks.</Typography.Text>
+      <Typography.Text style={text.body}>Sign in to see your projects' checks.</Typography.Text>
       <SignIn routing="hash" withSignUp fallbackRedirectUrl={after} signUpFallbackRedirectUrl={after} />
     </Flex>
   )

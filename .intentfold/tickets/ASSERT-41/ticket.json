@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-41",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-41",
+  "branch": "ASSERT-41-diagram-borders-titles",
+  "base": "627e1f685a90b1a830de0f31960c80e7ce1a6659",
+  "ports": {
+    "web": 63041
+  }
+}

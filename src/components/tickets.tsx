@@ -7,6 +7,7 @@ import { ExportOutlined } from '@ant-design/icons'
 import { useEffect, useState, type ReactNode } from 'react'
 import { getProjectBugs } from '../server/fns'
 import type { Bug, BugStatus, CaseBug, ProjectBugs } from '../lib/types'
+import { space, text } from '../infui/tokens'
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 
@@ -66,7 +67,7 @@ export function AttachTicketModal({ open, subject, onCancel, onSave }: {
       }}
       destroyOnHidden
     >
-      <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }}>{subject}</Typography.Paragraph>
+      <Typography.Paragraph style={text.body} ellipsis={{ rows: 2 }}>{subject}</Typography.Paragraph>
       <Form form={form} layout="vertical">
         <Form.Item
           name="url"
@@ -83,12 +84,12 @@ export function AttachTicketModal({ open, subject, onCancel, onSave }: {
 // One bug's ticket in a line: the newest ticket, or the one whose fix did not hold.
 export function BugTicketLine({ bug }: { bug: CaseBug }) {
   if (bug.previous) {
-    return <Typography.Text type="secondary">Failed again after <TicketUrl url={bug.previous} short /></Typography.Text>
+    return <Typography.Text style={text.caption}>Failed again after <TicketUrl url={bug.previous} short /></Typography.Text>
   }
   const newest = bug.tickets[0]
   if (!newest) return null
   return (
-    <Typography.Text type="secondary">
+    <Typography.Text style={text.caption}>
       <TicketUrl url={newest.url} short />
       {bug.tickets.length > 1 ? ` and ${plural(bug.tickets.length - 1, 'earlier ticket')}` : ''}
     </Typography.Text>
@@ -140,10 +141,10 @@ export function ProjectBugsCard({ project }: { project: string }) {
   return (
     <Card
       title="Bugs"
-      extra={<Typography.Text type="secondary">{needing} need a ticket · {open.length - needing} in progress</Typography.Text>}
+      extra={<Typography.Text style={text.caption}>{needing} need a ticket · {open.length - needing} in progress</Typography.Text>}
     >
-      <Flex vertical gap="middle">
-        {open.length ? <BugList bugs={open} project={project} /> : <Typography.Text type="secondary">No open bug.</Typography.Text>}
+      <Flex vertical gap={space.group}>
+        {open.length ? <BugList bugs={open} project={project} /> : <Typography.Text style={text.caption}>No open bug.</Typography.Text>}
         {fixed.length > 0 && (
           <Collapse
             ghost

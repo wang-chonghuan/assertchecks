@@ -4,7 +4,8 @@ import { Button, Flex, Grid, Layout, Select, Typography, theme } from 'antd'
 import { HomeOutlined, LogoutOutlined } from '@ant-design/icons'
 import { getMe } from '../server/fns'
 import { Brand, PRODUCT_NAME } from '../components/brand'
-import { pageFrame } from '../components/page-frame'
+import { pageFrame } from '../infui/page-frame'
+import { space, text } from '../infui/tokens'
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ location }) => {
@@ -32,7 +33,7 @@ function AppLayout() {
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
-        <Flex align="center" gap={token.marginSM} style={{ ...pageFrame, height: '100%' }}>
+        <Flex align="center" gap={space.stack} style={{ ...pageFrame, height: '100%' }}>
           <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
           {me.projects.length > 0 && (
             <Select
@@ -44,10 +45,10 @@ function AppLayout() {
               onChange={(project) => navigate({ to: '/p/$project', params: { project } })}
             />
           )}
-          <Flex flex={1} justify="end" align="center" gap={token.marginXS}>
+          <Flex flex={1} justify="end" align="center" gap={space.stack}>
             <Button icon={<HomeOutlined />} href="/" aria-label="Home" title="Home">{screens.md && 'Home'}</Button>
             {screens.md && (
-              <Typography.Text type="secondary" ellipsis style={{ maxWidth: token.screenXS / 2 }}>
+              <Typography.Text  ellipsis style={{ ...text.caption, maxWidth: token.screenXS / 2 }}>
                 {me.email}
               </Typography.Text>
             )}
@@ -55,7 +56,7 @@ function AppLayout() {
           </Flex>
         </Flex>
       </Layout.Header>
-      <Layout.Content style={{ ...pageFrame, paddingBlock: token.padding }}>
+      <Layout.Content style={{ ...pageFrame, paddingBlock: space.block }}>
         <Outlet />
       </Layout.Content>
     </Layout>

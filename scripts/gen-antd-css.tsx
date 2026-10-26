@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { extractStyle } from '@ant-design/static-style-extract'
 import { ConfigProvider } from 'antd'
-import { theme } from '../src/theme'
+import { theme } from '../src/infui/theme'
 
 const file = process.env.NODE_ENV === 'production' ? 'antd.css' : 'antd.dev.css'
 const output = resolve(import.meta.dirname, '../src/generated', file)

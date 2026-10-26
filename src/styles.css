@@ -30,7 +30,7 @@ body {
 }
 
 /* Space Grotesk, the adsy.com typeface (SIL OFL, public/fonts/space-grotesk/OFL.txt). One variable file
-   per subset covers weights 400–700. The family name is used by the theme in src/theme.ts. */
+   per subset covers weights 400–700. The family name is used by the theme in src/infui/theme.ts. */
 @font-face {
   font-family: 'Space Grotesk';
   font-style: normal;
