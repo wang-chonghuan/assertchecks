@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { caseStatus, projectBugs, type CaseRun } from '../src/server/tickets'
-import type { Bug } from '../src/lib/types'
+import { caseStatus, type CaseRun } from '../src/server/tickets'
 
 const NOW = new Date('2026-10-22T12:00:00Z')
 const DAY = 24 * 60 * 60 * 1000
@@ -43,13 +42,4 @@ test('a case failing again after its ticket fixed it needs a new ticket and name
   assert.deepEqual(result?.tickets.map((item) => item.id), ['ENG-1', 'ENG-2'])
   // A new ticket after that puts it back in progress.
   assert.equal(caseStatus([ticket('ENG-3', 1), ticket('ENG-1', 9)], [runs([8, true], [7, true], [2, false])])?.status, 'in-progress')
-})
-
-test('the list puts bugs needing a ticket first and drops ones fixed more than two weeks ago', () => {
-  const bug = (id: string, status: Bug['status'], fixedDaysAgo?: number): Bug => ({
-    case: id, title: id, check: 'dev', status, tickets: [], previous: null,
-    fixedAt: fixedDaysAgo === undefined ? null : daysAgo(fixedDaysAgo).toISOString(),
-  })
-  const list = projectBugs([bug('E2E-3', 'fixed', 3), bug('E2E-2', 'in-progress'), bug('E2E-4', 'fixed', 30), bug('E2E-1', 'needs-ticket')], NOW)
-  assert.deepEqual(list.map((item) => item.case), ['E2E-1', 'E2E-2', 'E2E-3'])
 })

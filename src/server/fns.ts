@@ -3,7 +3,7 @@ import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
 import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
 import { decideProblem as decide, productionErrors, type Decision } from './production-errors'
-import { attachTicket as attach, caseIds, projectBugsView, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
+import { attachTicket as attach, caseIds, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
 import { approveLogin, clientLogin, LOGIN_CODE } from './client-tokens'
 
 const text = (value: unknown, field: string): string => {
@@ -126,10 +126,6 @@ export const removeTicket = createServerFn({ method: 'POST' })
   })
 
 // Read when the project's Tests tab shows its bugs.
-export const getProjectBugs = createServerFn({ method: 'GET' })
-  .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
-  .handler(async ({ data }) => found(await projectBugsView((await requireUser()).id, data.project)))
-
 // The approval page for a client sign-in (ASSERT-38). Codes are shown upper-case; a typed one may not be.
 const loginCodeOf = (data: { code: unknown }) => {
   const code = text(data.code, 'code').toUpperCase()

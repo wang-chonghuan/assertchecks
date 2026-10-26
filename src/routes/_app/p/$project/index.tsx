@@ -3,7 +3,6 @@ import { Card, Col, Empty, Flex, Row, Tabs } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
-import { ProjectBugsCard } from '../../../../components/tickets'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 import { space } from '../../../../infui/tokens'
@@ -47,13 +46,7 @@ function OverviewPage() {
       ))}
     </Row>
   )
-  // The project's bugs under the checks they come from.
-  const tests = (
-    <Flex vertical gap={space.group}>
-      {cards}
-      <ProjectBugsCard key={project.slug} project={project.slug} />
-    </Flex>
-  )
+  const tests = cards
 
   return (
     <Flex vertical gap={space.group}>
