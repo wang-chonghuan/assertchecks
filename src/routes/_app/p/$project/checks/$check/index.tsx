@@ -13,6 +13,7 @@ import type { CaseResult, OutsideCase, RunHistoryItem, Versions } from '../../..
 import { PRODUCT_NAME } from '../../../../../../components/brand'
 import { CheckSummary } from '../../../../../../components/check-summary'
 import { UNGROUPED, groupOrder, type CaseMeta } from '../../../../../../lib/organize'
+import { space } from '../../../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
   // ?run=<number> opens an older run from the history; without it the page shows the latest full run.
@@ -73,12 +74,12 @@ function CheckPage() {
     const groups = groupOrder(rows.map((row) => metaOf(id(row)).group))
     if (groups.length === 0 || (groups.length === 1 && groups[0] === null)) return table(rows, true)
     return (
-      <Flex vertical gap="large">
+      <Flex vertical gap={space.block}>
         {groups.map((group, index) => {
           const inGroup = rows.filter((row) => metaOf(id(row)).group === group)
           return (
-            <Flex key={group ?? UNGROUPED_KEY} vertical gap="small">
-              <Flex align="center" gap="small">
+            <Flex key={group ?? UNGROUPED_KEY} vertical gap={space.stack}>
+              <Flex align="center" gap={space.stack}>
                 <Typography.Text strong type={group === null ? 'secondary' : undefined}>{group ?? UNGROUPED}</Typography.Text>
                 <Tag variant="filled">{inGroup.length}</Tag>
               </Flex>
@@ -92,7 +93,7 @@ function CheckPage() {
 
   const caseLink = (id: string, title: string, extra?: ReactNode) => (
     <Flex vertical>
-      <Flex gap="small" align="center" wrap>
+      <Flex gap={space.stack} align="center" wrap>
         <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: id }} search={runSearch}>
           {id}
         </Link>
@@ -113,7 +114,7 @@ function CheckPage() {
   const ticketCell = (id: string) => {
     const bug = bugs[id]
     return (
-      <Flex vertical gap={token.marginXXS} align="flex-start">
+      <Flex vertical gap={space.stack} align="flex-start">
         {bug && <BugStatusTag status={bug.status} />}
         {bug && <BugTicketLine bug={bug} />}
         {bug?.status !== 'in-progress' && (
@@ -140,7 +141,7 @@ function CheckPage() {
           return <Tag color="error">Before the checks</Tag>
         }
         return (
-          <Flex gap="small" wrap>
+          <Flex gap={space.stack} wrap>
             {thens.filter((then) => then.status !== 'passed')
               .map((then) => <ThenTag key={then.id} id={then.id} status={then.status} caseStatus={item.status} />)}
           </Flex>
@@ -210,7 +211,7 @@ function CheckPage() {
 
 
   return (
-    <Flex vertical gap="middle">
+    <Flex vertical gap={space.group}>
       <Breadcrumb
         items={[
           { title: <Link to="/p/$project" params={{ project: project.slug }}>{project.name}</Link> },
@@ -228,14 +229,14 @@ function CheckPage() {
       <Card
         title={check.name}
         extra={viewingLatest || !latest ? <CheckStatusTag status={check.status} /> : <OutcomeTag run={latest} />}
-        styles={{ body: { paddingTop: token.paddingXXS } }}
+        styles={{ body: { paddingTop: space.inline } }}
       >
         <CheckSummary check={check} />
         {latest && (
           <Collapse
             ghost
             size="small"
-            style={{ marginTop: token.marginSM }}
+            style={{ marginTop: space.stack }}
             items={[{
               key: 'run-details',
               label: 'Run details',
@@ -275,7 +276,7 @@ function CheckPage() {
       {latest && (
         <Card>
           {organized && (
-            <Flex gap="small" wrap align="center" style={{ marginBottom: token.marginSM }}>
+            <Flex gap={space.stack} wrap align="center" style={{ marginBottom: space.stack }}>
               <Select
                 allowClear
                 aria-label="Filter by group"
@@ -331,9 +332,9 @@ function CheckPage() {
                 key: 'failed',
                 label: `Not passed (${failed.length})`,
                 children: (
-                  <Flex vertical gap="small">
+                  <Flex vertical gap={space.stack}>
                     {failed.length > 0 && (
-                      <Flex gap="small" align="center" wrap>
+                      <Flex gap={space.stack} align="center" wrap>
                         <Button disabled={!selected.length} onClick={() => setAttaching(selected)}>
                           Attach one ticket to {selected.length || 'the'} selected case{selected.length === 1 ? '' : 's'}
                         </Button>
@@ -391,7 +392,7 @@ function CheckPage() {
 // A column title with its explanation behind a question-mark tooltip.
 function Explained({ title, help }: { title: string; help: string }) {
   return (
-    <Flex gap="small" align="center">
+    <Flex gap={space.stack} align="center">
       {title}
       <Tooltip title={help}>
         <Typography.Text type="secondary" aria-label={`About ${title}`}><QuestionCircleOutlined /></Typography.Text>
@@ -415,7 +416,7 @@ function RunHistory({ history, shownId, project, check }: {
       title: 'Kind',
       key: 'kind',
       render: (_, run) => (
-        <Flex gap="small" wrap>
+        <Flex gap={space.stack} wrap>
           <Tag>{run.trigger === 'schedule' ? 'Scheduled' : 'Manual'}</Tag>
           {run.caseCount !== null && <Tag variant="filled">{run.caseCount} named cases</Tag>}
         </Flex>
@@ -425,7 +426,7 @@ function RunHistory({ history, shownId, project, check }: {
       title: 'Result',
       key: 'result',
       render: (_, run) => (
-        <Flex gap="small" align="center" wrap>
+        <Flex gap={space.stack} align="center" wrap>
           <OutcomeTag run={run} />
           {run.tally && (
             <Typography.Text type="secondary">
@@ -450,7 +451,7 @@ function RunHistory({ history, shownId, project, check }: {
         ? (
           <Flex vertical onClick={(event) => event.stopPropagation()}>
             {Object.keys(deployed).sort().map((name) => (
-              <Flex key={name} gap="small" align="center">
+              <Flex key={name} gap={space.stack} align="center">
                 <Typography.Text type="secondary">{name}</Typography.Text>
                 <Sha value={deployed[name]} />
               </Flex>

@@ -10,12 +10,12 @@ import {
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
 import { getMe } from '../server/fns'
-import { ASSERTCHECKS_STYLE } from '../theme'
+import { ASSERTCHECKS_STYLE, heroTitle, space, type } from '../infui/tokens'
 import { Brand, PRODUCT_NAME } from '../components/brand'
 import { CheckSummary } from '../components/check-summary'
 import { CheckStatusTag } from '../components/status'
 import { HowItWorks } from '../components/how-it-works'
-import { pageFrame } from '../components/page-frame'
+import { pageFrame } from '../infui/page-frame'
 import { FORMAT_LINKS, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
 
@@ -65,7 +65,7 @@ function HomePage() {
   )
 
   const container = pageFrame
-  const section = { ...pageFrame, paddingBlock: token.paddingXL }
+  const section = { ...pageFrame, paddingBlock: space.section }
 
   return (
     <div style={{ minHeight: '100vh', background: token.colorBgLayout }}>
@@ -79,9 +79,9 @@ function HomePage() {
           borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
         }}
       >
-        <Flex align="center" gap="middle" style={{ ...container, height: token.controlHeightLG * 1.4 }}>
+        <Flex align="center" gap={space.group} style={{ ...container, height: token.controlHeightLG * 1.4 }}>
           <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
-          <Flex flex={1} justify="end" align="center" gap="small">
+          <Flex flex={1} justify="end" align="center" gap={space.stack}>
             {/* Section links need room; the stylesheet shows them from the md breakpoint so SSR renders them too. */}
             <nav className="home-nav">
               <Button type="text" href="#checks">What it checks</Button>
@@ -99,40 +99,38 @@ function HomePage() {
             background: [
               `radial-gradient(60% 70% at 90% 0%, ${token.colorPrimaryBg} 0%, transparent 70%)`,
               `radial-gradient(50% 60% at 0% 100%, ${token.purple1} 0%, transparent 70%)`,
-              `radial-gradient(${token.colorBorderSecondary} 1px, transparent 1px) 0 0 / ${token.sizeLG}px ${token.sizeLG}px`,
+              `radial-gradient(${token.colorBorderSecondary} 1px, transparent 1px) 0 0 / ${ASSERTCHECKS_STYLE.heroDotGrid}px ${ASSERTCHECKS_STYLE.heroDotGrid}px`,
               token.colorBgLayout,
             ].join(', '),
             borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
           }}
         >
           <div style={section}>
-            <Row gutter={[token.marginXL, token.marginLG]} align="middle">
+            <Row gutter={[space.section, space.block]} align="middle">
               <Col xs={24} lg={13}>
-                <Flex vertical gap="middle" align="start">
+                <Flex vertical gap={space.group} align="start">
                   <Typography.Title
                     level={1}
                     style={{
                       margin: 0,
-                      fontSize: `clamp(${token.fontSizeHeading2}px, 5.3vw, ${token.fontSizeHeading1}px)`,
+                      ...heroTitle,
                       fontWeight: ASSERTCHECKS_STYLE.fontWeightDisplay,
-                      // Heading 1's ratio at full size; never tighter than Heading 2's line as it shrinks.
-                      lineHeight: `max(${ASSERTCHECKS_STYLE.lineHeightHeading2}px, ${token.lineHeightHeading1}em)`,
                     }}
                   >
                     Know every assertion still holds.
                   </Typography.Title>
-                  <Typography.Paragraph style={{ margin: 0, fontSize: token.fontSizeLG, lineHeight: token.lineHeightLG, color: token.colorTextSecondary, maxWidth: 560 }}>
+                  <Typography.Paragraph style={{ margin: 0, ...type.lead, color: token.colorTextSecondary, maxWidth: ASSERTCHECKS_STYLE.heroTextWidth }}>
                     Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
                     arrived on time, ran in full, and which assertion failed.
                   </Typography.Paragraph>
-                  <Flex gap="small" wrap>
+                  <Flex gap={space.stack} wrap>
                     {primary}
                     <CopyForAgent />
                   </Flex>
-                  <Flex gap="middle" wrap>
+                  <Flex gap={space.group} wrap>
                     {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
                       <Typography.Text key={item} type="secondary">
-                        <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: token.marginXXS }} />
+                        <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: space.inline }} />
                         {item}
                       </Typography.Text>
                     ))}
@@ -149,7 +147,7 @@ function HomePage() {
         {/* What it checks */}
         <div id="checks" style={{ ...section, scrollMarginTop: token.controlHeightLG * 1.4 }}>
           <SectionTitle eyebrow="What it checks" title="Every check answers three questions" />
-          <Row gutter={[token.marginLG, token.marginLG]}>
+          <Row gutter={[space.group, space.group]}>
             <Col xs={24} md={8}>
               <Pillar
                 icon={<ClockCircleOutlined />}
@@ -189,19 +187,19 @@ function HomePage() {
               title="How a run reaches your team"
               text="No SDK. Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
             />
-            <Card style={{ marginBottom: token.margin }}>
+            <Card style={{ marginBottom: space.group }}>
               <HowItWorks />
             </Card>
             <Card style={{ borderColor: token.colorPrimaryBorder, background: token.colorPrimaryBg }}>
-              <Flex justify="space-between" align="center" gap="middle" wrap>
-                <Flex vertical gap="small" style={{ flex: '1 1 320px', minWidth: 0 }}>
+              <Flex justify="space-between" align="center" gap={space.group} wrap>
+                <Flex vertical gap={space.stack} style={{ flex: '1 1 320px', minWidth: 0 }}>
                   <Typography.Title level={5} style={{ margin: 0 }}>Connect a project with your coding agent</Typography.Title>
                   <Typography.Text type="secondary">
                     Copies every step, command and the report format as Markdown, ready to paste.
                   </Typography.Text>
-                  <Flex gap="small" wrap>
+                  <Flex gap={space.stack} wrap>
                     {FORMAT_LINKS.map((link) => (
-                      <Button key={link.path} type="link" icon={<FileTextOutlined />} href={link.path} target="_blank" style={{ paddingInline: 0, marginInlineEnd: token.margin }}>
+                      <Button key={link.path} type="link" icon={<FileTextOutlined />} href={link.path} target="_blank" style={{ paddingInline: 0, marginInlineEnd: space.group }}>
                         {link.label}
                       </Button>
                     ))}
@@ -215,7 +213,7 @@ function HomePage() {
       </main>
 
       <footer style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}` }}>
-        <Flex justify="center" align="center" wrap gap="small" style={{ ...container, paddingBlock: token.padding }}>
+        <Flex justify="center" align="center" wrap gap={space.stack} style={{ ...container, paddingBlock: space.block }}>
           <Typography.Text type="secondary">© {new Date().getUTCFullYear()} {PRODUCT_NAME}. All rights reserved.</Typography.Text>
           <Typography.Link href="/privacy">Privacy</Typography.Link>
         </Flex>
@@ -232,7 +230,7 @@ function ExampleCard() {
         aria-hidden
         style={{
           position: 'absolute',
-          inset: token.marginXL,
+          inset: space.block,
           background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.purple6})`,
           filter: 'blur(48px)',
           opacity: 0.25,
@@ -241,14 +239,14 @@ function ExampleCard() {
       />
       <Card
         title={
-          <Flex align="center" gap="small" wrap>
+          <Flex align="center" gap={space.stack} wrap>
             <span>Staging</span>
             <CheckStatusTag status={EXAMPLE.status} />
           </Flex>
         }
         extra={<Tag variant="filled">Example</Tag>}
         style={{ position: 'relative', boxShadow: token.boxShadowSecondary }}
-        styles={{ body: { paddingTop: token.paddingXXS } }}
+        styles={{ body: { paddingTop: space.inline } }}
       >
         <CheckSummary check={EXAMPLE} compact />
       </Card>
@@ -259,8 +257,8 @@ function ExampleCard() {
 function SectionTitle({ eyebrow, title, text }: { eyebrow: string; title: string; text?: string }) {
   const { token } = theme.useToken()
   return (
-    <Flex vertical gap={token.marginXXS} style={{ marginBottom: token.marginLG, maxWidth: token.screenLG }}>
-      <Typography.Text strong style={{ color: token.colorPrimary, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: token.fontSizeSM }}>
+    <Flex vertical gap={space.stack} style={{ marginBottom: space.block, maxWidth: token.screenLG }}>
+      <Typography.Text strong style={{ color: token.colorPrimary, textTransform: 'uppercase', letterSpacing: '0.08em', ...type.small }}>
         {eyebrow}
       </Typography.Text>
       <Typography.Title level={2} style={{ margin: 0 }}>{title}</Typography.Title>
@@ -273,11 +271,11 @@ function Pillar({ icon, color, bg, title, text }: { icon: ReactNode; color: stri
   const { token } = theme.useToken()
   return (
     <Card style={{ height: '100%' }}>
-      <Flex vertical gap="middle">
+      <Flex vertical gap={space.group}>
         <Flex
           align="center"
           justify="center"
-          style={{ width: token.controlHeightLG, height: token.controlHeightLG, borderRadius: token.borderRadius, background: bg, color, fontSize: token.fontSizeHeading4 }}
+          style={{ width: token.controlHeightLG, height: token.controlHeightLG, borderRadius: token.borderRadius, background: bg, color, fontSize: type.heading4.fontSize }}
         >
           {icon}
         </Flex>

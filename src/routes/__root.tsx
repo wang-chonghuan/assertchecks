@@ -3,7 +3,8 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { App, ConfigProvider, Result } from 'antd'
 import antdCss from '#antd-css?url'
 import appCss from '../styles.css?url'
-import { ASSERTCHECKS_STYLE, buttonConfig, cardConfig, clerkAppearance, theme } from '../theme'
+import { buttonConfig, cardConfig, clerkAppearance, theme } from '../infui/theme'
+import { ASSERTCHECKS_STYLE } from '../infui/tokens'
 import { PRODUCT_NAME } from '../components/brand'
 
 export const Route = createRootRoute({

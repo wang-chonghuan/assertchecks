@@ -1,4 +1,5 @@
 import { theme } from 'antd'
+import { lines, space, type } from '../infui/tokens'
 
 // The homepage "How it works" diagram: one run from the project's repository to its results page.
 // Drawn twice, wide and tall, because a wide diagram scaled down to a phone makes its text unreadable;
@@ -25,14 +26,14 @@ export function HowItWorks() {
 }
 
 // Inner padding of a box, in diagram units.
-const PAD = 16
+const PAD = space.group
 
 function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
   const { token } = theme.useToken()
   const wide = layout === 'wide'
   // Text is set on the theme's line-height scale: titles on the large line, the rest on the body line.
-  const titleLine = Math.round(token.fontSizeLG * token.lineHeightLG)
-  const textLine = Math.round(token.fontSize * token.lineHeight)
+  const titleLine = lines.lead
+  const textLine = lines.body
   const heightOf = (node: Node) => PAD * 2 + titleLine + node.lines.length * textLine
   const [repo, ci, ac, team] = NODES.map(heightOf)
   // Wide: four columns centred on one line. Tall: four rows, with room between them for the labels.
@@ -90,9 +91,9 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
         return (
           <g key={`${edge.label}`}>
             <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={token.colorTextSecondary} strokeWidth={1.5} markerEnd={`url(#${marker})`} />
-            <text x={lx} y={ly} textAnchor={anchor} fill={token.colorText} fontSize={token.fontSize} fontWeight={token.fontWeightStrong} style={font}>{edge.label}</text>
+            <text x={lx} y={ly} textAnchor={anchor} fill={token.colorText} fontSize={type.body.fontSize} fontWeight={token.fontWeightStrong} style={font}>{edge.label}</text>
             {edge.detail && (
-              <text x={lx} y={ly + textLine} textAnchor={anchor} fill={token.colorTextSecondary} fontSize={token.fontSizeSM} style={font}>{edge.detail}</text>
+              <text x={lx} y={ly + textLine} textAnchor={anchor} fill={token.colorTextSecondary} fontSize={type.small.fontSize} style={font}>{edge.detail}</text>
             )}
           </g>
         )
@@ -112,11 +113,11 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
               stroke={node.accent ? token.colorPrimary : token.colorBorder}
               strokeWidth={node.accent ? 1.5 : 1}
             />
-            <text x={box.x + PAD} y={box.y + PAD + titleLine / 2} dominantBaseline="central" fill={node.accent ? token.colorPrimary : token.colorText} fontSize={token.fontSizeLG} fontWeight={token.fontWeightStrong} style={font}>
+            <text x={box.x + PAD} y={box.y + PAD + titleLine / 2} dominantBaseline="central" fill={node.accent ? token.colorPrimary : token.colorText} fontSize={type.lead.fontSize} fontWeight={token.fontWeightStrong} style={font}>
               {node.title}
             </text>
             {node.lines.map((line, index) => (
-              <text key={line} x={box.x + PAD} y={box.y + PAD + titleLine + (index + 0.5) * textLine} dominantBaseline="central" fill={token.colorTextSecondary} fontSize={token.fontSize} style={font}>
+              <text key={line} x={box.x + PAD} y={box.y + PAD + titleLine + (index + 0.5) * textLine} dominantBaseline="central" fill={token.colorTextSecondary} fontSize={type.body.fontSize} style={font}>
                 {node.accent ? `✓ ${line}` : line}
               </text>
             ))}

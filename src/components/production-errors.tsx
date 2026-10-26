@@ -6,7 +6,7 @@ import { attachTicket, decideProblem, getProductionErrors, removeTicket } from '
 import { AttachTicketModal, TicketUrl } from './tickets'
 import type { NoiseCategory, ProblemGroup, ProblemView, ProductionErrors } from '../lib/types'
 import { utc } from './status'
-import { ASSERTCHECKS_STYLE } from '../theme'
+import { ASSERTCHECKS_STYLE, space, type } from '../infui/tokens'
 
 const NOISE_LABEL: Record<NoiseCategory, string> = {
   client: '4xx responses',
@@ -31,8 +31,8 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
   // On phones the peak gets its own line instead of squeezing between the two dates.
   const wide = Grid.useBreakpoint().md
   return (
-    <Flex vertical gap={token.marginXXS}>
-      <Flex align="end" gap={token.marginXXS / 2} style={{ height: token.sizeXXL }} role="img" aria-label="Failures per day, last 30 days">
+    <Flex vertical gap={space.stack}>
+      <Flex align="end" gap={ASSERTCHECKS_STYLE.barGap} style={{ height: ASSERTCHECKS_STYLE.barsHeight }} role="img" aria-label="Failures per day, last 30 days">
         {daily.map((day) => (
           <Tooltip key={day.day} title={`${day.day} · ${plural(day.count, 'failure')}`}>
             <div
@@ -40,7 +40,7 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
                 flex: 1,
                 height: `${(day.count / max) * 100}%`,
                 // A day with failures always shows; a quiet day is a thin baseline.
-                minHeight: day.count ? token.marginXXS : token.lineWidthBold,
+                minHeight: day.count ? ASSERTCHECKS_STYLE.barMinHeight : token.lineWidthBold,
                 background: day.count ? token.colorError : token.colorFillSecondary,
                 borderRadius: token.borderRadiusXS,
               }}
@@ -48,7 +48,7 @@ function DailyBars({ daily }: { daily: ProductionErrors['daily'] }) {
           </Tooltip>
         ))}
       </Flex>
-      <Flex justify="space-between" gap="small">
+      <Flex justify="space-between" gap={space.stack}>
         <Typography.Text type="secondary">{daily[0]?.day}</Typography.Text>
         {wide && <Typography.Text type="secondary">{peakText}</Typography.Text>}
         <Typography.Text type="secondary">{daily.at(-1)?.day}</Typography.Text>
@@ -98,12 +98,12 @@ function NotHandlingModal({ problem, onCancel, onSave }: {
 function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: (link: string) => void }) {
   const { token } = theme.useToken()
   return (
-    <Flex vertical gap="small">
+    <Flex vertical gap={space.stack}>
       {problem.tickets.length > 0 && (
-        <Flex vertical gap={token.marginXXS} align="flex-start" onClick={(event) => event.stopPropagation()}>
+        <Flex vertical gap={space.stack} align="flex-start" onClick={(event) => event.stopPropagation()}>
           <Typography.Text strong>Tickets, newest first</Typography.Text>
           {problem.tickets.map((ticket) => (
-            <Flex key={ticket.id} gap="small" wrap align="center">
+            <Flex key={ticket.id} gap={space.stack} wrap align="center">
               <TicketUrl url={ticket.url} />
               <Typography.Text type="secondary">by {ticket.by}, {utc(ticket.at)}</Typography.Text>
               <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
@@ -139,7 +139,7 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
         />
       )}
       {problem.latest && (
-        <Flex vertical gap={token.marginXXS}>
+        <Flex vertical gap={space.stack}>
           <Typography.Text strong>Latest failure, {utc(problem.latest.at)}</Typography.Text>
           <Typography.Text style={{ wordBreak: 'break-word' }}>{problem.latest.type ? `${problem.latest.type}: ` : ''}{problem.latest.message}</Typography.Text>
           {problem.latest.stack && (
@@ -150,12 +150,11 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
                 margin: 0,
                 maxHeight: token.controlHeight * 10,
                 overflow: 'auto',
-                padding: token.paddingXS,
+                padding: space.stack,
                 borderRadius: token.borderRadius,
                 background: token.colorFillQuaternary,
                 fontFamily: token.fontFamilyCode,
-                fontSize: token.fontSizeSM,
-                lineHeight: token.lineHeightSM,
+                ...type.small,
               }}
             >
               {problem.latest.stack}
@@ -246,9 +245,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
     if (!newest) return null
     const since = problem.sinceTicket
     return (
-      <Flex vertical gap={token.marginXXS} align="flex-start">
+      <Flex vertical gap={space.stack} align="flex-start">
         <TicketUrl url={newest.url} />
-        <Flex gap="small" wrap align="center">
+        <Flex gap={space.stack} wrap align="center">
           {since && since.count > 0
             ? <Tag color="error">Still occurring: {plural(since.count, unit(problem))} since the ticket</Tag>
             : <Tag>{since?.quietDays ? `No occurrence for ${plural(since.quietDays, 'day')} since the ticket` : 'No occurrence since the ticket'}</Tag>}
@@ -268,7 +267,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
     )
     // Stacked buttons share the width of the widest; clicking them never opens or closes the row.
     const stack = (children: ReactNode) => (
-      <Flex vertical gap={token.marginXS} style={{ width: 'max-content' }} onClick={(event) => event.stopPropagation()}>
+      <Flex vertical gap={space.stack} style={{ width: 'max-content' }} onClick={(event) => event.stopPropagation()}>
         {children}
       </Flex>
     )
@@ -292,9 +291,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       key: 'problem',
       onCell: top,
       render: (_, problem) => (
-        <Flex vertical gap={token.marginXS} align="flex-start">
+        <Flex vertical gap={space.stack} align="flex-start">
           <Flex vertical>
-            <Flex gap="small" wrap align="center">
+            <Flex gap={space.stack} wrap align="center">
               {problem.isNew && <Tag color="processing">New</Tag>}
               {problem.kind === 'slow' && <Tag color="warning">Slow</Tag>}
               <Typography.Text strong style={{ wordBreak: 'break-word' }}>{problem.key}</Typography.Text>
@@ -364,11 +363,11 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   const noiseTotal = data.noise.reduce((total, item) => total + item.total, 0)
 
   return (
-    <Flex vertical gap="middle">
+    <Flex vertical gap={space.group}>
       <Card>
-        <Flex vertical gap="middle">
-          <Flex vertical gap={token.marginXXS}>
-            <Typography.Text strong style={{ fontSize: token.fontSizeLG, lineHeight: token.lineHeightLG }}>
+        <Flex vertical gap={space.group}>
+          <Flex vertical gap={space.stack}>
+            <Typography.Text strong style={type.lead}>
               {headline.triage} to triage ({triageNow.length} this week{headline.isNew ? `, ${headline.isNew} new` : ''}) · {headline.ticket} with a ticket
               {headline.ticket ? `, ${headline.stillOccurring} still occurring` : ''} · {plural(headline.last24h, 'failure')} in the last 24 h ({headline.previous24h} the day before)
             </Typography.Text>
@@ -381,7 +380,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
         </Flex>
       </Card>
       <Card title={`To triage (${triage.length})`}>
-        <Flex vertical gap="middle">
+        <Flex vertical gap={space.group}>
           {table(triageNow, triage.length ? 'No problem to triage was seen in the past 7 days.' : 'Nothing to triage.')}
           {triageEarlier.length > 0 && (
             <Collapse
@@ -407,14 +406,14 @@ export function ProductionErrorsTab({ project }: { project: string }) {
             key: 'noise',
             label: `Filtered noise, last 7 days (${noiseTotal})`,
             children: (
-              <Flex vertical gap="middle" style={{ maxWidth: token.controlHeight * 20 }}>
+              <Flex vertical gap={space.group} style={{ maxWidth: token.controlHeight * 20 }}>
                 {data.noise.map((group) => (
                   <Flex key={group.category} vertical>
                     <Typography.Text strong>{NOISE_LABEL[group.category]} · {group.total}</Typography.Text>
                     {group.items.length === 0
                       ? <Typography.Text type="secondary">None</Typography.Text>
                       : group.items.map((item) => (
-                          <Flex key={item.item} justify="space-between" gap="small">
+                          <Flex key={item.item} justify="space-between" gap={space.stack}>
                             <Typography.Text type="secondary" style={{ wordBreak: 'break-word' }}>{item.item}</Typography.Text>
                             <Typography.Text>{item.count}</Typography.Text>
                           </Flex>

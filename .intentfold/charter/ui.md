@@ -21,7 +21,7 @@ product mark), `status.tsx` (outcome/status tags and notices), `check-summary.ts
 card shared by project cards, the check page and the homepage example), `how-it-works.tsx` (the
 homepage diagram), `production-errors.tsx` (the project page's Production errors tab, with its
 30-day bars, which antd has no component for), `tickets.tsx` (the attach dialog, a ticket's
-link and state, and the project's tickets grouped by ticket) and `page-frame.ts` (the content width and side gutter every page and section uses).
+link and state, and the project's tickets grouped by ticket) and the rest listed here; the content width and side gutter every page and section uses are `src/infui/page-frame.ts`.
 `src/styles.css` holds structural rules only: the self-hosted font face and the homepage's breakpoint
 switches. Prefer an antd component or documented composition over a new component. An Ant component
 is overridden only when tokens cannot do it, in `src/components/ant-overrides/`, one file per
@@ -29,21 +29,25 @@ component, each listed here.
 
 **Tokens**
 
-`src/theme.ts` is the single theme authority. Every custom value (colours, type, radii, the pill radius,
-the page width and gutter) is declared once in the `ASSERTCHECKS_STYLE` table at the top of that file; the exported theme takes its
-values only from that table, and no colour literal appears outside it.
-Components read values with `theme.useToken()`; colours, spacing, radii and sizes come from tokens,
-not literals.
+`src/infui/` holds every UI value, as in all of the owner's apps: `tokens.ts` is the single table
+(`ASSERTCHECKS_STYLE`: colours, type sizes with their px line heights, radii, the spacing scale, page
+frame and the fixed sizes of drawn things), `theme.ts` builds the Ant theme, ConfigProvider settings and
+Clerk appearance only from it, and `page-frame.ts` the content column. No value is declared anywhere
+else and no colour literal appears outside it.
 
-**Line height**
+- Spacing comes only from `space`, named by what it separates: `inline` 4 (an icon and its label),
+  `stack` 8 (lines of one block, tags or buttons in a row), `group` 16 (cards beside or below each
+  other, rows of a list), `block` 24 (a section title and its content), `section` 48 (sections of a
+  page). Ant's own margin and padding tokens are collapsed by the compact algorithm (`margin` and
+  `marginSM` are both 8 px) and stay inside Ant's components; pages and components never use them or
+  Flex's named gaps.
+- Type comes only from `type` pairs (font size with its px line height, every line a multiple of 4),
+  spread whole; drawings that lay out text use `lines`; single-line display text uses
+  `lineHeightSingle`. Card and button labels get theirs through the configs in `theme.ts`.
+- Colours come from theme tokens (`theme.useToken()`), which take theirs from the table.
 
-Every type size has one line height, declared in px in the same table and all multiples of 4:
-14→20, 16→24, 20→28, 26→32, 30→36, 40→48, 76→80. Single-line display text (the pass count, the
-wordmark) uses `lineHeightSingle`. Ant receives them as ratios (`lineHeight`, `lineHeightSM`,
-`lineHeightLG`, `lineHeightHeading1`–`5`), and the card title, the button label and the Clerk sign-in
-card get theirs through the configs exported next to the theme. A component that sets its own
-`fontSize` sets the matching line height from the scale in the same style; no numeric line height
-appears outside the table. The product mark and name live only in `src/components/brand.tsx`.
+`pnpm check:infui` fails on any page or component that sets spacing, font size, line height or colour
+another way.
 
 **Layout and responsive**
 
@@ -88,7 +92,7 @@ Running and Timed out.
 ## Redlines
 
 1. **Changing the governed theme** — adding, renaming, removing or retuning a value in
-   `src/theme.ts` — not without the human's explicit approval.
+   `src/infui/` — not without the human's explicit approval.
 2. **Adding another component library, ProComponents, Umi, Tailwind or a CSS-in-JS system other than
    antd's** — forbidden outright.
 3. **Overriding antd internals with `.ant-*` selectors or `!important`** — forbidden outright.

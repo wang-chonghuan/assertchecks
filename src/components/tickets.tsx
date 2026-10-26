@@ -7,6 +7,7 @@ import { ExportOutlined } from '@ant-design/icons'
 import { useEffect, useState, type ReactNode } from 'react'
 import { getProjectBugs } from '../server/fns'
 import type { Bug, BugStatus, CaseBug, ProjectBugs } from '../lib/types'
+import { space } from '../infui/tokens'
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 
@@ -142,7 +143,7 @@ export function ProjectBugsCard({ project }: { project: string }) {
       title="Bugs"
       extra={<Typography.Text type="secondary">{needing} need a ticket · {open.length - needing} in progress</Typography.Text>}
     >
-      <Flex vertical gap="middle">
+      <Flex vertical gap={space.group}>
         {open.length ? <BugList bugs={open} project={project} /> : <Typography.Text type="secondary">No open bug.</Typography.Text>}
         {fixed.length > 0 && (
           <Collapse

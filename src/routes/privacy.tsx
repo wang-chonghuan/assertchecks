@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Flex, Typography, theme } from 'antd'
 import { Brand, PRODUCT_NAME } from '../components/brand'
-import { pageFrame } from '../components/page-frame'
+import { pageFrame } from '../infui/page-frame'
+import { space } from '../infui/tokens'
 
 export const Route = createFileRoute('/privacy')({
   head: () => ({ meta: [{ title: `Privacy · ${PRODUCT_NAME}` }] }),
@@ -39,7 +40,7 @@ function PrivacyPage() {
   const { token } = theme.useToken()
   return (
     <div style={{ minHeight: '100vh', background: token.colorBgLayout }}>
-      <Flex vertical gap={token.marginLG} style={{ ...pageFrame, maxWidth: token.screenMD, paddingBlock: token.paddingXL }}>
+      <Flex vertical gap={space.group} style={{ ...pageFrame, maxWidth: token.screenMD, paddingBlock: space.section }}>
         <a href="/" aria-label={`${PRODUCT_NAME} home`}><Brand /></a>
         <div>
           <Typography.Title level={2} style={{ margin: 0 }}>Privacy</Typography.Title>

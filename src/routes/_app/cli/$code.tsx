@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { App, Button, Flex, Result, Typography, theme } from 'antd'
+import { App, Button, Flex, Result, Typography } from 'antd'
 import { KeyOutlined } from '@ant-design/icons'
 import { approveClientLogin, getClientLogin } from '../../../server/fns'
 import { utc } from '../../../components/status'
+import { space } from '../../../infui/tokens'
 
 // Where a person approves the client's sign-in on their own computer (ASSERT-38). The code is the one
 // the terminal printed; approving lets that client read and link tickets as this person.
@@ -16,7 +17,6 @@ function ClientLoginPage() {
   const login = Route.useLoaderData()
   const { me } = Route.useRouteContext()
   const { message } = App.useApp()
-  const { token } = theme.useToken()
   const [state, setState] = useState(login.state)
   const [approving, setApproving] = useState(false)
 
@@ -46,7 +46,7 @@ function ClientLoginPage() {
       )}
       extra={(
         // The code first, so it is compared before anything is approved.
-        <Flex vertical align="center" gap={token.marginSM}>
+        <Flex vertical align="center" gap={space.stack}>
           <Typography.Title level={2} style={{ margin: 0 }}>{login.code}</Typography.Title>
           <Typography.Text type="secondary">Requested {utc(login.requestedAt)}</Typography.Text>
           <Button

@@ -1,6 +1,6 @@
 import { CheckOutlined } from '@ant-design/icons'
 import { theme } from 'antd'
-import { ASSERTCHECKS_STYLE } from '../theme'
+import { ASSERTCHECKS_STYLE, brand } from '../infui/tokens'
 
 export const PRODUCT_NAME = 'AssertChecks'
 
@@ -8,16 +8,15 @@ export const PRODUCT_NAME = 'AssertChecks'
 // colour. `large` is for the sign-in card; headers and the footer use the default.
 export function Brand({ size = 'default' }: { size?: 'default' | 'large' }) {
   const { token } = theme.useToken()
-  const font = Number(size === 'large' ? token.fontSizeHeading4 : token.fontSizeLG)
-  const tile = Math.round(font * 1.3)
+  const mark = brand[size]
   return (
     <span
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: Math.round(font * 0.45),
+        gap: mark.gap,
         whiteSpace: 'nowrap',
-        fontSize: font,
+        fontSize: mark.fontSize,
         fontWeight: 700,
         letterSpacing: '-0.02em',
         lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle,
@@ -30,12 +29,12 @@ export function Brand({ size = 'default' }: { size?: 'default' | 'large' }) {
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: tile,
-          height: tile,
-          borderRadius: Math.round(tile * 0.3),
+          width: mark.tile,
+          height: mark.tile,
+          borderRadius: mark.tileRadius,
           background: token.colorPrimary,
           color: token.colorTextLightSolid,
-          fontSize: Math.round(tile * 0.58),
+          fontSize: mark.iconSize,
           boxShadow: token.boxShadowTertiary,
         }}
       >

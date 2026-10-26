@@ -36,6 +36,7 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   membership-scoped reads, problem upserts and decisions), `tickets` (pure judgement of tickets
   on cases from run results), `ticket-links` (attaching, removing and listing tickets by ticket) and
   `client-tokens` (the client's sign-in as a person).
+- `src/infui/` — every UI token and the Ant theme built from them (charter/ui.md).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
   (`connect-guide`) that both the homepage and "Copy for your agent" render.
 - `public/schemas/` — the published catalog and result formats; `public/client/assertchecks.mjs` — the
@@ -81,7 +82,7 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 **Mechanical defence**
 
 ```bash
-pnpm typecheck && pnpm test && pnpm build
+pnpm typecheck && pnpm test && pnpm check:infui && pnpm build
 ```
 
 **Architecture and generation**
@@ -136,7 +137,7 @@ cross-module contract.
 
 - Run judgement (`src/server/judge.ts`) is the product's core promise: never turn missing,
   skipped, unparsed or unrecorded into passed. Change it with unit tests for each outcome.
-- Antd styles under SSR: the pre-rendered stylesheet and the fixed `cssVar.key` in `src/theme.ts`
+- Antd styles under SSR: the pre-rendered stylesheet and the fixed `cssVar.key` in `src/infui/theme.ts`
   must stay aligned, or pages flash unstyled before hydration.
 - The push API contract is used by other repositories; change it compatibly and, in the same change,
   update `public/schemas/`, the README and `src/lib/connect-guide.ts`.
