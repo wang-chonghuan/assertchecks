@@ -25,7 +25,7 @@ import type { CheckCard } from '../lib/types'
 // What the product does, one line each, under the hero's headline.
 const HERO_POINTS = [
   'End-to-end failures reported from every run.',
-  'Production errors sorted into problems.',
+  'Production errors distilled into real problems.',
   'Every issue tracked to a ticket.',
 ]
 
