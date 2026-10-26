@@ -60,7 +60,7 @@ const EXAMPLE: CheckCard = {
   partial: null,
   notPassed: [],
   outsideRun: [],
-  counts: { total: 48, passed: 41, failed: 2, notRun: 0, draft: 4, manual: 1 },
+  counts: { total: 265, passed: 229, failed: 31, notRun: 0, draft: 4, manual: 1 },
   catalogChanges: [],
 }
 

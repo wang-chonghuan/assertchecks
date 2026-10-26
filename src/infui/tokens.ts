@@ -31,7 +31,7 @@ export const ASSERTCHECKS_STYLE = {
   fontSize: 16, // body, navigation, buttons
   fontSizeSM: 14, // card descriptions
   fontSizeLG: 20, // emphasised lead text, card titles
-  fontSizeHeading1: 76, // hero headline
+  fontSizeHeading1: 52, // hero headline: one step above the section titles, level with the example card
   fontSizeHeading2: 40, // section titles
   fontSizeHeading3: 30, // card headings
   fontSizeHeading4: 26, // block titles
@@ -44,7 +44,7 @@ export const ASSERTCHECKS_STYLE = {
   lineHeightHeading4: 32, // 26 px
   lineHeightHeading3: 36, // 30 px
   lineHeightHeading2: 48, // 40 px
-  lineHeightHeading1: 80, // 76 px
+  lineHeightHeading1: 60, // 52 px
   // Single-line display text, where line spacing never shows: the big pass count and the wordmark.
   lineHeightSingle: 1,
   fontWeightHeading: 500, // headings and emphasis
