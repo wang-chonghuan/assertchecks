@@ -1,6 +1,6 @@
-import { Alert, App, Button, Card, Collapse, Descriptions, Empty, Flex, Form, Grid, Input, Modal, Popconfirm, Skeleton, Table, Tag, Tooltip, Typography, theme } from 'antd'
+import { Alert, App, Button, Card, Collapse, Descriptions, Dropdown, Empty, Flex, Form, Grid, Input, Modal, Popconfirm, Skeleton, Table, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
-import { ExportOutlined } from '@ant-design/icons'
+import { ExportOutlined, MoreOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { attachTicket, decideProblem, getProductionErrors, removeTicket } from '../server/fns'
 import { AttachTicketModal, TicketUrl } from './tickets'
@@ -101,7 +101,7 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
     <Flex vertical gap={space.stack}>
       {problem.tickets.length > 0 && (
         <Flex vertical gap={space.stack} align="flex-start" onClick={(event) => event.stopPropagation()}>
-          <Typography.Text style={text.label}>Tickets, newest first</Typography.Text>
+          <Typography.Text style={text.label}>Tickets</Typography.Text>
           {problem.tickets.map((ticket) => (
             <Flex key={ticket.id} gap={space.stack} wrap align="center">
               <TicketUrl url={ticket.url} />
@@ -122,7 +122,6 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
           { key: 'where', label: 'Where', children: problem.place ?? '—' },
           { key: 'app', label: problem.browser ? 'Source' : 'App role', children: problem.browser ? 'Browser' : (problem.role ?? '—') },
           ...(problem.slow ? [{ key: 'slow', label: 'Slowest recent hour', children: `p95 ${problem.slow.p95Ms} ms (usually ${problem.slow.usualMs} ms)` }] : []),
-          ...(problem.together.length ? [{ key: 'together', label: 'Appeared together with', children: problem.together.join(' · ') }] : []),
         ]}
       />
       {problem.variants.length > 0 && (
@@ -140,7 +139,7 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
       )}
       {problem.latest && (
         <Flex vertical gap={space.stack}>
-          <Typography.Text style={text.label}>Latest failure, {utc(problem.latest.at)}</Typography.Text>
+          <Typography.Text style={text.label}>Latest failure on {utc(problem.latest.at)}</Typography.Text>
           <Typography.Text style={{ wordBreak: 'break-word' }}>{problem.latest.type ? `${problem.latest.type}: ` : ''}{problem.latest.message}</Typography.Text>
           {problem.latest.stack && (
             <pre
@@ -258,27 +257,20 @@ export function ProductionErrorsTab({ project }: { project: string }) {
     )
   }
 
+  // One menu per row, so the list reads as problems rather than buttons. Picking never opens the row.
   const actionsOf = (problem: ProblemView): ReactNode => {
-    const undo = (
-      <Popconfirm title="Undo this decision?" onConfirm={() => decide(problem, 'none')}>
-        <Button size="small" block>Undo</Button>
-      </Popconfirm>
-    )
-    // Stacked buttons share the width of the widest; clicking them never opens or closes the row.
-    const stack = (children: ReactNode) => (
-      <Flex vertical gap={space.stack} style={{ width: 'max-content' }} onClick={(event) => event.stopPropagation()}>
-        {children}
-      </Flex>
-    )
-    if (problem.ignored) return stack(undo)
-    if (problem.tickets.length) {
-      return stack(<Button size="small" block onClick={() => setAttaching(problem)}>Add ticket</Button>)
-    }
-    return stack(
-      <>
-        <Button size="small" block type="primary" onClick={() => setAttaching(problem)}>Attach ticket</Button>
-        <Button size="small" block onClick={() => setIgnoring(problem)}>Not handling</Button>
-      </>,
+    const items = problem.ignored
+      ? [{ key: 'undo', label: 'Undo not handling', onClick: () => void decide(problem, 'none') }]
+      : [
+          { key: 'ticket', label: problem.tickets.length ? 'Add ticket' : 'Attach ticket', onClick: () => setAttaching(problem) },
+          ...(problem.tickets.length ? [] : [{ key: 'ignore', label: 'Not handling', onClick: () => setIgnoring(problem) }]),
+        ]
+    return (
+      <span onClick={(event) => event.stopPropagation()}>
+        <Dropdown menu={{ items }} trigger={['click']}>
+          <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`Actions for ${problem.key}`} />
+        </Dropdown>
+      </span>
     )
   }
 
@@ -303,11 +295,6 @@ export function ProductionErrorsTab({ project }: { project: string }) {
                 : [problem.place, problem.browser ? 'Browser' : problem.role].filter(Boolean).join(' · ') || '—'}
             </Typography.Text>
           </Flex>
-          {problem.together.length > 0 && (
-            <Tooltip title={problem.together.join(' · ')}>
-              <Tag>Appeared together with {plural(problem.together.length, 'other problem')}</Tag>
-            </Tooltip>
-          )}
           {statusOf(problem)}
         </Flex>
       ),
@@ -325,7 +312,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       ),
     },
     { title: 'Last seen', dataIndex: 'lastSeen', responsive: ['md'], width: token.controlHeight * 5, onCell: top, render: utc },
-    { title: '', key: 'actions', width: token.controlHeight * 4, onCell: top, render: (_, problem) => actionsOf(problem) },
+    { title: '', key: 'actions', width: token.controlHeight * 1.5, onCell: top, render: (_, problem) => actionsOf(problem) },
   ]
 
   const table = (rows: ProblemView[], empty: string) => (
@@ -353,76 +340,83 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   )
 
   const triage = inGroup('triage')
-  // Untriaged problems not seen in the past 7 days wait folded under the ones happening now.
-  const triageNow = triage.filter((problem) => problem.count7d > 0 || problem.isNew)
-  const triageEarlier = triage.filter((problem) => !(problem.count7d > 0 || problem.isNew))
-  const ticket = inGroup('ticket')
-  const quiet = inGroup('quiet')
+  // Problems happening now need a ticket; untriaged ones not seen in the past 7 days and every problem
+  // quiet for 30+ days wait folded together, most recent first.
+  const needsTicket = triage.filter((problem) => problem.count7d > 0 || problem.isNew)
+  const inProgress = inGroup('ticket')
+  const notSeen = [...triage.filter((problem) => !(problem.count7d > 0 || problem.isNew)), ...inGroup('quiet')]
+    .sort((a, b) => b.lastSeen.localeCompare(a.lastSeen))
   const ignored = inGroup('ignored')
   const noiseTotal = data.noise.reduce((total, item) => total + item.total, 0)
+  const figures = [
+    { label: 'Needs a ticket', value: needsTicket.length, note: headline.isNew ? `${headline.isNew} new` : null },
+    { label: 'In progress', value: inProgress.length, note: inProgress.length ? `${headline.stillOccurring} still occurring` : null },
+    {
+      label: 'Failures in the last 24 h',
+      value: headline.last24h,
+      note: `${headline.previous24h} the day before`,
+      help: 'One failed request or page visit counts once; noise is excluded.',
+    },
+  ]
+  const folds = [
+    { key: 'not-seen', label: `Not seen recently (${notSeen.length})`, children: table(notSeen, 'Every problem was seen in the past 7 days.') },
+    { key: 'ignored', label: `Not handling (${ignored.length})`, children: table(ignored, 'Nothing is marked not handling.') },
+    {
+      key: 'noise',
+      label: `Filtered noise in the last 7 days (${noiseTotal})`,
+      children: (
+        <Flex vertical gap={space.group} style={{ maxWidth: token.controlHeight * 20 }}>
+          {data.noise.map((group) => (
+            <Flex key={group.category} vertical>
+              <Typography.Text style={text.label}>{NOISE_LABEL[group.category]} · {group.total}</Typography.Text>
+              {group.items.length === 0
+                ? <Typography.Text style={text.caption}>None</Typography.Text>
+                : group.items.map((item) => (
+                    <Flex key={item.item} justify="space-between" gap={space.stack}>
+                      <Typography.Text style={{ ...text.caption, wordBreak: 'break-word' }}>{item.item}</Typography.Text>
+                      <Typography.Text>{item.count}</Typography.Text>
+                    </Flex>
+                  ))}
+            </Flex>
+          ))}
+        </Flex>
+      ),
+    },
+  ]
 
   return (
     <Flex vertical gap={space.group}>
       <Card>
         <Flex vertical gap={space.group}>
-          <Flex vertical gap={space.stack}>
-            <Typography.Text style={text.heading3}>
-              {headline.triage} to triage ({triageNow.length} this week{headline.isNew ? `, ${headline.isNew} new` : ''}) · {headline.ticket} with a ticket
-              {headline.ticket ? `, ${headline.stillOccurring} still occurring` : ''} · {plural(headline.last24h, 'failure')} in the last 24 h ({headline.previous24h} the day before)
-            </Typography.Text>
-            <Typography.Text style={text.body}>
-              Failures that need handling: one failed request or page visit counts once, noise excluded. Read {utc(data.checkedAt)}
-              {data.portalUrl && <> · <Typography.Link href={data.portalUrl} target="_blank">Open in Azure <ExportOutlined /></Typography.Link></>}
-            </Typography.Text>
+          <Flex gap={space.block} wrap>
+            {figures.map((figure) => (
+              <Flex key={figure.label} vertical style={{ minWidth: token.controlHeight * 5 }}>
+                <Typography.Text style={text.heading1}>{figure.value}</Typography.Text>
+                <Flex gap={space.inline} align="center">
+                  <Typography.Text style={text.label}>{figure.label}</Typography.Text>
+                  {figure.help && (
+                    <Tooltip title={figure.help}>
+                      <Typography.Text style={text.caption} aria-label={`About ${figure.label}`}><QuestionCircleOutlined /></Typography.Text>
+                    </Tooltip>
+                  )}
+                </Flex>
+                {figure.note && <Typography.Text style={text.caption}>{figure.note}</Typography.Text>}
+              </Flex>
+            ))}
           </Flex>
           <DailyBars daily={data.daily} />
+          <Typography.Text style={text.caption}>
+            Read {utc(data.checkedAt)}
+            {data.portalUrl && <> · <Typography.Link href={data.portalUrl} target="_blank">Open in Azure <ExportOutlined /></Typography.Link></>}
+          </Typography.Text>
         </Flex>
       </Card>
-      <Card title={`To triage (${triage.length})`}>
-        <Flex vertical gap={space.group}>
-          {table(triageNow, triage.length ? 'No problem to triage was seen in the past 7 days.' : 'Nothing to triage.')}
-          {triageEarlier.length > 0 && (
-            <Collapse
-              ghost
-              items={[{
-                key: 'earlier',
-                styles: { header: { paddingInline: 0 }, body: { paddingInline: 0 } },
-                label: `Not seen in the past 7 days (${triageEarlier.length})`,
-                children: table(triageEarlier, ''),
-              }]}
-            />
-          )}
-        </Flex>
-      </Card>
-      <Card title={`With a ticket (${ticket.length})`}>{table(ticket, 'No problem carries a ticket.')}</Card>
+      <Card title={`Needs a ticket (${needsTicket.length})`}>{table(needsTicket, 'No problem seen in the past 7 days needs a ticket.')}</Card>
+      <Card title={`In progress (${inProgress.length})`}>{table(inProgress, 'No problem carries a ticket.')}</Card>
       <Collapse
         bordered={false}
         style={{ background: token.colorBgContainer }}
-        items={[
-          { key: 'quiet', label: `Quiet for 30+ days (${quiet.length})`, children: table(quiet, 'No problem has been quiet that long.') },
-          { key: 'ignored', label: `Not handling (${ignored.length})`, children: table(ignored, 'Nothing is marked not handling.') },
-          {
-            key: 'noise',
-            label: `Filtered noise, last 7 days (${noiseTotal})`,
-            children: (
-              <Flex vertical gap={space.group} style={{ maxWidth: token.controlHeight * 20 }}>
-                {data.noise.map((group) => (
-                  <Flex key={group.category} vertical>
-                    <Typography.Text style={text.label}>{NOISE_LABEL[group.category]} · {group.total}</Typography.Text>
-                    {group.items.length === 0
-                      ? <Typography.Text style={text.caption}>None</Typography.Text>
-                      : group.items.map((item) => (
-                          <Flex key={item.item} justify="space-between" gap={space.stack}>
-                            <Typography.Text style={{ ...text.caption, wordBreak: 'break-word' }}>{item.item}</Typography.Text>
-                            <Typography.Text>{item.count}</Typography.Text>
-                          </Flex>
-                        ))}
-                  </Flex>
-                ))}
-              </Flex>
-            ),
-          },
-        ].map((item) => ({ ...item, styles: { header: { paddingInline: cardPadding }, body: { paddingInline: cardPadding } } }))}
+        items={folds.map((item) => ({ ...item, styles: { header: { paddingInline: cardPadding }, body: { paddingInline: cardPadding } } }))}
       />
       <NotHandlingModal
         problem={ignoring}

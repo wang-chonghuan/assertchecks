@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Empty, Flex, Select, Table, Tabs, Tag, Tooltip, Typography, theme } from 'antd'
+import { Alert, App, Button, Card, Empty, Flex, Grid, Select, Table, Tabs, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
 import { CopyOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons'
@@ -27,11 +27,6 @@ export const Route = createFileRoute('/_app/p/$project/checks/$check/')({
   component: CheckPage,
 })
 
-// Every tested component either snapshot names, in a stable order.
-function versionNames(start: Versions | null, end: Versions | null): string[] {
-  return [...new Set([...Object.keys(start ?? {}), ...Object.keys(end ?? {})])].sort()
-}
-
 // The filter value for cases without a group; the select needs a string.
 const UNGROUPED_KEY = '\u0000ungrouped'
 
@@ -45,6 +40,7 @@ function CheckPage() {
   // Case links keep the run being viewed, so a case opens with that run's result.
   const runSearch = viewingLatest || !latest ? {} : { run: Number(latest.id) }
   const { token } = theme.useToken()
+  const wide = Grid.useBreakpoint().md
   // Filters only narrow what is listed; the summary card's outcome and counts stay whole.
   const [groupFilter, setGroupFilter] = useState<string>()
   const [tagFilter, setTagFilter] = useState<string>()
@@ -138,7 +134,7 @@ function CheckPage() {
       render: (thens: CaseResult['thens'], item) => {
         // A case that failed before its first Then has no Then to blame; say so once.
         if (item.status !== 'passed' && !thens.some((then) => then.status !== 'not_run')) {
-          return <Tag color="error">Before the checks</Tag>
+          return <Tag color="error">Stopped before {thens[0]?.id ?? 'its first Then'}</Tag>
         }
         return (
           <Flex gap={space.stack} wrap>
@@ -210,14 +206,44 @@ function CheckPage() {
   )
 
 
+  const copyBugs = (
+    <Button
+                    type="primary"
+                    icon={<CopyOutlined />}
+                    onClick={async () => {
+                      const pending = getBugReport({ data: { project: project.slug, check: check.slug } })
+                        .then((report) => ({ report, text: latestBugReport(window.location.origin, report) }))
+                      try {
+                        await navigator.clipboard.write([new ClipboardItem({
+                          'text/plain': pending.then(({ text }) => new Blob([text], { type: 'text/plain' })),
+                        })])
+                        const { report } = await pending
+                        message.success(`Copied ${report.cases.length} case${report.cases.length === 1 ? '' : 's'} from run #${report.run?.id ?? '—'}. Paste it to your coding agent to file the bug tickets.`)
+                      } catch {
+                        message.error('Copying failed. Allow clipboard access for this page and try again.')
+                      }
+                    }}
+                  >
+                    Copy bugs from the latest run
+                  </Button>
+  )
+
   return (
     <Flex vertical gap={space.group}>
-      <Breadcrumb
-        items={[
-          { title: <Link to="/p/$project" params={{ project: project.slug }}>{project.name}</Link> },
-          { title: check.name },
-        ]}
-      />
+      {/* The page's one title: the project it belongs to, then the check. */}
+      <Flex align="center" justify="space-between" gap={space.stack} wrap>
+        <Typography.Title level={2} style={{ ...text.heading2, margin: 0 }}>
+          <Link to="/p/$project" params={{ project: project.slug }}>{project.name}</Link> / {check.name}
+        </Typography.Title>
+        <Flex align="center" gap={space.stack} wrap>
+          {viewingLatest || !latest ? <CheckStatusTag status={check.status} /> : <OutcomeTag run={latest} />}
+          {latest?.runUrl && (
+            <Typography.Link href={latest.runUrl} target="_blank" rel="noreferrer">
+              {latest.runnerKind === 'github-actions' ? 'GitHub Actions run' : 'CI run'} <ExportOutlined />
+            </Typography.Link>
+          )}
+        </Flex>
+      </Flex>
       {!viewingLatest && latest && (
         <Alert
           type="info"
@@ -226,47 +252,8 @@ function CheckPage() {
           action={<Link to="/p/$project/checks/$check" params={{ project: project.slug, check: check.slug }}>Back to latest</Link>}
         />
       )}
-      <Card
-        title={check.name}
-        extra={viewingLatest || !latest ? <CheckStatusTag status={check.status} /> : <OutcomeTag run={latest} />}
-        styles={{ body: { paddingTop: space.inline } }}
-      >
+      <Card>
         <CheckSummary check={check} />
-        {latest && (
-          <Collapse
-            ghost
-            size="small"
-            style={{ marginTop: space.stack }}
-            items={[{
-              key: 'run-details',
-              label: 'Run details',
-              children: (
-                <Descriptions
-                  size="small"
-                  column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
-                  items={[
-                    { key: 'started', label: 'Started', children: utc(latest.startedAt) },
-                    { key: 'exit', label: 'Exit code', children: latest.exitCode ?? '—' },
-                    { key: 'test', label: 'Test SHA', children: <Sha value={latest.testSha} /> },
-                    {
-                      key: 'runner',
-                      label: 'Runner',
-                      children: latest.runUrl ? (
-                        <Typography.Link href={latest.runUrl} target="_blank" rel="noreferrer">
-                          {latest.runnerKind ?? 'Open run'} <ExportOutlined />
-                        </Typography.Link>
-                      ) : (latest.runnerKind ?? '—'),
-                    },
-                    ...versionNames(latest.deployedStart, latest.deployedEnd).flatMap((name) => [
-                      { key: `${name}-start`, label: `${name} at start`, children: <Sha value={latest.deployedStart?.[name]} /> },
-                      { key: `${name}-end`, label: `${name} at end`, children: <Sha value={latest.deployedEnd?.[name]} /> },
-                    ]),
-                  ]}
-                />
-              ),
-            }]}
-          />
-        )}
       </Card>
       {history.length > 0 && (
         <Card title="Run history">
@@ -301,32 +288,14 @@ function CheckPage() {
               )}
             </Flex>
           )}
+          {/* On phones the copy button sits above the tabs instead of covering their names. */}
+          {!wide && <Flex style={{ marginBottom: space.stack }}>{copyBugs}</Flex>}
           <Tabs
             defaultActiveKey={failed.length ? 'failed' : 'passed'}
             // Every case that did not pass in the latest full run, as a report a coding agent can file
             // tickets from. The report is read when clicked; the clipboard receives it as a pending value
             // so a slow read does not lose the browser's permission to write.
-            tabBarExtraContent={(
-              <Button
-                type="primary"
-                icon={<CopyOutlined />}
-                onClick={async () => {
-                  const pending = getBugReport({ data: { project: project.slug, check: check.slug } })
-                    .then((report) => ({ report, text: latestBugReport(window.location.origin, report) }))
-                  try {
-                    await navigator.clipboard.write([new ClipboardItem({
-                      'text/plain': pending.then(({ text }) => new Blob([text], { type: 'text/plain' })),
-                    })])
-                    const { report } = await pending
-                    message.success(`Copied ${report.cases.length} case${report.cases.length === 1 ? '' : 's'} from run #${report.run?.id ?? '—'}. Paste it to your coding agent to file the bug tickets.`)
-                  } catch {
-                    message.error('Copying failed. Allow clipboard access for this page and try again.')
-                  }
-                }}
-              >
-                Copy bugs from the latest run
-              </Button>
-            )}
+            tabBarExtraContent={wide ? copyBugs : undefined}
             items={[
               {
                 key: 'failed',
@@ -362,7 +331,7 @@ function CheckPage() {
               },
               {
                 key: 'outside',
-                label: `Not in this run (${outside.length})`,
+                label: `Not in regular runs (${outside.length})`,
                 children: byGroup(outside, (item) => item.case, (rows, header) => outsideTable(rows, header, 'Every catalog case ran.')),
               },
             ]}
@@ -427,9 +396,9 @@ function RunHistory({ history, shownId, project, check }: {
       key: 'result',
       render: (_, run) => (
         <Flex gap={space.stack} align="center" wrap>
-          <OutcomeTag run={run} />
+          {(!run.tally || run.timedOut || run.outcome === 'incomplete' || run.outcome === 'running') && <OutcomeTag run={run} />}
           {run.tally && (
-            <Typography.Text style={text.caption}>
+            <Typography.Text style={run.tally.failed > 0 ? { ...text.body, color: token.colorError } : text.body}>
               {run.tally.failed > 0
                 ? `${run.tally.failed} failed of ${run.tally.ran}`
                 : `${run.tally.passed} of ${run.tally.ran} passed`}

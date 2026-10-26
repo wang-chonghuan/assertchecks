@@ -12,7 +12,7 @@ interface Edge { from: Box; to: Box; label: string; detail: string; offset?: num
 const NODES: Node[] = [
   { key: 'repo', title: 'Your repository', lines: ['e2e.json catalog', 'Playwright tests'] },
   { key: 'ci', title: 'Your CI runner', lines: ['Runs the tests', 'where they always run'] },
-  { key: 'ac', title: 'AssertChecks', lines: ['On time?', 'Complete?', 'Correct?'], accent: true },
+  { key: 'ac', title: 'AssertChecks', lines: ['Judges every run', 'against your catalog'], accent: true },
   { key: 'team', title: 'Your team', lines: ['Results by environment', 'failed case and Then'] },
 ]
 
@@ -118,7 +118,7 @@ function Diagram({ layout }: { layout: 'wide' | 'tall' }) {
             </text>
             {node.lines.map((line, index) => (
               <text key={line} x={box.x + PAD} y={box.y + PAD + titleLine + (index + 0.5) * textLine} dominantBaseline="central" fill={text.caption.color} fontSize={text.caption.fontSize} style={font}>
-                {node.accent ? `✓ ${line}` : line}
+                {line}
               </text>
             ))}
           </g>

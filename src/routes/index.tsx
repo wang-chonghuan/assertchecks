@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { App, Button, Card, Col, Flex, Row, Tag, Typography, theme } from 'antd'
 import {
+  AlertOutlined,
   ArrowRightOutlined,
+  BugOutlined,
   ClockCircleOutlined,
   CopyOutlined,
   FileDoneOutlined,
@@ -124,7 +126,6 @@ function HomePage() {
                   </Typography.Paragraph>
                   <Flex gap={space.stack} wrap>
                     {primary}
-                    <CopyForAgent />
                   </Flex>
                   <Flex gap={space.group} wrap>
                     {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
@@ -177,6 +178,31 @@ function HomePage() {
           </Row>
         </div>
 
+        {/* What you see: the two views a person reads every day. */}
+        <div style={section}>
+          <SectionTitle eyebrow="What you see" title="Bugs and production errors" />
+          <Row gutter={[space.group, space.group]}>
+            <Col xs={24} md={12}>
+              <Pillar
+                icon={<BugOutlined />}
+                color={token.colorError}
+                bg={token.colorErrorBg}
+                title="Bugs and their tickets"
+                description="Every failing case is a bug that needs a ticket or has one. Attach it on the page or let your coding agent do it; the bug counts as fixed once its case passes twice in a row."
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Pillar
+                icon={<AlertOutlined />}
+                color={token.colorWarning}
+                bg={token.colorWarningBg}
+                title="Production errors"
+                description="Runtime errors read from your own telemetry and grouped into problems: which need a ticket, which are in progress and how many failures each day."
+              />
+            </Col>
+          </Row>
+        </div>
+
         {/* How it works: a diagram of one run. Every step, command and format detail goes out through
             "Copy for your agent", built from src/lib/connect-guide.ts. */}
         <div id="connect" style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`, scrollMarginTop: token.controlHeightLG * 1.4 }}>
@@ -184,7 +210,7 @@ function HomePage() {
             <SectionTitle
               eyebrow="How it works"
               title="How a run reaches your team"
-              description="No SDK. Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
+              description="Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
             />
             <Card style={{ marginBottom: space.group }}>
               <HowItWorks />

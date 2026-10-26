@@ -1,7 +1,7 @@
 // Bugs and their tickets (ASSERT-37). A person asks three things about a bug: does it need a ticket, is a
 // ticket on it, is it fixed. These pieces answer only that.
 import { Link } from '@tanstack/react-router'
-import { Alert, Card, Collapse, Flex, Form, Input, Modal, Skeleton, Table, Tag, Typography, theme } from 'antd'
+import { Alert, Card, Collapse, Flex, Form, Input, Modal, Skeleton, Table, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -21,25 +21,31 @@ export function BugStatusTag({ status }: { status: BugStatus }) {
   return <Tag color={STATUS[status].color}>{STATUS[status].label}</Tag>
 }
 
-// A ticket's short name: its issue key (ENG-1702) when the link has one, else the link's last part.
+// A ticket's short name: its issue key (ENG-1702) when the link has one, a GitHub repo#number, else the
+// tracker's name. Plane links carry no key, only an ID that says nothing to a reader.
+const TRACKERS: [RegExp, string][] = [[/(^|\.)plane\.so$/, 'Plane'], [/(^|\.)linear\.app$/, 'Linear'], [/\.atlassian\.net$/, 'Jira']]
 export function ticketLabel(url: string): string {
   const key = url.match(/\b[A-Z][A-Z0-9]+-\d+(?![-\w])/)
   if (key) return key[0]
-  const path = url.replace(/[?#].*$/, '').split('/').filter(Boolean)
-  const last = path.at(-1) ?? url
-  // An opaque ID (a UUID) says nothing; show its start.
-  return /^[0-9a-f-]{20,}$/i.test(last) ? `${last.slice(0, 8)}…` : last
+  let host = url
+  try { host = new URL(url).hostname } catch { return url }
+  const github = url.match(/github\.com\/[^/]+\/([^/]+)\/(?:issues|pull)\/(\d+)/)
+  if (github) return `${github[1]}#${github[2]}`
+  const tracker = TRACKERS.find(([pattern]) => pattern.test(host))
+  return `${tracker ? tracker[1] : host.replace(/^www\./, '')} ticket`
 }
 
 // Who attached a ticket, short: an email's name part, or the client's own label.
 export const attachedBy = (by: string) => (by.includes('@') ? by.split('@')[0] : by)
 
-// A ticket's link opens the ticket and never the row it sits in; `short` shows only its key.
-export function TicketUrl({ url, short = false }: { url: string; short?: boolean }) {
+// A ticket's link: its short name, the full link on hover. It opens the ticket and never the row it sits in.
+export function TicketUrl({ url }: { url: string }) {
   return (
-    <Typography.Link href={url} target="_blank" title={url} onClick={(event) => event.stopPropagation()} style={short ? undefined : { wordBreak: 'break-all' }}>
-      {short ? ticketLabel(url) : url} <ExportOutlined />
-    </Typography.Link>
+    <Tooltip title={url}>
+      <Typography.Link href={url} target="_blank" onClick={(event) => event.stopPropagation()}>
+        {ticketLabel(url)} <ExportOutlined />
+      </Typography.Link>
+    </Tooltip>
   )
 }
 
@@ -84,13 +90,13 @@ export function AttachTicketModal({ open, subject, onCancel, onSave }: {
 // One bug's ticket in a line: the newest ticket, or the one whose fix did not hold.
 export function BugTicketLine({ bug }: { bug: CaseBug }) {
   if (bug.previous) {
-    return <Typography.Text style={text.caption}>Failed again after <TicketUrl url={bug.previous} short /></Typography.Text>
+    return <Typography.Text style={text.caption}>Failed again after <TicketUrl url={bug.previous} /></Typography.Text>
   }
   const newest = bug.tickets[0]
   if (!newest) return null
   return (
     <Typography.Text style={text.caption}>
-      <TicketUrl url={newest.url} short />
+      <TicketUrl url={newest.url} />
       {bug.tickets.length > 1 ? ` and ${plural(bug.tickets.length - 1, 'earlier ticket')}` : ''}
     </Typography.Text>
   )

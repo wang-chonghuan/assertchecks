@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
+import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Popconfirm, Table, Tag, Tooltip, Typography, theme } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { useState } from 'react'
 import { caseBugReport } from '../../../../../../../lib/bug-report'
@@ -69,11 +69,6 @@ function CasePage() {
   const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
 
   const more = [
-    ...(result?.error ? [{
-      key: 'error',
-      label: 'Error output',
-      children: <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{result.error}</pre>,
-    }] : []),
     {
       key: 'details',
       label: 'Case details',
@@ -162,6 +157,12 @@ function CasePage() {
               },
             ]}
           />
+          {result?.error && (
+            <Flex vertical gap={space.stack}>
+              <Typography.Text style={text.label}>Error</Typography.Text>
+              <pre style={{ ...text.code, whiteSpace: 'pre-wrap', margin: 0 }}>{result.error}</pre>
+            </Flex>
+          )}
           <Collapse ghost size="small" items={more} />
         </Flex>
       </Card>
@@ -263,9 +264,10 @@ function CaseTicketsCard({ bug, onAttach, onRemove }: {
       <Flex vertical gap={space.group}>
         {bug
           ? (
-            <Flex gap={space.stack} align="baseline" wrap>
-              <BugStatusTag status={bug.status} />
-              <Typography.Text>{SAY[bug.status](bug)}</Typography.Text>
+            <Flex>
+              <Tooltip title={SAY[bug.status](bug)}>
+                <span><BugStatusTag status={bug.status} /></span>
+              </Tooltip>
             </Flex>
           )
           : <Typography.Text style={text.caption}>Not a bug: it passes and has no ticket.</Typography.Text>}
