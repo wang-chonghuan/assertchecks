@@ -1,8 +1,6 @@
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { App, Breadcrumb, Button, Card, Descriptions, Flex, Popconfirm, Table, Tag, Tooltip, Typography, theme } from 'antd'
-import { CopyOutlined } from '@ant-design/icons'
 import { useState } from 'react'
-import { caseBugReport } from '../../../../../../../lib/bug-report'
 import { ErrorLog } from '../../../../../../../components/error-log'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
@@ -38,32 +36,11 @@ function Steps({ items }: { items: string[] }) {
 // the error and tickets, then its result in every run.
 function CasePage() {
   const { token } = theme.useToken()
-  const { project, check, spec, run, result, history, viewingLatest, deployed, bug } = Route.useLoaderData()
+  const { project, check, spec, run, result, history, viewingLatest, bug } = Route.useLoaderData()
   const { message } = App.useApp()
   const router = useRouter()
   const [attaching, setAttaching] = useState(false)
-  const copyReport = async () => {
-    const text = caseBugReport({
-      origin: window.location.origin,
-      project,
-      check,
-      run,
-      deployed,
-      spec,
-      result,
-      bug,
-      history: history.slice(0, 10).map((item) => ({
-        runId: item.run.id,
-        status: item.status === null ? 'not in run' : item.failed && item.status === 'passed' ? 'failed' : item.status,
-      })),
-    })
-    try {
-      await navigator.clipboard.writeText(text)
-      message.success('Copied. Paste it to your coding agent to file the bug ticket.')
-    } catch {
-      message.error('Copying failed. Allow clipboard access for this page and try again.')
-    }
-  }
+
   const runSearch = viewingLatest ? {} : { run: Number(run.id) }
   const meta = caseMeta(spec)
   const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
@@ -88,7 +65,7 @@ function CasePage() {
           { title: spec.id },
         ]}
       />
-      {/* 1. The case as written: its steps and its catalog fields, all open. */}
+      {/* 1. The case as written: its steps first, its catalog fields after them, nothing folded. */}
       <Card title={`${spec.id} · ${spec.title}`}>
         <Descriptions
           column={1}
@@ -113,19 +90,25 @@ function CasePage() {
               ),
             },
             ...(spec.failure ? [{ key: 'cause', label: 'Known cause', children: spec.failure }] : []),
-            { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text style={text.caption}>{UNGROUPED}</Typography.Text> },
-            {
-              key: 'tags',
-              label: 'Tags',
-              children: meta.tags.length
-                ? <Flex gap={space.stack} wrap>{meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex>
-                : <Typography.Text style={text.caption}>—</Typography.Text>,
-            },
-            ...(spec.type ? [{ key: 'type', label: 'Type', children: spec.type.toUpperCase() }] : []),
-            { key: 'policy', label: 'Runs', children: spec.run === 'on-demand' ? 'On demand, only when named' : 'In every regular run' },
-            { key: 'status', label: 'Status', children: spec.status },
           ]}
         />
+        {/* The catalog's filing fields matter less than the steps, so they follow as one quiet line. */}
+        <Flex gap={space.group} wrap align="center" style={{ marginTop: space.group }}>
+          {[
+            ['Group', meta.group ?? UNGROUPED],
+            ['Type', spec.type ? spec.type.toUpperCase() : null],
+            ['Runs', spec.run === 'on-demand' ? 'On demand, only when named' : 'In every regular run'],
+            ['Status', spec.status],
+          ].filter(([, value]) => value).map(([label, value]) => (
+            <Typography.Text key={label} style={text.caption}>{label} <Typography.Text style={text.body}>{value}</Typography.Text></Typography.Text>
+          ))}
+          {meta.tags.length > 0 && (
+            <Flex gap={space.inline} wrap align="center">
+              <Typography.Text style={text.caption}>Tags</Typography.Text>
+              {meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+            </Flex>
+          )}
+        </Flex>
       </Card>
 
       {/* 2. Its bug: how it ended in the run on screen, the error, and the tickets on it. */}
@@ -156,11 +139,6 @@ function CasePage() {
             )}
           </Flex>
           {result?.error && <ErrorLog log={result.error} />}
-          {failed && (
-            <Flex>
-              <Button icon={<CopyOutlined />} onClick={copyReport}>Copy for a bug ticket</Button>
-            </Flex>
-          )}
           {!failed && !bug && <Typography.Text style={text.body}>No open bug: it passed and has no ticket.</Typography.Text>}
           <TicketList tickets={bug?.tickets ?? []} onRemove={removeLink} />
         </Flex>

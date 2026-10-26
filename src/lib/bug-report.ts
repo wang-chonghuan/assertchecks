@@ -1,15 +1,7 @@
 // Plain-text bug reports a person copies into their coding agent, which files the tickets. Everything
 // the agent needs to trace a failure back to the run, the tested code and the case is in the text; the
 // case's full Given/When/Then is in the project's catalog at the test commit.
-import type { BugReport, CaseBug, CaseResult, CaseSpec, RunRow, ThenStatus, Versions } from './types'
-
-interface RunContext {
-  origin: string
-  project: { slug: string; name: string }
-  check: { slug: string; name: string; environment?: string }
-  run: RunRow & { caseCount?: number | null }
-  deployed: Versions | null
-}
+import type { BugReport, CaseBug, CaseResult, CaseSpec, ThenStatus, Versions } from './types'
 
 // The rules live in the assertchecks skill's cap7; the short form below is for an agent without it.
 const instructions = (project: string) => [
@@ -40,17 +32,6 @@ function ticketLines(bug: CaseBug | null, indent: string): string[] {
   return [
     `${indent}In AssertChecks: ${STATUS[bug.status]}${bug.previous ? ` (failed again after ${bug.previous} had fixed it)` : ''}; tickets, newest first:`,
     ...bug.tickets.map((ticket) => `${indent}- ${ticket.url} — attached ${day(ticket.at)} by ${ticket.by}`),
-  ]
-}
-
-function runLines({ origin, project, check, run, deployed }: RunContext): string[] {
-  const kind = run.caseCount ? `${run.caseCount} named cases` : run.trigger === 'schedule' ? 'scheduled' : 'manual'
-  return [
-    `Project: ${project.name} · Check: ${check.name}${check.environment ? ` (environment ${check.environment})` : ''}`,
-    `Run: #${run.id}, ${day(run.startedAt)}, ${kind}, outcome ${run.outcome}`,
-    `Run link: ${runLink(origin, project.slug, check.slug, run.id)}`,
-    `Test commit: ${run.testSha ?? 'not recorded'}`,
-    `Deployed at start: ${versionText(deployed)}`,
   ]
 }
 
@@ -109,29 +90,4 @@ function thenWord(status: ThenStatus, caseFailed: boolean): string {
   if (status === 'passed') return 'passed'
   if (status === 'failed') return 'FAILED'
   return caseFailed ? 'not reached' : 'not reported'
-}
-
-// One case in one run, with its full written expectation and error.
-export function caseBugReport(context: RunContext & {
-  spec: CaseSpec
-  result: CaseResult | null
-  history: { runId: string; status: string }[]
-  bug: CaseBug | null
-}): string {
-  const { spec, result, history, bug } = context
-  const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
-  return [
-    ...instructions(context.project.slug),
-    '',
-    ...runLines(context),
-    '',
-    `Case: ${spec.id} — ${spec.title}`,
-    `Case link: ${caseLink(context.origin, context.project.slug, context.check.slug, spec.id, context.run.id)}`,
-    `Result in this run: ${result ? (failed ? 'did not pass' : 'passed') : 'not in this run'}${result && failed ? ` (${stopped(result)})` : ''}`,
-    ...(spec.failure ? [`Known cause in the catalog: ${spec.failure}`] : []),
-    ...ticketLines(bug, ''),
-    ...specLines(spec, result, ''),
-    `Error: ${firstLines(result?.error ?? null, 40)}`,
-    ...(history.length ? [`Recent runs: ${history.map((item) => `#${item.runId} ${item.status}`).join(', ')}`] : []),
-  ].join('\n')
 }
