@@ -303,11 +303,12 @@ function CheckPage() {
                 children: (
                   <Flex vertical gap={space.stack}>
                     {failed.length > 0 && (
-                      <Flex gap={space.stack} align="center" wrap>
-                        <Button disabled={!selected.length} onClick={() => setAttaching(selected)}>
-                          Attach one ticket to {selected.length || 'the'} selected case{selected.length === 1 ? '' : 's'}
-                        </Button>
-                        <Typography.Text style={text.caption}>For cases with the same cause.</Typography.Text>
+                      <Flex>
+                        <Tooltip title="For cases with the same cause.">
+                          <Button disabled={!selected.length} onClick={() => setAttaching(selected)}>
+                            Attach one ticket to {selected.length || 'the'} selected case{selected.length === 1 ? '' : 's'}
+                          </Button>
+                        </Tooltip>
                       </Flex>
                     )}
                     {byGroup(failed, (item) => item.case, failedTable)}
@@ -413,7 +414,7 @@ function RunHistory({ history, shownId, project, check }: {
       title: <Explained title="Test commit" help="The commit of the test code that ran: the CI commit when the run came from GitHub Actions, otherwise the Git HEAD of the folder the tests ran in." />,
       dataIndex: 'testSha',       render: (sha: string | null) => <span onClick={(event) => event.stopPropagation()}><Sha value={sha} /></span>,
     },
-    {
+    ...(!history.some((run) => run.deployed && Object.keys(run.deployed).length) ? [] : [{
       title: <Explained title="Deployed" help="The commit of each tested component when the run started, read from the version URLs the project registers (for example web and api). A run passes only if they are unchanged at its end." />,
       dataIndex: 'deployed',
       render: (deployed: Versions | null) => deployed && Object.keys(deployed).length
@@ -428,7 +429,7 @@ function RunHistory({ history, shownId, project, check }: {
           </Flex>
         )
         : <Typography.Text style={text.caption}>not recorded</Typography.Text>,
-    },
+    }]),
   ]
   return (
     <Table

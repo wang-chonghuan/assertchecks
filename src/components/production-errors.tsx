@@ -315,7 +315,8 @@ export function ProductionErrorsTab({ project }: { project: string }) {
     { title: '', key: 'actions', width: token.controlHeight * 1.5, onCell: top, render: (_, problem) => actionsOf(problem) },
   ]
 
-  const table = (rows: ProblemView[], empty: string) => (
+  // An empty group says so in a line; its count is already in the title.
+  const table = (rows: ProblemView[], empty: string) => (rows.length === 0 ? <Typography.Text style={text.caption}>{empty}</Typography.Text> : (
     <Table
       rowKey="id"
       size="middle"
@@ -325,7 +326,6 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       scroll={{ x: token.controlHeight * 20 }}
       columns={columns}
       dataSource={rows}
-      locale={{ emptyText: <Empty description={empty} /> }}
       // The expand icon sits at the row's end so problem names line up with the card title; the whole row opens.
       expandable={{
         expandedRowRender: (problem) => (
@@ -337,7 +337,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       }}
       onRow={() => ({ style: { cursor: 'pointer' } })}
     />
-  )
+  ))
 
   const triage = inGroup('triage')
   // Problems happening now need a ticket; untriaged ones not seen in the past 7 days and every problem
@@ -388,9 +388,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
     <Flex vertical gap={space.group}>
       <Card>
         <Flex vertical gap={space.group}>
-          <Flex gap={space.block} wrap>
+          <Flex gap={space.group}>
             {figures.map((figure) => (
-              <Flex key={figure.label} vertical style={{ minWidth: token.controlHeight * 5 }}>
+              <Flex key={figure.label} vertical style={{ flex: '1 1 0', minWidth: 0 }}>
                 <Typography.Text style={text.heading1}>{figure.value}</Typography.Text>
                 <Flex gap={space.inline} align="center">
                   <Typography.Text style={text.label}>{figure.label}</Typography.Text>
