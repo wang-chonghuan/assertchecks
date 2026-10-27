@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AssertChecks Product Deck</title>
+<meta name="description" content="What AssertChecks does, how it works and how to use it with the assertchecks skill and CI.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Values mirror src/infui/tokens.ts (ASSERTCHECKS_STYLE). The deck is a static page outside the app, so it
+   declares them here once and every rule below takes them from these variables. */
+:root {
+  --primary: #3e4fea;
+  --primary-tint: #eef0fd;
+  --text: #112c3e;
+  --muted: #5c728c;
+  --line: #d5dce6;
+  --tag: #e2e6f8;
+  --page: #f4f7f9;
+  --card: #ffffff;
+  --red: #ff4d4f;
+  --red-tint: #fff1f0;
+  --green: #52c41a;
+  --green-tint: #f6ffed;
+  --amber: #d48806;
+  --amber-tint: #fffbe6;
+  --font: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  --inline: 4px;
+  --stack: 8px;
+  --group: 16px;
+  --block: 24px;
+  --section: 48px;
+  --radius: 6px;
+  --card-radius: 12px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: #e7ebf0; color: var(--text); font-family: var(--font); overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+/* A 1280 × 720 stage scaled to fit the window. */
+.stage { position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px; transform-origin: 0 0; }
+.slide { position: absolute; inset: 0; background: var(--card); border-radius: var(--card-radius); box-shadow: 0 8px 32px rgba(17, 44, 62, .08); padding: 56px 72px 64px; display: none; flex-direction: column; overflow: hidden; }
+.slide.active { display: flex; }
+.slide::after { content: attr(data-n); position: absolute; right: 72px; bottom: 24px; font-size: 14px; line-height: 20px; color: var(--muted); }
+.slide .foot { position: absolute; left: 72px; bottom: 24px; display: flex; align-items: center; gap: var(--stack); font-size: 14px; line-height: 20px; color: var(--muted); }
+
+/* Text styles, as in src/infui/tokens.ts `text`. */
+.eyebrow { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: .08em; margin: 0; }
+h1 { font-size: 56px; line-height: 64px; font-weight: 500; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 40px; line-height: 48px; font-weight: 500; margin: var(--stack) 0 0; }
+h3 { font-size: 20px; line-height: 28px; font-weight: 500; margin: 0; }
+.lead { font-size: 20px; line-height: 28px; color: var(--muted); margin: var(--stack) 0 0; }
+.body { font-size: 16px; line-height: 24px; margin: 0; }
+.caption { font-size: 14px; line-height: 20px; color: var(--muted); margin: 0; }
+code, .code { font-family: var(--mono); font-size: 14px; line-height: 20px; }
+.content { flex: 1; margin-top: var(--block); min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+
+/* Split layout for screenshot slides: text on the left, the product on the right. */
+.split { display: grid; grid-template-columns: 300px 1fr; gap: var(--section); height: 100%; }
+.split .text { display: flex; flex-direction: column; justify-content: center; }
+.split h2 { font-size: 36px; line-height: 44px; }
+.points { list-style: none; margin: var(--block) 0 0; padding: 0; display: grid; gap: var(--group); }
+.points li { display: grid; grid-template-columns: 24px 1fr; gap: var(--stack); font-size: 16px; line-height: 24px; }
+.points li b { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; }
+.shots { position: relative; height: 100%; }
+.shot { position: absolute; display: block; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 32px rgba(17, 44, 62, .14); background: var(--page); }
+.pin { position: absolute; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 0 0 4px rgba(62, 79, 234, .2); }
+
+/* Shared diagram styles. */
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font-family: var(--font); }
+.n { fill: var(--card); stroke: #9aa8bd; stroke-width: 1.5; }
+.n-p { fill: var(--primary-tint); stroke: var(--primary); stroke-width: 2; }
+.n-r { fill: var(--red-tint); stroke: var(--red); stroke-width: 1.5; }
+.n-g { fill: var(--green-tint); stroke: var(--green); stroke-width: 1.5; }
+.n-a { fill: var(--amber-tint); stroke: var(--amber); stroke-width: 1.5; }
+.n-soft { fill: var(--page); stroke: var(--line); stroke-width: 1.5; }
+.t { font-size: 18px; font-weight: 600; fill: var(--text); }
+.t-p { font-size: 18px; font-weight: 600; fill: var(--primary); }
+.s { font-size: 15px; fill: var(--muted); }
+.s-d { font-size: 15px; fill: var(--text); }
+.k { font-size: 13px; font-weight: 600; fill: var(--primary); letter-spacing: .06em; }
+.m { font-family: var(--mono) !important; font-size: 13px; fill: var(--text); }
+.w { font-size: 15px; font-weight: 600; fill: #fff; }
+.edge { fill: none; stroke: #7d8ca3; stroke-width: 2; marker-end: url(#arrow); }
+.edge-p { fill: none; stroke: var(--primary); stroke-width: 2.5; marker-end: url(#arrow-p); }
+.edge-r { fill: none; stroke: var(--red); stroke-width: 2; marker-end: url(#arrow-r); }
+.edge-g { fill: none; stroke: var(--green); stroke-width: 2; marker-end: url(#arrow-g); }
+.dash { stroke-dasharray: 6 6; }
+
+/* Small building blocks. */
+.tag { display: inline-block; padding: 0 var(--stack); border-radius: var(--radius); font-size: 14px; line-height: 24px; background: var(--tag); color: var(--text); white-space: nowrap; }
+.tag.red { background: var(--red-tint); color: #cf1322; }
+.tag.green { background: var(--green-tint); color: #389e0d; }
+.tag.amber { background: var(--amber-tint); color: var(--amber); }
+.tag.p { background: var(--primary-tint); color: var(--primary); }
+.panel { border: 1px solid var(--line); border-radius: var(--card-radius); padding: var(--block); background: var(--card); }
+.terminal { background: #112c3e; color: #e7ecf5; border-radius: var(--card-radius); padding: var(--block); font-family: var(--mono); font-size: 15px; line-height: 24px; white-space: pre; overflow: hidden; }
+.terminal .c { color: #8fa3bd; }
+.terminal .p { color: #9fb0ff; }
+.terminal .y { color: #ffd591; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--block); margin-top: var(--block); }
+.fact { border-top: 2px solid var(--primary); padding-top: var(--stack); }
+.fact h3 { font-size: 16px; line-height: 24px; font-weight: 600; }
+.fact p { margin: var(--inline) 0 0; font-size: 15px; line-height: 22px; color: var(--muted); }
+.mark { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; background: var(--primary); }
+.mark svg { width: 18px; height: 18px; }
+.wordmark { font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: var(--primary); }
+.wordmark span { color: var(--text); }
+
+/* Navigation. */
+.nav { position: fixed; right: 16px; bottom: 16px; display: flex; gap: var(--stack); z-index: 2; }
+.nav button { width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: 600 18px/1 var(--font); cursor: pointer; }
+.nav button:hover { border-color: var(--primary); color: var(--primary); }
+.progress { position: fixed; left: 0; top: 0; height: 3px; background: var(--primary); transition: width .2s; z-index: 2; }
+
+@media (max-width: 800px) { .nav { display: none; } }
+@media print {
+  @page { size: 1280px 720px; margin: 0; }
+  body { background: none; overflow: visible; }
+  .stage { position: static; transform: none !important; }
+  .slide { position: relative; display: flex !important; box-shadow: none; border-radius: 0; page-break-after: always; break-after: page; width: 1280px; height: 720px; }
+  .nav, .progress { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<!-- Arrow heads shared by every diagram. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7d8ca3"/></marker>
+    <marker id="arrow-p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#3e4fea"/></marker>
+    <marker id="arrow-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff4d4f"/></marker>
+    <marker id="arrow-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#52c41a"/></marker>
+  </defs>
+</svg>
+
+<div class="stage" id="stage">
+
+<!-- 1 · Title -->
+<section class="slide">
+  <div style="display:flex;align-items:center;gap:var(--stack)">
+    <span class="mark"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="wordmark">Assert<span>Checks</span></span>
+  </div>
+  <div class="content" style="display:grid;grid-template-columns:1fr 440px;gap:var(--section);align-items:center">
+    <div>
+      <h1>Assertion monitoring for your products</h1>
+      <p class="lead" style="margin-top:var(--block)">Be the first to know about test failures and errors in production.</p>
+      <ul class="points" style="margin-top:var(--section)">
+        <li><b>1</b><span>End-to-end failures reported from every run.</span></li>
+        <li><b>2</b><span>Production errors distilled into real problems.</span></li>
+        <li><b>3</b><span>Every issue tracked to a ticket.</span></li>
+      </ul>
+    </div>
+    <!-- The DEV card of a real project (NSDK, run #93), drawn. -->
+    <svg viewBox="0 0 440 300" role="img" aria-label="A check card: 2 failed of 160 cases tested">
+      <rect x="1" y="1" width="438" height="298" rx="12" class="n-soft"/>
+      <rect x="24" y="24" width="392" height="252" rx="12" fill="#fff" stroke="#d5dce6" stroke-width="1.5"/>
+      <text x="48" y="66" style="font-size:20px;font-weight:600;fill:var(--primary)">DEV</text>
+      <text x="48" y="128" style="font-size:56px;font-weight:500;fill:var(--red)">2</text>
+      <text x="88" y="126" style="font-size:22px;fill:var(--text)">failed</text>
+      <text x="154" y="126" style="font-size:22px;fill:var(--muted)">of 160 cases tested</text>
+      <rect x="48" y="152" width="344" height="8" rx="4" fill="var(--green)"/>
+      <rect x="388" y="152" width="4" height="8" fill="var(--red)"/>
+      <circle cx="52" cy="186" r="4" fill="var(--green)"/>
+      <text x="62" y="191" class="s-d" style="font-weight:600">158</text><text x="96" y="191" class="s">passed</text>
+      <line x1="48" y1="214" x2="392" y2="214" stroke="#e6eaf0"/>
+      <text x="48" y="246" class="s">Ran 2026-10-26 03:21 UTC</text>
+    </svg>
+  </div>
+  <div class="foot">assertchecks.com</div>
+</section>
+
+<!-- 2 · The problem -->
+<section class="slide">
+  <p class="eyebrow">The problem</p>
+  <h2>Failures hide in plain sight</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 400" role="img" aria-label="Three ways failures go unnoticed">
+      <!-- CI logs -->
+      <rect x="0" y="0" width="352" height="250" rx="12" class="n-soft"/>
+      <g transform="translate(36 34)">
+        <rect width="280" height="182" rx="8" fill="#fff" stroke="#d5dce6"/>
+        <g fill="#d5dce6">
+          <rect x="18" y="20" width="200" height="8" rx="4"/><rect x="18" y="40" width="240" height="8" rx="4"/>
+          <rect x="18" y="60" width="170" height="8" rx="4"/><rect x="18" y="80" width="220" height="8" rx="4"/>
+          <rect x="18" y="120" width="190" height="8" rx="4"/><rect x="18" y="140" width="244" height="8" rx="4"/>
+          <rect x="18" y="160" width="150" height="8" rx="4"/>
+        </g>
+        <rect x="18" y="100" width="130" height="8" rx="4" fill="var(--red)"/>
+      </g>
+      <text x="0" y="300" class="t">Test results stay in CI logs</text>
+      <text x="0" y="328" class="s">A failed run is one log among hundreds.</text>
+      <text x="0" y="352" class="s">Nobody opens it until users complain.</text>
+
+      <!-- Production noise -->
+      <rect x="392" y="0" width="352" height="250" rx="12" class="n-soft"/>
+      <g transform="translate(424 30)">
+        <g fill="#c4ccd8">
+          <circle cx="12" cy="14" r="7"/><circle cx="48" cy="40" r="7"/><circle cx="90" cy="12" r="7"/><circle cx="130" cy="52" r="7"/><circle cx="170" cy="20" r="7"/><circle cx="214" cy="46" r="7"/><circle cx="256" cy="16" r="7"/>
+          <circle cx="24" cy="80" r="7"/><circle cx="66" cy="104" r="7"/><circle cx="150" cy="96" r="7"/><circle cx="196" cy="118" r="7"/><circle cx="240" cy="88" r="7"/><circle cx="284" cy="120" r="7"/>
+          <circle cx="10" cy="150" r="7"/><circle cx="52" cy="176" r="7"/><circle cx="96" cy="146" r="7"/><circle cx="136" cy="170" r="7"/><circle cx="222" cy="160" r="7"/><circle cx="264" cy="184" r="7"/>
+          <circle cx="108" cy="72" r="7"/><circle cx="182" cy="186" r="7"/><circle cx="286" cy="60" r="7"/>
+        </g>
+        <circle cx="104" cy="124" r="8" fill="var(--red)"/><circle cx="232" cy="130" r="8" fill="var(--red)"/>
+      </g>
+      <text x="392" y="300" class="t">Production errors drown in noise</text>
+      <text x="392" y="328" class="s">Scanners and client errors look like outages.</text>
+      <text x="392" y="352" class="s">The two real problems get lost.</text>
+
+      <!-- No owner -->
+      <rect x="784" y="0" width="352" height="250" rx="12" class="n-soft"/>
+      <g transform="translate(830 62)">
+        <rect width="104" height="64" rx="10" class="n-r"/>
+        <text x="52" y="38" text-anchor="middle" class="t" style="fill:#cf1322">Failure</text>
+        <path d="M120 32 H 150" class="edge dash"/>
+        <text x="172" y="42" style="font-size:32px;font-weight:600;fill:var(--muted)">?</text>
+        <rect x="196" y="0" width="64" height="64" rx="10" fill="#fff" stroke="#c4ccd8" stroke-dasharray="5 5" stroke-width="1.5"/>
+        <text x="228" y="38" text-anchor="middle" class="s">ticket</text>
+        <path d="M52 80 C 52 130, 228 130, 228 80" fill="none" stroke="var(--red)" stroke-width="2" stroke-dasharray="6 6" marker-end="url(#arrow-r)"/>
+        <text x="140" y="148" text-anchor="middle" class="s">fails again tomorrow</text>
+      </g>
+      <text x="784" y="300" class="t">Nobody owns the failure</text>
+      <text x="784" y="328" class="s">Without a ticket a failure gets forgotten.</text>
+      <text x="784" y="352" class="s">It comes back in the next release.</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 3 · How it works -->
+<section class="slide">
+  <p class="eyebrow">How it works</p>
+  <h2>Your CI pushes every run to AssertChecks</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 330" role="img" aria-label="Repository to CI to AssertChecks to your team, with production telemetry read by AssertChecks">
+      <rect x="0" y="20" width="236" height="170" rx="12" class="n"/>
+      <text x="24" y="58" class="k">YOUR REPOSITORY</text>
+      <text x="24" y="92" class="t">Case catalog</text>
+      <text x="24" y="116" class="s">Given · When · Then</text>
+      <text x="24" y="152" class="t">Playwright tests</text>
+      <text x="24" y="176" class="s">one per case</text>
+
+      <path d="M244 105 H 290" class="edge"/>
+
+      <rect x="300" y="20" width="236" height="170" rx="12" class="n"/>
+      <text x="324" y="58" class="k">YOUR CI</text>
+      <text x="324" y="92" class="t">On a schedule</text>
+      <text x="324" y="116" class="s">GitHub Actions or a</text>
+      <text x="324" y="138" class="s">self-hosted runner</text>
+      <g transform="translate(324 152)">
+        <rect width="52" height="24" rx="6" fill="var(--tag)"/><text x="26" y="17" text-anchor="middle" class="m">start</text>
+        <rect x="60" width="44" height="24" rx="6" fill="var(--tag)"/><text x="82" y="17" text-anchor="middle" class="m">test</text>
+        <rect x="112" width="64" height="24" rx="6" fill="var(--tag)"/><text x="144" y="17" text-anchor="middle" class="m">report</text>
+      </g>
+
+      <path d="M544 105 H 590" class="edge-p"/>
+      <text x="567" y="92" text-anchor="middle" class="s" style="font-size:13px">results</text>
+
+      <rect x="600" y="10" width="236" height="190" rx="12" class="n-p"/>
+      <g transform="translate(624 34)">
+        <rect width="28" height="28" rx="6" fill="var(--primary)"/>
+        <path d="M7 14.5l4.5 4.5L21 9.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <text x="662" y="54" class="t-p">AssertChecks</text>
+      <text x="624" y="98" class="t">Judges every run</text>
+      <text x="624" y="122" class="s">against your catalog</text>
+      <text x="624" y="158" class="t">Distils production</text>
+      <text x="624" y="182" class="s">errors into problems</text>
+
+      <path d="M844 105 H 890" class="edge"/>
+
+      <rect x="900" y="20" width="236" height="170" rx="12" class="n"/>
+      <text x="924" y="58" class="k">YOUR TEAM</text>
+      <text x="924" y="92" class="t">Each environment</text>
+      <text x="924" y="128" class="t">Bugs and tickets</text>
+      <text x="924" y="164" class="t">Production problems</text>
+
+      <rect x="300" y="240" width="236" height="84" rx="12" class="n"/>
+      <text x="324" y="276" class="t">Azure Log Analytics</text>
+      <text x="324" y="300" class="s">your production telemetry</text>
+      <path d="M544 282 H 718 V 208" class="edge"/>
+      <text x="566" y="270" class="s" style="font-size:13px">read only</text>
+    </svg>
+    <div class="facts">
+      <div class="fact"><h3>Your tests stay in your CI</h3><p>AssertChecks never runs code or reaches into your network.</p></div>
+      <div class="fact"><h3>Silence is a signal</h3><p>No report within the expected time turns the check Late.</p></div>
+      <div class="fact"><h3>One check per environment</h3><p>DEV and PROD each keep their own history.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · Judgement -->
+<section class="slide">
+  <p class="eyebrow">Strict judgement</p>
+  <h2>A run passes only when every assertion held</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 420" role="img" aria-label="Three gates: on time, complete, correct">
+      <rect x="0" y="120" width="140" height="64" rx="32" class="n"/>
+      <text x="70" y="158" text-anchor="middle" class="t">Run report</text>
+      <path d="M146 152 H 186" class="edge"/>
+
+      <g transform="translate(196 40)">
+        <rect width="240" height="224" rx="12" class="n"/>
+        <circle cx="34" cy="38" r="16" fill="var(--primary)"/><text x="34" y="44" text-anchor="middle" class="w">1</text>
+        <text x="62" y="45" class="t">On time?</text>
+        <text x="24" y="96" class="s-d">The report arrives within</text>
+        <text x="24" y="120" class="s-d">the period plus grace</text>
+      </g>
+      <path d="M442 152 H 482" class="edge-g"/>
+
+      <g transform="translate(492 40)">
+        <rect width="240" height="224" rx="12" class="n"/>
+        <circle cx="34" cy="38" r="16" fill="var(--primary)"/><text x="34" y="44" text-anchor="middle" class="w">2</text>
+        <text x="62" y="45" class="t">Complete?</text>
+        <text x="24" y="96" class="s-d">✓ Every expected case ran</text>
+        <text x="24" y="126" class="s-d">✓ Nothing skipped</text>
+        <text x="24" y="156" class="s-d">✓ Versions recorded</text>
+        <text x="24" y="180" class="s-d" dx="16">and unchanged</text>
+      </g>
+      <path d="M738 152 H 778" class="edge-g"/>
+
+      <g transform="translate(788 40)">
+        <rect width="240" height="224" rx="12" class="n"/>
+        <circle cx="34" cy="38" r="16" fill="var(--primary)"/><text x="34" y="44" text-anchor="middle" class="w">3</text>
+        <text x="62" y="45" class="t">Correct?</text>
+        <text x="24" y="96" class="s-d">✓ Exit code 0</text>
+        <text x="24" y="126" class="s-d">✓ Every Then step passed</text>
+        <text x="24" y="156" class="s-d">✓ No flaky retries</text>
+      </g>
+      <path d="M1034 152 H 1060" class="edge-g"/>
+      <rect x="1066" y="128" width="70" height="48" rx="8" class="n-g"/>
+      <text x="1101" y="158" text-anchor="middle" class="t" style="fill:#389e0d">Up</text>
+
+      <path d="M316 270 V 330" class="edge-r"/>
+      <rect x="266" y="338" width="100" height="40" rx="8" class="n-a"/>
+      <text x="316" y="364" text-anchor="middle" class="s-d" style="font-weight:600;fill:var(--amber)">Late</text>
+      <path d="M612 270 V 330" class="edge-r"/>
+      <rect x="547" y="338" width="130" height="40" rx="8" class="n-r"/>
+      <text x="612" y="364" text-anchor="middle" class="s-d" style="font-weight:600;fill:#cf1322">Not passed</text>
+      <path d="M908 270 V 330" class="edge-r"/>
+      <rect x="843" y="338" width="130" height="40" rx="8" class="n-r"/>
+      <text x="908" y="364" text-anchor="middle" class="s-d" style="font-weight:600;fill:#cf1322">Not passed</text>
+    </svg>
+    <p class="lead" style="margin-top:var(--block)">Green means every Then step of every expected case passed against the versions you deployed.</p>
+  </div>
+</section>
+
+<!-- 5 · Project page -->
+<section class="slide">
+  <div class="split">
+    <div class="text">
+      <p class="eyebrow">In the product</p>
+      <h2>Every environment at a glance</h2>
+      <ul class="points">
+        <li><b>1</b><span>One card per environment</span></li>
+        <li><b>2</b><span>Failures out of the cases tested</span></li>
+        <li><b>3</b><span>When it last ran</span></li>
+      </ul>
+      <p class="caption" style="margin-top:var(--block)">NSDK on 2026-10-26. A real project.</p>
+    </div>
+    <div class="shots">
+      <img class="shot" src="assets/project.jpg" alt="NSDK project page: DEV 2 failed of 160, PROD 17 failed of 160, Local with no runs yet" style="left:0;top:100px;width:820px">
+      <span class="pin" style="left:-14px;top:192px">1</span>
+      <span class="pin" style="left:258px;top:228px">2</span>
+      <span class="pin" style="left:196px;top:310px">3</span>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · Check page -->
+<section class="slide">
+  <div class="split">
+    <div class="text">
+      <p class="eyebrow">In the product</p>
+      <h2>Each run opens on what failed</h2>
+      <ul class="points">
+        <li><b>1</b><span>Run history with the test commit and deployed versions</span></li>
+        <li><b>2</b><span>Failed cases grouped with where they stopped</span></li>
+        <li><b>3</b><span>The error log and its ticket status</span></li>
+      </ul>
+    </div>
+    <div class="shots">
+      <img class="shot" src="assets/check.jpg" alt="NSDK DEV check page with run history: #93 2/160 failed, #92 1/160, #91 0/160" style="left:0;top:0;width:700px">
+      <img class="shot" src="assets/check-failed.jpg" alt="Not passed tab with E2E-103 expanded to its error log and Needs a ticket" style="left:150px;top:300px;width:660px">
+      <span class="pin" style="left:-12px;top:286px">1</span>
+      <span class="pin" style="left:138px;top:416px">2</span>
+      <span class="pin" style="left:138px;top:500px">3</span>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · Case page -->
+<section class="slide">
+  <div class="split">
+    <div class="text">
+      <p class="eyebrow">In the product</p>
+      <h2>Every case explains itself</h2>
+      <ul class="points">
+        <li><b>1</b><span>What it asserts in Given When Then</span></li>
+        <li><b>2</b><span>The open bug with each Then step</span></li>
+        <li><b>3</b><span>Its result in every run</span></li>
+      </ul>
+    </div>
+    <div class="shots">
+      <img class="shot" src="assets/case.jpg" alt="Case E2E-103 with Given, When, Then A1 and A2, and the bug from the latest run" style="left:0;top:0;width:700px">
+      <img class="shot" src="assets/case-runs.jpg" alt="Result in each run: failed in #93, passed in earlier runs" style="left:150px;top:330px;width:660px">
+      <span class="pin" style="left:-12px;top:80px">1</span>
+      <span class="pin" style="left:-12px;top:226px">2</span>
+      <span class="pin" style="left:138px;top:340px">3</span>
+    </div>
+  </div>
+</section>
+
+<!-- 8 · Bugs and tickets -->
+<section class="slide">
+  <p class="eyebrow">Bugs and tickets</p>
+  <h2>Every failure ends in a ticket</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 400" role="img" aria-label="How a failing case gets a ticket">
+      <rect x="0" y="160" width="200" height="80" rx="12" class="n-r"/>
+      <text x="100" y="196" text-anchor="middle" class="t" style="fill:#cf1322">Case failed</text>
+      <text x="100" y="220" text-anchor="middle" class="s">in the latest full run</text>
+      <path d="M206 200 H 256" class="edge"/>
+
+      <rect x="264" y="160" width="210" height="80" rx="12" class="n"/>
+      <text x="369" y="196" text-anchor="middle" class="t">Its newest ticket</text>
+      <text x="369" y="220" text-anchor="middle" class="s">for this case</text>
+
+      <path d="M480 200 C 520 200, 520 50, 590 50" class="edge"/>
+      <text x="548" y="40" class="s" style="font-size:14px">none</text>
+      <path d="M480 200 H 590" class="edge"/>
+      <text x="530" y="192" class="s" style="font-size:14px">open</text>
+      <path d="M480 200 C 520 200, 520 340, 590 340" class="edge"/>
+      <text x="540" y="362" class="s" style="font-size:14px">closed</text>
+
+      <rect x="600" y="14" width="250" height="72" rx="12" class="n-p"/>
+      <text x="725" y="46" text-anchor="middle" class="t-p">File a ticket</text>
+      <text x="725" y="70" text-anchor="middle" class="s">and link it to the case</text>
+
+      <rect x="600" y="164" width="250" height="72" rx="12" class="n-soft"/>
+      <text x="725" y="196" text-anchor="middle" class="t">Leave it</text>
+      <text x="725" y="220" text-anchor="middle" class="s">someone is on it</text>
+
+      <rect x="600" y="300" width="250" height="84" rx="12" class="n"/>
+      <text x="725" y="334" text-anchor="middle" class="t">Does this run</text>
+      <text x="725" y="358" text-anchor="middle" class="t">contain its fix?</text>
+
+      <path d="M856 330 C 880 330, 880 290, 906 290" class="edge"/>
+      <text x="864" y="282" class="s" style="font-size:14px">yes</text>
+      <path d="M856 356 C 880 356, 880 384, 906 384" class="edge"/>
+      <text x="870" y="392" class="s" style="font-size:14px">no</text>
+
+      <rect x="914" y="256" width="222" height="68" rx="12" class="n-p"/>
+      <text x="1025" y="286" text-anchor="middle" class="t-p">New ticket</text>
+      <text x="1025" y="309" text-anchor="middle" class="s">linking the old one</text>
+
+      <rect x="914" y="340" width="222" height="60" rx="12" class="n-soft"/>
+      <text x="1025" y="366" text-anchor="middle" class="t">Wait</text>
+      <text x="1025" y="388" text-anchor="middle" class="s">until the fix ships</text>
+    </svg>
+    <div style="display:flex;align-items:center;gap:var(--group);margin-top:var(--block);flex-wrap:wrap">
+      <span class="tag red">Needs a ticket</span><span class="caption">→</span>
+      <span class="tag p">In progress</span><span class="caption">→</span>
+      <span class="tag green">Fixed</span>
+      <span class="body" style="color:var(--muted)">after two passes in a row in every environment. Closed tickets are never edited.</span>
+    </div>
+  </div>
+</section>
+
+<!-- 9 · Production errors pipeline -->
+<section class="slide">
+  <p class="eyebrow">Production errors</p>
+  <h2>Thousands of log lines become a short list</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 400" role="img" aria-label="Telemetry is filtered, deduplicated and grouped into problems">
+      <path d="M0 20 L 240 50 L 240 350 L 0 380 Z" class="n-soft"/>
+      <text x="24" y="70" class="k">RAW TELEMETRY</text>
+      <text x="24" y="104" class="t">Exceptions</text>
+      <text x="24" y="134" class="t">Requests</text>
+      <text x="24" y="164" class="t">Dependencies</text>
+      <text x="24" y="210" class="s">from Azure Log Analytics</text>
+      <text x="24" y="234" class="s">over 90 days</text>
+
+      <path d="M248 200 H 284" class="edge"/>
+
+      <path d="M292 50 L 552 80 L 552 320 L 292 350 Z" class="n"/>
+      <text x="316" y="98" class="k">NOISE FILTERED OUT</text>
+      <text x="316" y="134" class="s-d">Scanners and bots</text>
+      <text x="316" y="164" class="s-d">Client errors (4xx)</text>
+      <text x="316" y="194" class="s-d">Aborted requests</text>
+      <text x="316" y="224" class="s-d">Analytics calls</text>
+      <text x="316" y="254" class="s-d">Browser script errors</text>
+      <text x="316" y="296" class="s">listed apart and never lost</text>
+
+      <path d="M560 200 H 596" class="edge"/>
+
+      <path d="M604 80 L 844 110 L 844 290 L 604 320 Z" class="n"/>
+      <text x="628" y="130" class="k">DEDUPLICATED</text>
+      <text x="628" y="166" class="s-d">One failure per request</text>
+      <text x="628" y="198" class="s-d">Grouped by error</text>
+      <text x="628" y="222" class="s-d">and route</text>
+      <text x="628" y="256" class="s-d">Slow hours by p95</text>
+
+      <path d="M852 200 H 888" class="edge-p"/>
+
+      <rect x="896" y="60" width="240" height="280" rx="12" class="n-p"/>
+      <text x="920" y="100" class="t-p">Real problems</text>
+      <g transform="translate(920 124)">
+        <rect width="150" height="28" rx="6" fill="var(--red-tint)"/><text x="10" y="19" class="s-d" style="fill:#cf1322;font-size:14px">Needs a ticket</text>
+        <rect y="44" width="120" height="28" rx="6" fill="#fff"/><text x="10" y="63" class="s-d" style="fill:var(--primary);font-size:14px">In progress</text>
+        <rect y="88" width="160" height="28" rx="6" fill="#fff"/><text x="10" y="107" class="s-d" style="font-size:14px">Not seen recently</text>
+        <rect y="132" width="130" height="28" rx="6" fill="#fff"/><text x="10" y="151" class="s-d" style="font-size:14px">Not handling</text>
+      </g>
+      <text x="920" y="318" class="s">each with its own ticket</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 10 · Production errors page -->
+<section class="slide">
+  <div class="split">
+    <div class="text">
+      <p class="eyebrow">In the product</p>
+      <h2>Production errors next to your tests</h2>
+      <ul class="points">
+        <li><b>1</b><span>What needs a ticket and what is in progress</span></li>
+        <li><b>2</b><span>Failures per day for 30 days</span></li>
+        <li><b>3</b><span>One row per problem with where it happens</span></li>
+      </ul>
+      <p class="caption" style="margin-top:var(--block)">NSDK production on 2026-10-27.</p>
+    </div>
+    <div class="shots">
+      <img class="shot" src="assets/errors.jpg" alt="Production errors: 6 need a ticket, 0 in progress, a 30-day failure chart peaking at 414" style="left:0;top:20px;width:700px">
+      <img class="shot" src="assets/errors-list.jpg" alt="Needs a ticket: RuntimeError, TimeoutError and ConnectionRefusedError on GET /readyz, and a slow GET /readyz" style="left:150px;top:250px;width:660px">
+      <span class="pin" style="left:-12px;top:90px">1</span>
+      <span class="pin" style="left:-12px;top:170px">2</span>
+      <span class="pin" style="left:138px;top:350px">3</span>
+    </div>
+  </div>
+</section>
+
+<!-- 11 · The skill -->
+<section class="slide">
+  <p class="eyebrow">How to use it</p>
+  <h2>One agent skill runs the whole loop</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 400" role="img" aria-label="The assertchecks skill capabilities cap0 to cap7 arranged in a loop">
+      <ellipse cx="568" cy="200" rx="420" ry="160" fill="none" stroke="#c4ccd8" stroke-width="2" stroke-dasharray="6 8"/>
+      <rect x="418" y="150" width="300" height="100" rx="12" class="n-p"/>
+      <text x="568" y="192" text-anchor="middle" class="t-p" style="font-size:22px">assertchecks skill</text>
+      <text x="568" y="220" text-anchor="middle" class="s">in Claude Code or Codex</text>
+
+      <g class="cap" transform="translate(463 10)"><rect width="210" height="60" rx="10" class="n"/><text x="16" y="24" class="k">CAP0</text><text x="16" y="46" class="t" style="font-size:16px">Connect the project</text></g>
+      <g transform="translate(760 54)"><rect width="210" height="60" rx="10" class="n"/><text x="16" y="24" class="k">CAP1</text><text x="16" y="46" class="t" style="font-size:16px">Discover missing cases</text></g>
+      <g transform="translate(883 170)"><rect width="210" height="60" rx="10" class="n"/><text x="16" y="24" class="k">CAP2</text><text x="16" y="46" class="t" style="font-size:16px">Write tests from cases</text></g>
+      <g transform="translate(760 286)"><rect width="210" height="60" rx="10" class="n"/><text x="16" y="24" class="k">CAP3</text><text x="16" y="46" class="t" style="font-size:16px">Run and repair</text></g>
+      <g transform="translate(463 330)"><rect width="210" height="60" rx="10" class="n"/><text x="16" y="24" class="k">CAP4</text><text x="16" y="46" class="t" style="font-size:16px">Publish the results</text></g>
+      <g transform="translate(166 286)"><rect width="210" height="60" rx="10" class="n-p"/><text x="16" y="24" class="k">CAP7</text><text x="16" y="46" class="t" style="font-size:16px">File bug tickets</text></g>
+      <g transform="translate(43 170)"><rect width="210" height="60" rx="10" class="n"/><text x="16" y="24" class="k">CAP5</text><text x="16" y="46" class="t" style="font-size:16px">Audit the cases</text></g>
+      <g transform="translate(166 54)"><rect width="210" height="60" rx="10" class="n"/><text x="16" y="24" class="k">CAP6</text><text x="16" y="46" class="t" style="font-size:16px">Fix weak cases</text></g>
+    </svg>
+    <div style="display:flex;gap:var(--stack);margin-top:var(--block);flex-wrap:wrap;align-items:center">
+      <span class="caption">Ask your agent</span>
+      <span class="tag"><code>assertchecks cap0</code></span>
+      <span class="tag"><code>assertchecks cap2 for the new cases</code></span>
+      <span class="tag"><code>assertchecks cap7 for DEV</code></span>
+    </div>
+  </div>
+</section>
+
+<!-- 12 · People define correct -->
+<section class="slide">
+  <p class="eyebrow">How to use it</p>
+  <h2>People define correct and agents write the code</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 120" role="img" aria-label="A person writes the case, the agent writes the test, a person reviews it, CI runs only reviewed tests">
+      <g transform="translate(0 20)"><rect width="250" height="80" rx="12" class="n"/><text x="20" y="32" class="k">PERSON</text><text x="20" y="60" class="t">Writes Given When Then</text></g>
+      <path d="M256 60 H 290" class="edge"/>
+      <g transform="translate(296 20)"><rect width="250" height="80" rx="12" class="n-p"/><text x="20" y="32" class="k">AGENT · CAP2</text><text x="20" y="60" class="t">Writes the test</text></g>
+      <path d="M552 60 H 586" class="edge"/>
+      <g transform="translate(592 20)"><rect width="250" height="80" rx="12" class="n"/><text x="20" y="32" class="k">PERSON</text><text x="20" y="60" class="t">Reviews the test</text></g>
+      <path d="M848 60 H 882" class="edge"/>
+      <g transform="translate(886 20)"><rect width="250" height="80" rx="12" class="n"/><text x="20" y="32" class="k">CI</text><text x="20" y="60" class="t">Runs only reviewed tests</text></g>
+    </svg>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--block);margin-top:var(--block)">
+      <div class="panel">
+        <p class="caption" style="margin-bottom:var(--stack)">assertchecks/e2e.json</p>
+        <div class="code" style="white-space:pre;font-size:14px;line-height:22px">{
+  "id": "E2E-001",
+  "title": "Sign in with a saved account",
+  "status": "active", "run": "regular",
+  "given": ["A registered account"],
+  "when": ["Sign in through the login page"],
+  "then": [{ "id": "A1",
+    "expect": "The dashboard greets the account holder" }]
+}</div>
+      </div>
+      <div class="panel">
+        <p class="caption" style="margin-bottom:var(--stack)">tests/E2E-001.spec.ts</p>
+        <div class="code" style="white-space:pre;font-size:14px;line-height:22px">test('<b style="color:var(--primary)">E2E-001</b>: Sign in with a saved account',
+  async ({ page }) => {
+  // Given / When ...
+  await test.step('<b style="color:var(--primary)">Then A1</b>: the dashboard greets
+    the account holder', async () => {
+    await expect(page.getByRole('heading',
+      { level: 1 })).toContainText('Welcome')
+  })
+})</div>
+      </div>
+    </div>
+    <p class="caption" style="margin-top:var(--group)">Expectations come from the case. They are never copied from what the product shows today.</p>
+  </div>
+</section>
+
+<!-- 13 · CI -->
+<section class="slide">
+  <p class="eyebrow">How to use it</p>
+  <h2>CI runs your cases on a schedule</h2>
+  <div class="content" style="display:grid;grid-template-columns:1fr 470px;gap:var(--section);align-items:center">
+    <div>
+      <svg viewBox="0 0 560 400" role="img" aria-label="The CI workflow: start, run cases, report, always">
+        <g transform="translate(0 0)"><rect width="560" height="56" rx="10" class="n-soft"/><text x="20" y="34" class="s-d">⏱  Schedule or a manual run of chosen cases</text></g>
+        <path d="M280 62 V 86" class="edge"/>
+        <g transform="translate(0 94)"><rect width="560" height="72" rx="10" class="n-p"/><text x="20" y="30" class="m" style="fill:var(--primary);font-weight:600">assertchecks.mjs start</text><text x="20" y="54" class="s">Opens the run with each deployed version</text></g>
+        <path d="M280 172 V 196" class="edge"/>
+        <g transform="translate(0 204)"><rect width="560" height="72" rx="10" class="n"/><text x="20" y="30" class="m" style="font-weight:600">npx playwright test</text><text x="20" y="54" class="s">Your reviewed tests against the real environment</text></g>
+        <path d="M280 282 V 306" class="edge"/>
+        <g transform="translate(0 314)"><rect width="560" height="72" rx="10" class="n-p"/><text x="20" y="30" class="m" style="fill:var(--primary);font-weight:600">assertchecks.mjs report</text><text x="20" y="54" class="s">Always runs so a crash never looks like a pass</text></g>
+      </svg>
+    </div>
+    <div>
+      <div class="terminal"><span class="c"># .github/workflows/assertchecks-dev.yml</span>
+<span class="p">on</span>:
+  <span class="p">schedule</span>:
+    - <span class="p">cron</span>: <span class="y">"0 3 * * *"</span>
+  <span class="p">workflow_dispatch</span>:
+<span class="c">jobs: … steps:</span>
+- <span class="p">name</span>: Report to AssertChecks
+  <span class="p">if</span>: ${{ always() }}
+  <span class="p">env</span>:
+    ASSERTCHECKS_PING_TOKEN:
+      ${{ secrets.ASSERTCHECKS_PING_TOKEN }}</div>
+      <ul class="points" style="margin-top:var(--block)">
+        <li><b>1</b><span><code>cap0</code> writes this workflow for you</span></li>
+        <li><b>2</b><span>Store the check's ping token as a CI secret</span></li>
+        <li><b>3</b><span>A missed schedule turns the check Late</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 14 · Agent closes the loop -->
+<section class="slide">
+  <p class="eyebrow">How to use it</p>
+  <h2>Your agent turns failures into tickets</h2>
+  <div class="content" style="display:grid;grid-template-columns:1fr 360px;gap:var(--section);align-items:center">
+    <div class="terminal"><span class="c"># Sign in once as yourself. Approve in the browser.</span>
+<span class="p">$</span> node assertchecks.mjs login
+
+<span class="c"># The failures of the latest full run and their ticket status</span>
+<span class="p">$</span> node assertchecks.mjs bugs --check dev
+
+<span class="c"># Link the ticket you filed back to the cases</span>
+<span class="p">$</span> node assertchecks.mjs link --cases E2E-103 \
+    --ticket https://linear.app/…/ENG-…</div>
+    <div>
+      <h3>Or ask for it in one line</h3>
+      <p class="body" style="margin-top:var(--stack)"><span class="tag"><code>assertchecks cap7 for DEV</code></span></p>
+      <ul class="points">
+        <li><b>1</b><span>Reads the bugs of the latest run</span></li>
+        <li><b>2</b><span>Files tickets in your own tracker and workflow</span></li>
+        <li><b>3</b><span>Links them back so the page shows who is on it</span></li>
+      </ul>
+      <p class="caption" style="margin-top:var(--block)">Ping tokens only report runs. People and their agents read and link as themselves.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 15 · Get started -->
+<section class="slide">
+  <p class="eyebrow">Get started</p>
+  <h2>Four steps to your first green run</h2>
+  <div class="content">
+    <svg viewBox="0 0 1136 300" role="img" aria-label="Four steps: create a check, connect with cap0, write cases, merge the workflow">
+      <line x1="40" y1="40" x2="1096" y2="40" stroke="#d5dce6" stroke-width="2"/>
+      <g transform="translate(0 0)">
+        <circle cx="40" cy="40" r="24" fill="var(--primary)"/><text x="40" y="47" text-anchor="middle" class="w" style="font-size:18px">1</text>
+        <text x="0" y="112" class="t">Create a check</text>
+        <text x="0" y="140" class="s">One per environment</text>
+        <text x="0" y="164" class="s">with its schedule and grace</text>
+      </g>
+      <g transform="translate(296 0)">
+        <circle cx="40" cy="40" r="24" fill="var(--primary)"/><text x="40" y="47" text-anchor="middle" class="w" style="font-size:18px">2</text>
+        <text x="0" y="112" class="t">Connect with cap0</text>
+        <text x="0" y="140" class="s">Scaffolds assertchecks/ with</text>
+        <text x="0" y="164" class="s">Playwright config and CI</text>
+      </g>
+      <g transform="translate(592 0)">
+        <circle cx="40" cy="40" r="24" fill="var(--primary)"/><text x="40" y="47" text-anchor="middle" class="w" style="font-size:18px">3</text>
+        <text x="0" y="112" class="t">Write the cases</text>
+        <text x="0" y="140" class="s">cap1 suggests them and</text>
+        <text x="0" y="164" class="s">cap2 writes the tests</text>
+      </g>
+      <g transform="translate(888 0)">
+        <circle cx="40" cy="40" r="24" fill="var(--green)"/><text x="40" y="47" text-anchor="middle" class="w" style="font-size:18px">4</text>
+        <text x="0" y="112" class="t">Add the secret and merge</text>
+        <text x="0" y="140" class="s">The schedule takes over</text>
+        <text x="0" y="164" class="s">and every run reports</text>
+      </g>
+      <g transform="translate(0 210)">
+        <rect width="1136" height="76" rx="12" class="n-soft"/>
+        <text x="24" y="32" class="k">BEFORE THE FIRST RUN</text>
+        <text x="24" y="58" class="m" style="font-size:15px">node assertchecks.mjs check --catalog assertchecks/e2e.json</text>
+        <text x="640" y="58" class="s">A dry run that needs no token and records nothing</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- 16 · Why it matters -->
+<section class="slide">
+  <p class="eyebrow">Why it matters</p>
+  <h2>Know first and fix for good</h2>
+  <div class="content">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--block)">
+      <div class="panel">
+        <svg viewBox="0 0 64 64" style="width:48px"><circle cx="32" cy="32" r="28" fill="var(--primary-tint)"/><path d="M32 16v17l10 6" fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round"/></svg>
+        <h3 style="margin-top:var(--group)">Know before your users do</h3>
+        <p class="body" style="margin-top:var(--stack);color:var(--muted)">Scheduled runs and production telemetry surface a break within hours.</p>
+      </div>
+      <div class="panel">
+        <svg viewBox="0 0 64 64" style="width:48px"><circle cx="32" cy="32" r="28" fill="var(--green-tint)"/><path d="M20 33l8 8 16-17" fill="none" stroke="var(--green)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h3 style="margin-top:var(--group)">Trust green</h3>
+        <p class="body" style="margin-top:var(--stack);color:var(--muted)">Skipped cases and flaky retries never pass. Green means every assertion held.</p>
+      </div>
+      <div class="panel">
+        <svg viewBox="0 0 64 64" style="width:48px"><circle cx="32" cy="32" r="28" fill="var(--red-tint)"/><rect x="20" y="18" width="24" height="30" rx="3" fill="none" stroke="var(--red)" stroke-width="4"/><path d="M26 28h12M26 36h8" stroke="var(--red)" stroke-width="4" stroke-linecap="round"/></svg>
+        <h3 style="margin-top:var(--group)">Nothing slips through</h3>
+        <p class="body" style="margin-top:var(--stack);color:var(--muted)">Every failure gets a ticket and stays open until it passes twice in a row.</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:var(--group);margin-top:var(--section)">
+      <span class="mark"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="wordmark" style="font-size:24px">Assert<span>Checks</span></span>
+      <a href="https://assertchecks.com" style="font-size:20px;color:var(--primary);text-decoration:none">assertchecks.com</a>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<div class="nav">
+  <button id="prev" aria-label="Previous slide">←</button>
+  <button id="next" aria-label="Next slide">→</button>
+</div>
+
+<script>
+const slides = [...document.querySelectorAll('.slide')]
+const stage = document.getElementById('stage')
+slides.forEach((s, i) => s.dataset.n = `${i + 1} / ${slides.length}`)
+let current = 0
+
+function fit() {
+  // Phones get the slide edge to edge; larger screens keep a margin around it.
+  const margin = innerWidth < 800 ? 0 : 80
+  const scale = Math.min(innerWidth / (1280 + margin), innerHeight / (720 + margin))
+  stage.style.transform = `scale(${scale}) translate(-50%, -50%)`
+}
+function show(i) {
+  current = Math.max(0, Math.min(slides.length - 1, i))
+  slides.forEach((s, j) => s.classList.toggle('active', j === current))
+  document.getElementById('progress').style.width = `${(current + 1) / slides.length * 100}%`
+  history.replaceState(null, '', `#${current + 1}`)
+}
+addEventListener('resize', fit)
+addEventListener('keydown', (e) => {
+  if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(current + 1) }
+  if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); show(current - 1) }
+  if (e.key === 'Home') show(0)
+  if (e.key === 'End') show(slides.length - 1)
+})
+document.getElementById('prev').onclick = () => show(current - 1)
+document.getElementById('next').onclick = () => show(current + 1)
+let touchX = null
+addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX }, { passive: true })
+addEventListener('touchend', (e) => {
+  if (touchX === null) return
+  const dx = e.changedTouches[0].clientX - touchX
+  if (Math.abs(dx) > 40) show(current + (dx < 0 ? 1 : -1))
+  touchX = null
+})
+fit()
+show((parseInt(location.hash.slice(1), 10) || 1) - 1)
+</script>
+</body>
+</html>
