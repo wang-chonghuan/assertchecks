@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-43",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-43",
+  "branch": "ASSERT-43-product-deck",
+  "base": "7756a7763c2910286c604751087ff3ffdae856ed",
+  "ports": {
+    "deck": 63043
+  }
+}
