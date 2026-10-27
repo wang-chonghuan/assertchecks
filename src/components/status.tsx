@@ -32,7 +32,9 @@ const CHECK: Record<CheckStatus, { color: string; label: string }> = {
   new: { color: 'default', label: 'New' },
 }
 
+// Up and Failing are what the pass and fail counts already say; only Late and New add something.
 export function CheckStatusTag({ status }: { status: CheckStatus }) {
+  if (status === 'up' || status === 'failing') return null
   return <Tag color={CHECK[status].color}>{CHECK[status].label}</Tag>
 }
 

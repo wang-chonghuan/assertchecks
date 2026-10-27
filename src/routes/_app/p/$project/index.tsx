@@ -1,12 +1,11 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Card, Col, Empty, Flex, Row, Tabs, Typography } from 'antd'
+import { Card, Col, Empty, Flex, Row, Tabs } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
-import { ProjectBugsCard } from '../../../../components/tickets'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
-import { space, text } from '../../../../infui/tokens'
+import { space } from '../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/')({
   // ?tab=errors opens Production errors; Tests is the default tab.
@@ -47,17 +46,10 @@ function OverviewPage() {
       ))}
     </Row>
   )
-  // The project's bugs under the checks they come from.
-  const tests = (
-    <Flex vertical gap={space.group}>
-      {cards}
-      <ProjectBugsCard key={project.slug} project={project.slug} />
-    </Flex>
-  )
+  const tests = cards
 
   return (
     <Flex vertical gap={space.group}>
-      <Typography.Title level={4} style={{ ...text.heading2, margin: 0 }}>{project.name}</Typography.Title>
       <Tabs
         activeKey={tab ?? 'tests'}
         onChange={(key) => navigate({ to: '/p/$project', params: { project: project.slug }, search: key === 'errors' ? { tab: 'errors' } : {} })}

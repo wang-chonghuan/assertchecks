@@ -1,7 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { App, Button, Card, Col, Flex, Row, Tag, Typography, theme } from 'antd'
 import {
+  AlertOutlined,
   ArrowRightOutlined,
+  BugOutlined,
+  CheckCircleOutlined,
   ClockCircleOutlined,
   CopyOutlined,
   FileDoneOutlined,
@@ -19,9 +22,16 @@ import { pageFrame } from '../infui/page-frame'
 import { FORMAT_LINKS, agentPrompt } from '../lib/connect-guide'
 import type { CheckCard } from '../lib/types'
 
+// What the product does, one line each, under the hero's headline.
+const HERO_POINTS = [
+  'End-to-end failures reported from every run.',
+  'Production errors distilled into real problems.',
+  'Every issue tracked to a ticket.',
+]
+
 export const Route = createFileRoute('/')({
   loader: async () => ({ me: await getMe() }),
-  head: () => ({ meta: [{ title: `${PRODUCT_NAME} · End-to-end assertion monitoring` }] }),
+  head: () => ({ meta: [{ title: `${PRODUCT_NAME} · Assertion monitoring for your products` }] }),
   component: HomePage,
 })
 
@@ -50,7 +60,7 @@ const EXAMPLE: CheckCard = {
   partial: null,
   notPassed: [],
   outsideRun: [],
-  counts: { total: 48, passed: 41, failed: 2, notRun: 0, draft: 4, manual: 1 },
+  counts: { total: 265, passed: 229, failed: 31, notRun: 0, draft: 4, manual: 1 },
   catalogChanges: [],
 }
 
@@ -105,7 +115,8 @@ function HomePage() {
             borderBottom: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`,
           }}
         >
-          <div style={section}>
+          {/* The hero sits closer to the header than a section does, so the example card is not framed by empty bands. */}
+          <div style={{ ...section, paddingBlock: space.block }}>
             <Row gutter={[space.section, space.block]} align="middle">
               <Col xs={24} lg={13}>
                 <Flex vertical gap={space.group} align="start">
@@ -116,23 +127,21 @@ function HomePage() {
                       ...text.display,
                     }}
                   >
-                    Know every assertion still holds.
+                    Assertion monitoring for your products
                   </Typography.Title>
                   <Typography.Paragraph style={{ ...text.lead, margin: 0, maxWidth: ASSERTCHECKS_STYLE.heroTextWidth }}>
-                    Your project runs its end-to-end tests and reports every run. {PRODUCT_NAME} shows whether each one
-                    arrived on time, ran in full, and which assertion failed.
+                    Be the first to know about test failures and errors in production.
                   </Typography.Paragraph>
-                  <Flex gap={space.stack} wrap>
-                    {primary}
-                    <CopyForAgent />
-                  </Flex>
-                  <Flex gap={space.group} wrap>
-                    {['Never runs your tests', 'Never holds your product credentials'].map((item) => (
-                      <Typography.Text key={item} style={text.body}>
-                        <SafetyCertificateOutlined style={{ color: token.colorSuccess, marginInlineEnd: space.inline }} />
-                        {item}
+                  <Flex vertical gap={space.stack}>
+                    {HERO_POINTS.map((point) => (
+                      <Typography.Text key={point} style={text.body}>
+                        <CheckCircleOutlined style={{ color: token.colorSuccess, marginInlineEnd: space.stack }} />
+                        {point}
                       </Typography.Text>
                     ))}
+                  </Flex>
+                  <Flex gap={space.stack} wrap>
+                    {primary}
                   </Flex>
                 </Flex>
               </Col>
@@ -177,6 +186,31 @@ function HomePage() {
           </Row>
         </div>
 
+        {/* What you see: the two views a person reads every day. */}
+        <div style={section}>
+          <SectionTitle eyebrow="What you see" title="Bugs and production errors" />
+          <Row gutter={[space.group, space.group]}>
+            <Col xs={24} md={12}>
+              <Pillar
+                icon={<BugOutlined />}
+                color={token.colorError}
+                bg={token.colorErrorBg}
+                title="Bugs and their tickets"
+                description="Every failing case is a bug that needs a ticket or has one. Attach it on the page or let your coding agent do it; the bug counts as fixed once its case passes twice in a row."
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Pillar
+                icon={<AlertOutlined />}
+                color={token.colorWarning}
+                bg={token.colorWarningBg}
+                title="Production errors"
+                description="Runtime errors read from your own telemetry and grouped into problems: which need a ticket, which are in progress and how many failures each day."
+              />
+            </Col>
+          </Row>
+        </div>
+
         {/* How it works: a diagram of one run. Every step, command and format detail goes out through
             "Copy for your agent", built from src/lib/connect-guide.ts. */}
         <div id="connect" style={{ borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorBorderSecondary}`, scrollMarginTop: token.controlHeightLG * 1.4 }}>
@@ -184,7 +218,7 @@ function HomePage() {
             <SectionTitle
               eyebrow="How it works"
               title="How a run reaches your team"
-              description="No SDK. Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
+              description="Your runner reports when a run starts and what it found; AssertChecks judges it against your catalog and schedule."
             />
             <Card style={{ marginBottom: space.group }}>
               <HowItWorks />

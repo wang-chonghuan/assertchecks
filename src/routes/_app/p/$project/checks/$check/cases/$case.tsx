@@ -1,8 +1,7 @@
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { Alert, App, Breadcrumb, Button, Card, Collapse, Descriptions, Flex, Popconfirm, Table, Tag, Typography, theme } from 'antd'
-import { CopyOutlined } from '@ant-design/icons'
+import { App, Breadcrumb, Button, Card, Descriptions, Flex, Popconfirm, Table, Tag, Tooltip, Typography, theme } from 'antd'
 import { useState } from 'react'
-import { caseBugReport } from '../../../../../../../lib/bug-report'
+import { ErrorLog } from '../../../../../../../components/error-log'
 import type { TableColumnsType } from 'antd'
 import { CaseStatusTag, ThenTag, utc } from '../../../../../../../components/status'
 import type { CaseBug, CaseHistoryItem } from '../../../../../../../lib/types'
@@ -33,71 +32,29 @@ function Steps({ items }: { items: string[] }) {
   )
 }
 
-// One case answers: did it pass in the latest run, and if not, why? The written spec follows; the
-// catalog's organizing fields and the raw error output wait in collapsed sections.
+// One case, top to bottom: what it says (steps and catalog fields), its bug in the run on screen with
+// the error and tickets, then its result in every run.
 function CasePage() {
   const { token } = theme.useToken()
-  const { project, check, spec, run, result, history, viewingLatest, deployed, bug } = Route.useLoaderData()
+  const { project, check, spec, run, result, history, viewingLatest, bug } = Route.useLoaderData()
   const { message } = App.useApp()
   const router = useRouter()
   const [attaching, setAttaching] = useState(false)
-  const copyReport = async () => {
-    const text = caseBugReport({
-      origin: window.location.origin,
-      project,
-      check,
-      run,
-      deployed,
-      spec,
-      result,
-      bug,
-      history: history.slice(0, 10).map((item) => ({
-        runId: item.run.id,
-        status: item.status === null ? 'not in run' : item.failed && item.status === 'passed' ? 'failed' : item.status,
-      })),
-    })
-    try {
-      await navigator.clipboard.writeText(text)
-      message.success('Copied. Paste it to your coding agent to file the bug ticket.')
-    } catch {
-      message.error('Copying failed. Allow clipboard access for this page and try again.')
-    }
-  }
+
   const runSearch = viewingLatest ? {} : { run: Number(run.id) }
-  const thenStatus = new Map((result?.thens ?? []).map((then) => [then.id, then.status]))
   const meta = caseMeta(spec)
   const failed = result !== null && (result.status !== 'passed' || result.thens.some((then) => then.status === 'failed'))
 
-  const more = [
-    ...(result?.error ? [{
-      key: 'error',
-      label: 'Error output',
-      children: <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{result.error}</pre>,
-    }] : []),
-    {
-      key: 'details',
-      label: 'Case details',
-      children: (
-        <Descriptions
-          size="small"
-          column={1}
-          items={[
-            { key: 'group', label: 'Group', children: meta.group ?? <Typography.Text style={text.caption}>{UNGROUPED}</Typography.Text> },
-            {
-              key: 'tags',
-              label: 'Tags',
-              children: meta.tags.length
-                ? <Flex gap={space.stack} wrap>{meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Flex>
-                : <Typography.Text style={text.caption}>—</Typography.Text>,
-            },
-            ...(spec.type ? [{ key: 'type', label: 'Type', children: spec.type.toUpperCase() }] : []),
-            { key: 'policy', label: 'Runs', children: spec.run === 'on-demand' ? 'On demand, only when named' : 'In every regular run' },
-            { key: 'status', label: 'Status', children: spec.status },
-          ]}
-        />
-      ),
-    },
-  ]
+  const removeLink = async (link: string) => {
+    try {
+      await removeTicket({ data: { project: project.slug, link } })
+      await router.invalidate()
+    } catch (error) {
+      message.error(`Removing failed: ${(error as Error).message}`)
+    }
+  }
+  // Then results that say where it stopped; passed ones say nothing.
+  const stopped = (result?.thens ?? []).filter((then) => then.status !== 'passed')
 
   return (
     <Flex vertical gap={space.group}>
@@ -108,75 +65,85 @@ function CasePage() {
           { title: spec.id },
         ]}
       />
+      {/* 1. The case as written: its steps first, its catalog fields after them, nothing folded. */}
+      <Card title={`${spec.id} · ${spec.title}`}>
+        <Descriptions
+          column={1}
+          bordered
+          size="small"
+          styles={{ label: { width: token.controlHeight * 3 } }}
+          items={[
+            { key: 'given', label: 'Given', children: <Steps items={spec.given} /> },
+            { key: 'when', label: 'When', children: <Steps items={spec.when} /> },
+            {
+              key: 'then',
+              label: 'Then',
+              children: (
+                <Flex vertical gap={space.stack}>
+                  {spec.then.map((then) => (
+                    <Flex key={then.id} gap={space.stack} align="baseline">
+                      <Typography.Text style={{ ...text.label, flex: 'none' }}>{then.id}</Typography.Text>
+                      <Typography.Text>{then.expect}</Typography.Text>
+                    </Flex>
+                  ))}
+                </Flex>
+              ),
+            },
+            ...(spec.failure ? [{ key: 'cause', label: 'Known cause', children: spec.failure }] : []),
+          ]}
+        />
+        {/* The catalog's filing fields matter less than the steps, so they follow as one quiet line. */}
+        <Flex gap={space.group} wrap align="center" style={{ marginTop: space.group }}>
+          {[
+            ['Group', meta.group ?? UNGROUPED],
+            ['Type', spec.type ? spec.type.toUpperCase() : null],
+            ['Runs', spec.run === 'on-demand' ? 'On demand, only when named' : 'In every regular run'],
+            ['Status', spec.status],
+          ].filter(([, value]) => value).map(([label, value]) => (
+            <Typography.Text key={label} style={text.caption}>{label} <Typography.Text style={text.body}>{value}</Typography.Text></Typography.Text>
+          ))}
+          {meta.tags.length > 0 && (
+            <Flex gap={space.inline} wrap align="center">
+              <Typography.Text style={text.caption}>Tags</Typography.Text>
+              {meta.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+            </Flex>
+          )}
+        </Flex>
+      </Card>
+
+      {/* 2. Its bug: how it ended in the run on screen, the error, and the tickets on it. */}
       <Card
-        title={`${spec.id} · ${spec.title}`}
-        extra={result
-          ? <CaseStatusTag status={failed && result.status === 'passed' ? 'failed' : result.status} />
-          : <Tag>Not in this run</Tag>}
+        title="Bug"
+        extra={(
+          <Flex gap={space.stack} align="center">
+            {bug && (
+              <Tooltip title={SAY[bug.status](bug)}>
+                <span><BugStatusTag status={bug.status} /></span>
+              </Tooltip>
+            )}
+            <Button onClick={() => setAttaching(true)}>Attach ticket</Button>
+          </Flex>
+        )}
       >
         <Flex vertical gap={space.group}>
-          <Flex gap={space.stack} wrap>
-            <Typography.Text style={text.caption}>
-              {viewingLatest ? 'Latest run' : `Run #${run.id}`}, {utc(run.startedAt)}
-              {!result
-                ? ' · not in this run'
-                : result.status !== 'passed' && result.thens.every((then) => then.status === 'not_run')
-                  ? ' · stopped before its first check'
-                  : ''}
-            </Typography.Text>
+          <Flex gap={space.stack} wrap align="center">
+            <Typography.Text style={text.caption}>{viewingLatest ? 'Latest run' : `Run #${run.id}`}, {utc(run.startedAt)}</Typography.Text>
+            {result
+              ? <CaseStatusTag status={failed && result.status === 'passed' ? 'failed' : result.status} />
+              : <Tag>Not in this run</Tag>}
+            {stopped.map((then) => <ThenTag key={then.id} id={then.id} status={then.status} caseStatus={result?.status ?? 'missing'} />)}
             {!viewingLatest && (
               <Link to="/p/$project/checks/$check/cases/$case" params={{ project: project.slug, check: check.slug, case: spec.id }}>
                 Back to latest
               </Link>
             )}
           </Flex>
-          {failed && (
-            <Flex>
-              <Button type="primary" icon={<CopyOutlined />} onClick={copyReport}>Copy for a bug ticket</Button>
-            </Flex>
-          )}
-          {spec.failure && (
-            <Alert type={failed ? 'error' : 'info'} showIcon title="Known cause" description={spec.failure} />
-          )}
-          <Descriptions
-            column={1}
-            bordered
-            size="small"
-            styles={{ label: { width: token.controlHeight * 3 } }}
-            items={[
-              { key: 'given', label: 'Given', children: <Steps items={spec.given} /> },
-              { key: 'when', label: 'When', children: <Steps items={spec.when} /> },
-              {
-                key: 'then',
-                label: 'Then',
-                children: (
-                  <Flex vertical gap={space.stack}>
-                    {spec.then.map((then) => (
-                      <Flex key={then.id} gap={space.stack} align="baseline">
-                        <span style={{ flex: 'none' }}><ThenTag id={then.id} status={thenStatus.get(then.id) ?? 'not_run'} caseStatus={result?.status ?? 'missing'} /></span>
-                        <Typography.Text>{then.expect}</Typography.Text>
-                      </Flex>
-                    ))}
-                  </Flex>
-                ),
-              },
-            ]}
-          />
-          <Collapse ghost size="small" items={more} />
+          {result?.error && <ErrorLog log={result.error} />}
+          {!failed && !bug && <Typography.Text style={text.body}>No open bug: it passed and has no ticket.</Typography.Text>}
+          <TicketList tickets={bug?.tickets ?? []} onRemove={removeLink} />
         </Flex>
       </Card>
-      <CaseTicketsCard
-        bug={bug}
-        onAttach={() => setAttaching(true)}
-        onRemove={async (link) => {
-          try {
-            await removeTicket({ data: { project: project.slug, link } })
-            await router.invalidate()
-          } catch (error) {
-            message.error(`Removing failed: ${(error as Error).message}`)
-          }
-        }}
-      />
+
       <AttachTicketModal
         open={attaching}
         subject={`${spec.id} · ${spec.title}`}
@@ -253,38 +220,21 @@ const SAY: Record<CaseBug['status'], (bug: CaseBug) => string> = {
   fixed: () => 'Passed twice in a row in every environment since its newest ticket.',
 }
 
-// Is a ticket on this bug, is it fixed, and every ticket it was given, newest first.
-function CaseTicketsCard({ bug, onAttach, onRemove }: {
-  bug: CaseBug | null; onAttach: () => void; onRemove: (link: string) => Promise<void>
-}) {
-  const tickets = bug?.tickets ?? []
+// Every ticket the bug was given, newest first, each removable when pasted by mistake.
+function TicketList({ tickets, onRemove }: { tickets: CaseBug['tickets']; onRemove: (link: string) => Promise<void> }) {
+  if (!tickets.length) return null
   return (
-    <Card title="Tickets" extra={<Button onClick={onAttach}>Attach ticket</Button>}>
-      <Flex vertical gap={space.group}>
-        {bug
-          ? (
-            <Flex gap={space.stack} align="baseline" wrap>
-              <BugStatusTag status={bug.status} />
-              <Typography.Text>{SAY[bug.status](bug)}</Typography.Text>
-            </Flex>
-          )
-          : <Typography.Text style={text.caption}>Not a bug: it passes and has no ticket.</Typography.Text>}
-        {tickets.length > 0 && (
-          <Flex vertical gap={space.stack}>
-            {tickets.map((ticket) => (
-              <Flex key={ticket.id} vertical align="flex-start">
-                <TicketUrl url={ticket.url} />
-                <Flex gap={space.stack} wrap align="center">
-                  <Typography.Text style={text.caption}>by {ticket.by}, {utc(ticket.at)}</Typography.Text>
-                  <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
-                    <Button size="small" type="link">Remove</Button>
-                  </Popconfirm>
-                </Flex>
-              </Flex>
-            ))}
-          </Flex>
-        )}
-      </Flex>
-    </Card>
+    <Flex vertical gap={space.stack}>
+      <Typography.Text style={text.label}>Tickets</Typography.Text>
+      {tickets.map((ticket) => (
+        <Flex key={ticket.id} gap={space.stack} wrap align="center">
+          <TicketUrl url={ticket.url} />
+          <Typography.Text style={text.caption}>by {ticket.by}, {utc(ticket.at)}</Typography.Text>
+          <Popconfirm title="Remove this ticket link?" description="Only for a link pasted by mistake." onConfirm={() => onRemove(ticket.id)}>
+            <Button size="small" type="link">Remove</Button>
+          </Popconfirm>
+        </Flex>
+      ))}
+    </Flex>
   )
 }

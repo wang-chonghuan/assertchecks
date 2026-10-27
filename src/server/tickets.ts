@@ -1,11 +1,7 @@
 // What a person asks about a bug, answered from run results (ASSERT-37): does it need a ticket, is a
 // ticket on it, is it fixed. A bug is a failing case of the project, whatever environment it fails in.
 // Nothing here reads the database, so every rule is unit-tested.
-import type { Bug, BugStatus, TicketLink } from '../lib/types'
-
-const DAY = 24 * 60 * 60 * 1000
-// Fixed bugs stay in the list this long.
-const RECENT_DAYS = 14
+import type { Bug, TicketLink } from '../lib/types'
 
 // One run of a check that included the case.
 export interface CaseRun { runId: string; finishedAt: Date; passed: boolean }
@@ -48,14 +44,4 @@ export function caseStatus(links: TicketLink[], runsPerCheck: CaseRun[][]): Omit
   }
   const fixedAt = streaks.map((streak) => streak.secondAt!.toISOString()).sort().at(-1)!
   return { status: 'fixed', tickets, previous: null, fixedAt }
-}
-
-const ORDER: Record<BugStatus, number> = { 'needs-ticket': 0, 'in-progress': 1, fixed: 2 }
-
-// The project's bugs: those that need a ticket first, then those in progress, then those fixed in the
-// last two weeks. Older fixed bugs leave the list.
-export function projectBugs(bugs: Bug[], now: Date): Bug[] {
-  return bugs
-    .filter((bug) => bug.status !== 'fixed' || now.getTime() - new Date(bug.fixedAt!).getTime() <= RECENT_DAYS * DAY)
-    .sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.case.localeCompare(b.case))
 }

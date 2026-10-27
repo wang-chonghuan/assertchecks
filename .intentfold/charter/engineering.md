@@ -34,7 +34,7 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   (server functions used by routes), `telemetry` (the KQL that reads a workspace and de-duplicates
   failures), `problems` (pure assembly of the production-errors view) and `production-errors` (its
   membership-scoped reads, problem upserts and decisions), `tickets` (pure judgement of tickets
-  on cases from run results), `ticket-links` (attaching, removing and listing tickets by ticket) and
+  on cases from run results), `ticket-links` (attaching and removing tickets) and
   `client-tokens` (the client's sign-in as a person).
 - `src/infui/` — every UI token and the Ant theme built from them (charter/ui.md).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
