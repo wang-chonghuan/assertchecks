@@ -1,0 +1,12 @@
+{
+  "ticket": "ASSERT-45",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-45",
+  "branch": "ASSERT-45-cap8-red-cases",
+  "base": "3bd603fc01e71bc47e2260400a1e9aa9bb2ceab3",
+  "ports": {
+    "web": 63045
+  }
+}
