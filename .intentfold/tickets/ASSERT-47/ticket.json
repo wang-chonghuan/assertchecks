@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-47",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-47",
+  "branch": "ASSERT-47-one-ticket-per-case",
+  "base": "0493edaa2efa2a32431ac6f184e9a56ad820bf6e",
+  "ports": { "web": 63047 }
+}
