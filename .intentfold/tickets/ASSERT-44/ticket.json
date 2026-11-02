@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-44",
   "mode": "open",
-  "stage": "setup-complete",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-44",
   "branch": "codex/ASSERT-44-report-upload",
