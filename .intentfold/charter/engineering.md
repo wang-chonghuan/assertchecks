@@ -75,7 +75,8 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 - One database: the easy-app PostgreSQL schema serves production and local development alike, so
   migrations are additive only (add tables or nullable columns; drop/rename only in a later
   migration after the new code is deployed).
-- Reports with credential-like content are rejected whole, never cleaned and stored.
+- Projects redact credentials before reporting. AssertChecks receives reports unchanged and judges
+  their format and execution results, without rejecting reports based on credential-like keywords.
 
 ## Tools
 

@@ -20,7 +20,7 @@ const SECTIONS: { title: string; text: string }[] = [
   },
   {
     title: 'Project data',
-    text: 'Projects send the results of their end-to-end test runs from their own CI: the test catalog, each case’s result and error message, and the versions under test. Reports that look like they contain credentials are rejected and not stored. A project’s data is shown only to the people added to that project.',
+    text: 'Projects send the results of their end-to-end test runs from their own CI: the test catalog, each case’s result and error message, and the versions under test. Projects are responsible for redacting credentials before reporting. A project’s data is shown only to the people added to that project.',
   },
   {
     title: 'Cookies',

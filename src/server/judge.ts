@@ -63,12 +63,7 @@ interface ParsedResult {
 }
 
 const CASE_ID = /^[A-Z0-9]+(?:-[A-Z0-9]+)*$/
-const SENSITIVE = [/\bAuthorization\b/, /Bearer\s/, /eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}/]
 const ERROR_LIMIT = 600
-
-export function containsSensitive(text: string): boolean {
-  return SENSITIVE.some((pattern) => pattern.test(text))
-}
 
 function cleanError(message: unknown): string | null {
   if (typeof message !== 'string' || !message) return null

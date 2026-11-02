@@ -1,6 +1,6 @@
 import { sql } from './db'
 import { hashToken } from './crypto'
-import { containsSensitive, judge, type Selection, type Trigger, type Versions } from './judge'
+import { judge, type Selection, type Trigger, type Versions } from './judge'
 import { catalogErrors, resultErrors } from './schema'
 
 export const MAX_BODY_BYTES = 5 * 1024 * 1024
@@ -146,25 +146,21 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
     runCases = existing.cases
   }
 
-  // Reject the whole result rather than store a partially cleaned copy.
-  const sensitive = !producerError && containsSensitive(JSON.stringify(body.result))
   // A report that does not match the published format is recorded as incomplete, naming the fields.
-  const formatErrors = producerError || sensitive ? [] : [...catalogErrors(body.catalog), ...resultErrors(body.result)]
+  const formatErrors = producerError ? [] : [...catalogErrors(body.catalog), ...resultErrors(body.result)]
   const verdict = producerError
     ? { outcome: 'incomplete' as const, reason: `Runner reported no result: ${producerError}`, summary: null }
-    : sensitive
-      ? { outcome: 'incomplete' as const, reason: 'Report rejected: it contains a suspected credential', summary: null }
-      : formatErrors.length
-        ? { outcome: 'incomplete' as const, reason: `Report does not match the AssertChecks format: ${formatErrors.join('; ')}`, summary: null }
-        : judge({
-          result: body.result,
-          catalog: body.catalog,
-          exitCode,
-          deployedStart: start,
-          deployedEnd: end,
-          selection: check.selection,
-          cases: runCases,
-        })
+    : formatErrors.length
+      ? { outcome: 'incomplete' as const, reason: `Report does not match the AssertChecks format: ${formatErrors.join('; ')}`, summary: null }
+      : judge({
+        result: body.result,
+        catalog: body.catalog,
+        exitCode,
+        deployedStart: start,
+        deployedEnd: end,
+        selection: check.selection,
+        cases: runCases,
+      })
 
   const values = {
     outcome: verdict.outcome,
@@ -172,7 +168,7 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
     exitCode,
     testSha,
     end: end ? db.json(end as never) : null,
-    report: sensitive || producerError ? null : db.json(body.result as never),
+    report: producerError ? null : db.json(body.result as never),
     catalog: body.catalog ? db.json(body.catalog as never) : null,
     summary: verdict.summary ? db.json(verdict.summary as never) : null,
     cases: runCases ? db.json(runCases) : null,
@@ -193,7 +189,6 @@ export async function reportRun(token: string, text: string): Promise<Reply> {
         RETURNING id
       `
   if (!run) return fail(409, 'run already finished')
-  if (sensitive) return { status: 422, body: { runId: run.id, outcome: verdict.outcome, error: verdict.reason } }
   if (formatErrors.length) return { status: 200, body: { runId: run.id, outcome: verdict.outcome, errors: formatErrors } }
   return { status: 200, body: { runId: run.id, outcome: verdict.outcome } }
 }
@@ -213,9 +208,6 @@ function dryRunFormat(text: string): Reply | { body: Record<string, unknown>; ca
     return fail(400, (error as Error).message)
   }
   const hasResult = body.result !== undefined && body.result !== null
-  if (hasResult && containsSensitive(JSON.stringify(body.result))) {
-    return { status: 200, body: { valid: false, errors: ['result: contains a suspected credential; it would be rejected'] } }
-  }
   const errors = [...catalogErrors(body.catalog), ...(hasResult ? resultErrors(body.result) : [])]
   if (errors.length) return { status: 200, body: { valid: false, errors } }
   return { body, cases, hasResult }

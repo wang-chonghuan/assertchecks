@@ -146,7 +146,7 @@ export const CASES_FORMAT: CodeSample = {
 }`,
 }
 
-export const PASS_RULE = 'IDs must match the catalog. A run passes only when every expected case reported, nothing was skipped or flaky, every Then passed, and each version was recorded and unchanged. Reports over 5 MB or containing credential-like text are rejected.'
+export const PASS_RULE = 'IDs must match the catalog. A run passes only when every expected case reported, nothing was skipped or flaky, every Then passed, and each version was recorded and unchanged. Reports over 5 MB are rejected. Projects must redact credentials before reporting.'
 
 const fence = (sample: CodeSample) => `${sample.label}:\n\n\`\`\`${sample.lang}\n${sample.code}\n\`\`\``
 

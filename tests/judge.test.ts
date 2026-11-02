@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { DEFAULT_SELECTION, containsSensitive, judge } from '../src/server/judge'
+import { DEFAULT_SELECTION, judge } from '../src/server/judge'
 import { checkStatus, runTimedOut } from '../src/server/status'
 
 const catalog = {
@@ -169,11 +169,19 @@ test('a run stopped by its time limit is incomplete, and the stopped case is int
   assert.equal(judged.summary.find((item) => item.case === 'E2E-001')?.status, 'passed')
 })
 
-test('sensitive patterns are detected', () => {
-  assert.equal(containsSensitive('{"Authorization":"x"}'), true)
-  assert.equal(containsSensitive('header Bearer abc'), true)
-  assert.equal(containsSensitive('eyJhbGciOiJI.eyJzdWIiOiIx.sig'), true)
-  assert.equal(containsSensitive('Then A1: authorization regression is blocked'), false)
+test('failed cases retain redacted error text without changing the verdict', () => {
+  const error = 'Request timed out\nAuthorization: [REDACTED]\nBearer [REDACTED]'
+  const verdict = judge({
+    ...base,
+    exitCode: 1,
+    result: playwright([
+      { id: 'E2E-001', status: 'unexpected', result: 'failed', thens: { A1: true, A2: false }, error },
+      { id: 'E2E-002', thens: { A1: true } },
+    ]),
+  })
+  assert.equal(verdict.outcome, 'failed')
+  assert.equal(verdict.summary[0].error, error)
+  assert.equal(verdict.summary[0].thens[1].status, 'failed')
 })
 
 test('status follows the latest full run; lateness follows scheduled runs only', () => {
