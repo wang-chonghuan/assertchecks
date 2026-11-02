@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-44",
+  "mode": "open",
+  "stage": "setup-complete",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-44",
+  "branch": "codex/ASSERT-44-report-upload",
+  "base": "d6fbcc5094533999b077bfbc8c86dbc37f19c32b",
+  "ports": { "web": 63044 }
+}

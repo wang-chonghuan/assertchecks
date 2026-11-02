@@ -41,11 +41,6 @@ import { parseArgs } from 'node:util'
 
 export const DEFAULT_ORIGIN = 'https://assertchecks.com'
 const TIMEOUT_MS = 30_000
-const SENSITIVE = [/\bAuthorization\b/, /Bearer\s/, /eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}/]
-
-export function containsSensitive(text) {
-  return SENSITIVE.some((pattern) => pattern.test(text))
-}
 
 // GitHub Actions identifies itself; anything else is a local run unless told otherwise.
 export function runnerFromEnv(env) {
@@ -269,10 +264,6 @@ export async function run(argv, { env = process.env, fetchImpl = fetch, out = co
         // The report is uploaded unchanged; AssertChecks parses it.
         result = { format: 'playwright', report }
         catalog = JSON.parse(readFileSync(values.catalog, 'utf8'))
-        if (containsSensitive(JSON.stringify(report))) {
-          error = 'credential-like content found in the report; it was not uploaded'
-          result = null
-        }
       }
     }
     const reply = await post(origin, token, 'report', error ? { ...base, error } : { ...base, result, catalog }, fetchImpl)

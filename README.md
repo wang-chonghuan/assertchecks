@@ -27,8 +27,9 @@ GitHub Actions runs and `manual` otherwise; GitHub Actions also supplies the run
 link. `--cases ID,ID` names the cases of a partial run. A version URL must return JSON with a
 40-character `sha`; each read is tried up to three times (waiting 2 s, then 4 s) before the
 version is recorded as unreadable. If there is no report, `report --error "<why>"` records the run as incomplete.
-The client never prints the token, uploads the Playwright report unchanged, refuses to upload a
-report containing credential-like strings, and exits non-zero when the run could not be reported.
+The client never prints the token, uploads the Playwright report unchanged, and exits non-zero when
+the run could not be reported. Projects are responsible for redacting credentials before reporting;
+AssertChecks does not reject reports based on credential-like keywords.
 
 ### As a person, from the terminal
 
@@ -90,8 +91,7 @@ run `regular`); a run that names `cases` is partial and judged against exactly t
 `passed` only when the exit code is 0, the reported cases are exactly the expected ones, nothing was
 skipped or flaky, every declared Then passed, and every tested version was recorded and unchanged
 between start and end. Assertion failures are `failed`; anything not fully executed is `incomplete`.
-Results with credential-like strings are rejected (HTTP 422) and not stored. Bodies are limited to
-5 MB. Unknown tokens return 404.
+Bodies are limited to 5 MB. Unknown tokens return 404.
 
 Each check shows its latest finished full run. When that run's catalog removed a required case, or
 moved one out of the check's selection, compared with the previous full run, the check shows a

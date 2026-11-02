@@ -68,19 +68,31 @@ test('report uploads the Playwright report unchanged inside the envelope', async
   assert.equal(sent.body.runId, '7')
 })
 
-test('a missing or credential-bearing report is reported as an error and fails the job', async () => {
+test('a missing report is reported as an error and fails the job', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'assertchecks-client-'))
   writeFileSync(join(dir, 'e2e.json'), JSON.stringify({ cases: [] }))
-  writeFileSync(join(dir, 'leaky.json'), JSON.stringify({ suites: [], note: 'Bearer abc' }))
-  for (const file of ['absent.json', 'leaky.json']) {
+  const { calls, options } = harness()
+  const code = await run(['report', '--run-id', '7', '--exit-code', '0',
+    '--playwright', join(dir, 'absent.json'), '--catalog', join(dir, 'e2e.json')], options)
+  assert.equal(code, 1)
+  const sent = calls.find((call) => call.url.endsWith('/report')).body
+  assert.equal(sent.result, undefined)
+  assert.match(sent.error, /no Playwright report/)
+})
+
+test('report text is uploaded unchanged without credential keyword filtering', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'assertchecks-client-'))
+  writeFileSync(join(dir, 'e2e.json'), JSON.stringify({ cases: [] }))
+  for (const text of ['Authorization: [REDACTED]', 'Bearer [REDACTED]', 'eyJnot-a-token.eyJnot-a-token']) {
+    const report = { suites: [], errors: [{ message: text }] }
+    writeFileSync(join(dir, 'results.json'), JSON.stringify(report))
     const { calls, options } = harness()
     const code = await run(['report', '--run-id', '7', '--exit-code', '0',
-      '--playwright', join(dir, file), '--catalog', join(dir, 'e2e.json')], options)
-    assert.equal(code, 1)
+      '--playwright', join(dir, 'results.json'), '--catalog', join(dir, 'e2e.json')], options)
+    assert.equal(code, 0)
     const sent = calls.find((call) => call.url.endsWith('/report')).body
-    assert.equal(sent.result, undefined)
-    assert.match(sent.error, file === 'absent.json' ? /no Playwright report/ : /credential-like/)
-    assert.doesNotMatch(JSON.stringify(sent), /Bearer abc/)
+    assert.deepEqual(sent.result, { format: 'playwright', report })
+    assert.equal(sent.error, undefined)
   }
 })
 
