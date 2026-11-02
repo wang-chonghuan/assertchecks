@@ -17,7 +17,7 @@ Ask: 你决定吧，我的要求是，改完，别留尾巴，然后要用简洁
   section and cap0 fact from the first delivery are gone. NSDK already names the owner.
 - New `What A Case Says` in `SKILL.md` is the only statement of who owns case text and of not weakening a
   case; duplicates in cap1, cap2 and cap6 removed.
-- Repair is only in cap8; cap3 runs and reports. cap8 reduced from 96 to 47 lines; its own audit step and
+- Repair is only in cap8; cap3 runs and reports. cap8 reduced from 96 to 44 lines; its own audit step and
   helper check are gone because the daily change audit covers them.
 - Contradictions removed: "first eligible object" against "never first"; cap4 and cap7 client downloads;
   cap7's acceptance against cap8's unexplained passes. Two-run rule stated once.
