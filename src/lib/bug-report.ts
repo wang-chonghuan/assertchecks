@@ -1,15 +1,15 @@
-// Plain-text bug reports a person copies into their coding agent, which files the tickets. Everything
-// the agent needs to trace a failure back to the run, the tested code and the case is in the text; the
-// case's full Given/When/Then is in the project's catalog at the test commit.
+// Plain-text reports of a check's red cases that a person copies into their coding agent, which clears
+// them. Everything the agent needs to trace a failure back to the run, the tested code and the case is in
+// the text; the case's full Given/When/Then is in the project's catalog at the test commit.
 import type { BugReport, CaseBug, CaseResult, CaseSpec, ThenStatus, Versions } from './types'
 
 // The rules live in the assertchecks skill's cap7; the short form below is for an agent without it.
 const instructions = (project: string) => [
-  'File bug tickets from the AssertChecks results below by following the assertchecks skill\'s cap7, in this project\'s repository and with its own ticket workflow (in an IntentFold project: cap2, type fix).',
-  'Without the skill: every case below ends with a ticket on it, or listed for a person. Product defects get one fix ticket per cause; test defects get fix tickets for the tests; when product and test cannot be told apart, or a rule and the product disagree, file a ticket that states the open question with the evidence for each reading, for its owner to investigate.',
-  'Each case carries its written Given/When/Then and its latest failure; its test is assertchecks/tests/<case id>.spec.ts and its catalog entry is in assertchecks/e2e.json at the run\'s test commit. Put the run links, tested versions and case links in each ticket, and finish with the tickets per owner.',
-  'Each case lists its tickets in AssertChecks, newest first. Never write to an existing ticket. Newest ticket open: leave the case to it. Newest ticket closed: when this run contains its fix (the deployed version for a product fix, the test commit for a test fix), file a new ticket that links it; when it does not, leave it, the fix is not deployed yet; when you cannot tell, list the case for a person. No ticket: file one, or link the case to an open ticket that already covers the same cause.',
-  `After filing a ticket, or choosing an open one for a case, record it in AssertChecks with its client (/client/assertchecks.mjs): \`node assertchecks.mjs link --project ${project} --cases <ID,ID> --ticket <URL>\`. The client acts as the person signed in with \`node assertchecks.mjs login\`; when it is not signed in, run login and give the person the address it prints to approve.`,
+  'Clear the red cases below by following the assertchecks skill\'s cap7, in this project\'s repository and with its own ticket workflow (in an IntentFold project: cap2, type fix).',
+  'Without the skill: every case below ends repaired or with a developer, and you pass no analysis, options or routing question back to the person. Repair only in test scripts, fixtures and the case\'s own data, never in product code and never by asserting less; a repair counts after two consecutive passes by case ID with zero retries. A case you cannot make pass that way goes to a developer, who decides whether the product or the test changes. A case\'s written text changes only with its owner\'s approval.',
+  'Use one ticket for the whole run, kept open and assigned to the project\'s developer for red cases while any case is with them. Each case carries its written Given/When/Then and its latest failure; its test is assertchecks/tests/<case id>.spec.ts and its catalog entry is in assertchecks/e2e.json at the run\'s test commit. Put the run links, tested versions and case links in the ticket, and finish with two lists: repaired, and with a developer.',
+  'Each case lists its tickets in AssertChecks, newest first. Never write to an existing ticket. Leave a case whose newest ticket is open, or closed with a fix this run does not contain (the deployed version for a product fix, the test commit for a test fix). Link a case to an open ticket that already covers the same cause. Every other case is yours.',
+  `Record the ticket on every case it covers in AssertChecks with its client (/client/assertchecks.mjs): \`node assertchecks.mjs link --project ${project} --cases <ID,ID> --ticket <URL>\`. The client acts as the person signed in with \`node assertchecks.mjs login\`; when it is not signed in, run login and give the person the address it prints to approve.`,
 ]
 
 const day = (iso: string) => `${iso.slice(0, 16).replace('T', ' ')} UTC`
@@ -58,7 +58,7 @@ function specLines(spec: CaseSpec, result: CaseResult | null, indent: string): s
   ]
 }
 
-// Every case that did not pass in the check's latest full run, each with enough to file a ticket.
+// Every case that did not pass in the check's latest full run, each with enough to clear it.
 export function latestBugReport(origin: string, report: BugReport): string {
   const { project, check, run, cases } = report
   const head = `Project: ${project.name} · Check: ${check.name} (environment ${check.environment})`

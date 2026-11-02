@@ -136,7 +136,7 @@ export interface CaseSpec {
   then: { id: string; expect: string }[]
 }
 
-// What a coding agent needs to file bug tickets from a check's latest full run: every case that did not
+// What a coding agent needs to clear the red cases of a check's latest full run: every case that did not
 // pass in it, with its written expectation, its result and its tickets.
 export interface BugReport {
   project: { slug: string; name: string }
