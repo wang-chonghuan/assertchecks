@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-48",
+  "mode": "open",
+  "stage": "handed-off",
+  "finish": "auto-merge",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-48",
+  "branch": "ASSERT-48-cap8-developer-fix",
+  "base": "7cc973020a45fc94bc9ab01c6125b5dee22ced0e",
+  "ports": { "web": 63048 }
+}
