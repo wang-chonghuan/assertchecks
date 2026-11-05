@@ -221,7 +221,7 @@ export interface AutomationView {
   workspace: string | null
   target: { id: string; name: string } | null
   assignee: { id: string; name: string } | null
-  // Recognisable but unusable: hooks.slack.com/…abcd.
+  // The channel's name as a person gave it (an older setting shows hooks.slack.com/…abcd).
   slack: string | null
   // Tickets are filed automatically only when a platform and a target are set.
   active: boolean

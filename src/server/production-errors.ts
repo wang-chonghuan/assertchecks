@@ -29,6 +29,7 @@ export interface AutomationRow {
   assignee_id: string | null
   assignee_name: string | null
   slack_webhook: string | null
+  slack_channel: string | null
   updated_by: string
   updated_at: Date
 }
@@ -63,7 +64,7 @@ export function automationView(row: AutomationRow | null): AutomationView | null
     workspace: row.workspace,
     target: row.target_id ? { id: row.target_id, name: row.target_name ?? row.target_id } : null,
     assignee: row.assignee_id ? { id: row.assignee_id, name: row.assignee_name ?? row.assignee_id } : null,
-    slack: row.slack_webhook ? webhookHint(row.slack_webhook) : null,
+    slack: row.slack_webhook ? (row.slack_channel ?? webhookHint(row.slack_webhook)) : null,
     active: Boolean(row.platform && row.token && row.target_id),
     updatedBy: row.updated_by,
     updatedAt: row.updated_at.toISOString(),
@@ -237,15 +238,19 @@ export async function removeDestination(user: { id: string; email: string }, pro
 }
 
 // Saves the channel after Slack accepted a test message there; null removes it.
-export async function saveSlack(user: { id: string; email: string }, projectSlug: string, webhook: string | null): Promise<boolean> {
+export async function saveSlack(
+  user: { id: string; email: string }, projectSlug: string, webhook: string | null, channel: string | null = null,
+): Promise<boolean> {
   const found = await project(user.id, projectSlug)
   if (!found) return false
   if (webhook) {
     await postToSlack(webhook, `AssertChecks will post the tickets on *${found.name}*'s production errors in this channel.`)
   }
   await sql()`
-    INSERT INTO error_automation (project_id, slack_webhook, updated_by) VALUES (${found.id}, ${webhook}, ${user.email})
-    ON CONFLICT (project_id) DO UPDATE SET slack_webhook = EXCLUDED.slack_webhook, updated_by = EXCLUDED.updated_by, updated_at = now()
+    INSERT INTO error_automation (project_id, slack_webhook, slack_channel, updated_by)
+    VALUES (${found.id}, ${webhook}, ${webhook ? channel : null}, ${user.email})
+    ON CONFLICT (project_id) DO UPDATE SET slack_webhook = EXCLUDED.slack_webhook, slack_channel = EXCLUDED.slack_channel,
+      updated_by = EXCLUDED.updated_by, updated_at = now()
   `
   return true
 }

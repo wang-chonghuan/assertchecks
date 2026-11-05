@@ -221,11 +221,16 @@ export const removeTicketDestination = createServerFn({ method: 'POST' })
   })
 
 export const saveSlackChannel = createServerFn({ method: 'POST' })
-  .validator((data: { project: unknown; webhook: unknown }) => ({
-    project: text(data.project, 'project'),
-    webhook: data.webhook === null ? null : webhookUrl(data.webhook),
-  }))
+  .validator((data: { project: unknown; webhook: unknown; channel?: unknown }) => {
+    const webhook = data.webhook === null ? null : webhookUrl(data.webhook)
+    let channel: string | null = null
+    if (webhook) {
+      channel = text(data.channel, 'channel').trim().replace(/^#?/, '#')
+      if (channel.length > 81) throw new Error('channel is too long')
+    }
+    return { project: text(data.project, 'project'), webhook, channel }
+  })
   .handler(async ({ data }) => {
-    if (!(await saveSlack(await requireUser(), data.project, data.webhook))) throw notFound()
+    if (!(await saveSlack(await requireUser(), data.project, data.webhook, data.channel))) throw notFound()
     return { ok: true }
   })

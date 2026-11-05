@@ -40,11 +40,20 @@ function DestinationModal({ open, project, current, onCancel, onSaved }: {
     if (!open) return
     form.setFieldsValue({ platform: current?.platform ?? 'linear', workspace: current?.workspace ?? undefined, token: undefined, target: undefined, assignee: undefined })
     setAccount(null); setTargets([]); setPeople([]); setProblem(null)
+    // With a key already saved, the lists load at once.
+    if (current?.active) void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, current, form])
 
+  // The form's values, or the saved settings before the form has mounted.
   const accessFields = () => {
     const values = form.getFieldsValue()
-    return { project, platform: values.platform, workspace: values.workspace?.trim(), token: values.token?.trim() || undefined }
+    return {
+      project,
+      platform: values.platform ?? current?.platform ?? 'linear',
+      workspace: (values.workspace ?? current?.workspace ?? undefined)?.trim(),
+      token: values.token?.trim() || undefined,
+    }
   }
 
   // A saved key is kept when the platform and workspace stay the same, so the form can load without retyping it.
@@ -156,9 +165,9 @@ function DestinationModal({ open, project, current, onCancel, onSaved }: {
 
 function SlackModal({ open, project, onCancel, onSaved }: { open: boolean; project: string; onCancel: () => void; onSaved: () => Promise<void> }) {
   const { message } = App.useApp()
-  const [form] = Form.useForm<{ webhook: string }>()
+  const [form] = Form.useForm<{ channel: string; webhook: string }>()
   const [saving, setSaving] = useState(false)
-  useEffect(() => { if (open) form.setFieldsValue({ webhook: '' }) }, [open, form])
+  useEffect(() => { if (open) form.setFieldsValue({ channel: '', webhook: '' }) }, [open, form])
   return (
     <Modal
       open={open}
@@ -167,10 +176,10 @@ function SlackModal({ open, project, onCancel, onSaved }: { open: boolean; proje
       confirmLoading={saving}
       onCancel={onCancel}
       onOk={async () => {
-        const { webhook } = await form.validateFields()
+        const { channel, webhook } = await form.validateFields()
         setSaving(true)
         try {
-          await saveSlackChannel({ data: { project, webhook: webhook.trim() } })
+          await saveSlackChannel({ data: { project, channel: channel.trim(), webhook: webhook.trim() } })
           await onSaved()
         } catch (error) {
           message.error(`Saving failed: ${(error as Error).message}`)
@@ -181,6 +190,9 @@ function SlackModal({ open, project, onCancel, onSaved }: { open: boolean; proje
       destroyOnHidden
     >
       <Form form={form} layout="vertical">
+        <Form.Item name="channel" label="Channel" extra="The channel you picked for the webhook, so this page can name it." rules={[{ required: true, whitespace: true, message: 'Name the channel.' }, { max: 80 }]}>
+          <Input placeholder="#production-errors" />
+        </Form.Item>
         <Form.Item
           name="webhook"
           label="Incoming webhook"
@@ -214,8 +226,8 @@ export function AutomaticTicketsCard({ project, automation, onChanged }: { proje
             <Typography.Text style={text.label}>Tickets</Typography.Text>
             <Typography.Text style={text.body}>
               {active
-                ? `Every error that needs a ticket gets one in ${automation.target?.name} on ${PLATFORM[automation.platform!]}, ${automation.assignee ? `assigned to ${automation.assignee.name}` : 'unassigned'}.`
-                : 'Off. Choose where tickets go and every error that needs a ticket gets one within about 20 minutes.'}
+                ? `Every error that needs a ticket gets one in ${automation.target?.name} on ${PLATFORM[automation.platform!]} as soon as it is detected, ${automation.assignee ? `assigned to ${automation.assignee.name}` : 'unassigned'}. Slow operations get none.`
+                : 'Off. Choose where tickets go and every error that needs a ticket gets one as soon as it is detected. Slow operations get none.'}
             </Typography.Text>
           </Flex>
           <Flex gap={space.stack} wrap>
@@ -231,7 +243,7 @@ export function AutomaticTicketsCard({ project, automation, onChanged }: { proje
           <Flex vertical style={words}>
             <Typography.Text style={text.label}>Slack</Typography.Text>
             <Typography.Text style={text.body}>
-              {automation?.slack ? `Every ticket put on an error is posted through ${automation.slack}.` : 'No channel. Tickets are not posted to Slack.'}
+              {automation?.slack ? `Every ticket put on an error is posted to ${automation.slack}.` : 'No channel. Tickets are not posted to Slack.'}
             </Typography.Text>
           </Flex>
           <Flex gap={space.stack} wrap>
