@@ -5,7 +5,9 @@
 import { DefaultAzureCredential } from '@azure/identity'
 
 const ENDPOINT = 'https://finley-codex.openai.azure.com/openai/v1/chat/completions'
-const DEPLOYMENT = 'gpt-6.1-sol'
+// The owner's choice (2026-11-05): Luna with high reasoning effort.
+const DEPLOYMENT = 'gpt-5.6-luna'
+const EFFORT = 'high'
 const SCOPE = 'https://cognitiveservices.azure.com/.default'
 const TIMEOUT_MS = 90_000
 const STACK_CHARS = 6000
@@ -61,6 +63,7 @@ export async function interpret(facts: ErrorFacts, language: Language): Promise<
     headers: { authorization: `Bearer ${token.token}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       model: DEPLOYMENT,
+      reasoning_effort: EFFORT,
       messages: [
         { role: 'system', content: INSTRUCTIONS[language] },
         { role: 'user', content: factsText(facts) },
