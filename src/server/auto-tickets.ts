@@ -72,7 +72,8 @@ export async function announce(input: {
   }
 }
 
-export async function fileAutomaticTickets(projectId: string): Promise<RunSummary> {
+// `limit` files at most that many tickets, most frequent problems first: an operator's first, careful run.
+export async function fileAutomaticTickets(projectId: string, limit = Infinity): Promise<RunSummary> {
   const [found] = await sql()<{ id: string; slug: string; name: string }[]>`SELECT id, slug, name FROM projects WHERE id = ${projectId}`
   if (!found) return { project: projectId, filed: [], failed: [], skipped: 'no such project' }
   const summary: RunSummary = { project: found.slug, filed: [], failed: [] }
@@ -86,6 +87,7 @@ export async function fileAutomaticTickets(projectId: string): Promise<RunSummar
   const refused = await verify(access).then(() => null, (error: Error) => error)
 
   for (const problem of view.problems.filter((item) => item.kind === 'error' && item.needsTicket)) {
+    if (summary.filed.length + summary.failed.length >= limit) break
     if (!(await claim(problem.id, automation.updated_at))) continue
     const link = problemLink(ORIGIN, found.slug, problem.id)
     try {
@@ -116,8 +118,17 @@ export async function fileAutomaticTickets(projectId: string): Promise<RunSummar
       `
       summary.filed.push(url)
     } catch (error) {
-      const message = (error as Error).message.slice(0, 500)
-      await sql()`UPDATE auto_tickets SET state = 'failed', error = ${message}, updated_at = now() WHERE problem_id = ${problem.id}`
+      // Node's "fetch failed" hides why; its cause names it (ETIMEDOUT, ECONNRESET, ...).
+      const cause = (error as { cause?: { code?: string } }).cause?.code
+      const message = `${(error as Error).message}${cause ? ` (${cause})` : ''}`.slice(0, 500)
+      // A network blip or a platform outage passes on its own: try again next run. A refused key or a
+      // rejected request does not: wait until someone changes the settings.
+      const passing = /fetch failed|ETIMEDOUT|ECONNRESET|timed? ?out|aborted|HTTP (429|5\d\d)/i.test(message)
+      await sql()`
+        UPDATE auto_tickets SET state = 'failed', error = ${message}, updated_at = now(),
+          config_at = CASE WHEN ${passing} THEN '-infinity'::timestamptz ELSE config_at END
+        WHERE problem_id = ${problem.id}
+      `
       summary.failed.push({ problem: problem.key, error: message })
     }
   }
