@@ -132,7 +132,8 @@ identity and the developer's `az login` each hold Cognitive Services OpenAI User
 az role assignment create --assignee-object-id <principal-id> --assignee-principal-type <ServicePrincipal|User> \
   --role "Cognitive Services OpenAI User" \
   --scope "$(az cognitiveservices account show -g finley-azure-openai -n finley-codex --query id -o tsv)"
-pnpm admin errors:auto <project-slug>   # file a project's automatic tickets now, as the timer does
+pnpm admin errors:auto <project-slug> [--limit <n>]   # file a project's automatic tickets now, as the timer does
+pnpm admin source:events <project-slug> [<event>:<property>=<value> ...]   # custom events that count as failures
 ```
 
 Where a project's tickets go, its platform key and its Slack webhook are set on its Production errors

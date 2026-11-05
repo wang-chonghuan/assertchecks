@@ -4,12 +4,13 @@
 import { sql } from './db'
 import { project, type ProjectRow } from './queries'
 import { telemetry } from './telemetry'
+import { failureEvents } from './failure-events'
 import { assemble, seenProblems, withoutData, type StoredProblem } from './problems'
 import { people, targets, verify, type Access, type Person, type Target } from './ticket-platforms'
 import { postToSlack, webhookHint } from './slack'
 import type { AutomationView, AutoTicketState, ProblemKind, ProductionErrors, TicketLink, TicketPlatform } from '../lib/types'
 
-interface SourceRow { workspace_id: string; workspace_path: string; roles: string[] | null }
+interface SourceRow { workspace_id: string; workspace_path: string; roles: string[] | null; failure_events: unknown }
 interface ProblemRow {
   id: string; kind: ProblemKind; key: string; first_seen: Date; last_seen: Date
   decision: 'ticket' | 'ignored' | null; reason: string | null; decided_by: string | null; decided_at: Date | null
@@ -76,12 +77,12 @@ export async function readProductionErrors(found: ProjectRow): Promise<Productio
   const info = { slug: found.slug, name: found.name }
   const now = new Date()
   const [source] = await sql()<SourceRow[]>`
-    SELECT workspace_id, workspace_path, roles FROM error_sources WHERE project_id = ${found.id}
+    SELECT workspace_id, workspace_path, roles, failure_events FROM error_sources WHERE project_id = ${found.id}
   `
   if (!source) return withoutData(info, 'not-connected', now, null, null)
   let data
   try {
-    data = await telemetry({ workspaceId: source.workspace_id, roles: source.roles })
+    data = await telemetry({ workspaceId: source.workspace_id, roles: source.roles, events: failureEvents(source.failure_events) })
   } catch (error) {
     // Unreadable telemetry is shown as unreadable, never as a quiet day.
     return withoutData(info, 'unavailable', now, (error as Error).message, portal(source.workspace_path))

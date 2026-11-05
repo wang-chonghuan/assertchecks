@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-50",
+  "mode": "autonomous",
+  "stage": "developing",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-50",
+  "branch": "ASSERT-50-failure-events",
+  "base": "68dcc2564044735fcdd6507051659acef1ebf40c",
+  "ports": { "web": 63050 }
+}

@@ -11,10 +11,13 @@
 import { DefaultAzureCredential } from '@azure/identity'
 import { LogsQueryClient, LogsQueryResultStatus, type LogsTable } from '@azure/monitor-query-logs'
 import type { NoiseCategory } from '../lib/types'
+import { failureEventsKql, type FailureEvent } from './failure-events'
 
 export interface Source {
   workspaceId: string
   roles: string[] | null
+  // Custom events the project declared as failures (ASSERT-50).
+  events: FailureEvent[]
 }
 
 // One problem's failures in a 5-minute bucket.
@@ -73,16 +76,21 @@ function roleFilter(roles: string[] | null): string {
   return `| where AppRoleName in (dynamic(${JSON.stringify(roles)}))`
 }
 
-// Exceptions as failures, each marked with the noise category that keeps it out of the problems.
-function failures(roles: string): string {
+// Exceptions, and the project's declared failure events, as failures. Each exception is marked with the
+// noise category that keeps it out of the problems; a declared event is a failure because the project said
+// so, and no noise rule applies to it.
+function failures(roles: string, declared: string[]): string {
+  const sources = declared.length
+    ? `union (AppExceptions | where TimeGenerated > since ${roles}), ${declared.join(', ')}`
+    : `AppExceptions\n| where TimeGenerated > since ${roles}`
   return `
 let since = ago(90d);
 let clientErrors = AppRequests | where TimeGenerated > since ${roles} | where toint(ResultCode) between (400 .. 499) | distinct OperationId;
-let failures = AppExceptions
-| where TimeGenerated > since ${roles}
+let failures = ${sources}
 | extend op = iff(isempty(OperationId), _ItemId, OperationId)
 | extend short = iff(ProblemId matches regex @"^[A-Za-z_][A-Za-z0-9_.]*$", extract(@"([A-Za-z0-9_]+)$", 1, ProblemId), ProblemId)
 | extend noise = case(
+    ${declared.length ? 'declared == true, "",' : ''}
     ClientType == "Browser" and OuterMessage has "Script error", "script",
     ${ABORTED}, "aborted",
     OperationId in (clientErrors), "client",
@@ -93,13 +101,13 @@ let failures = AppExceptions
 | where noise == "";`
 }
 
-function bucketsQuery(roles: string): string {
-  return `${failures(roles)}
+function bucketsQuery(roles: string, declared: string[]): string {
+  return `${failures(roles, declared)}
 failures | summarize n = count() by ProblemId, bucket = bin(t, 5m)`
 }
 
-function variantsQuery(roles: string): string {
-  return `${failures(roles)}
+function variantsQuery(roles: string, declared: string[]): string {
+  return `${failures(roles, declared)}
 let places = AppRequests | where TimeGenerated > since ${roles} | where OperationId in ((failures | distinct op)) | summarize place = take_any(Name) by OperationId;
 failures
 | lookup kind=leftouter places on $left.op == $right.OperationId
@@ -170,9 +178,10 @@ const num = (value: unknown): number => Number(value)
 
 async function read(source: Source): Promise<Telemetry> {
   const roles = roleFilter(source.roles)
+  const declared = failureEventsKql(source.events)
   const [buckets, variants, noise, slow] = await Promise.all([
-    run(source.workspaceId, bucketsQuery(roles)),
-    run(source.workspaceId, variantsQuery(roles)),
+    run(source.workspaceId, bucketsQuery(roles, declared)),
+    run(source.workspaceId, variantsQuery(roles, declared)),
     run(source.workspaceId, noiseQuery(roles)),
     run(source.workspaceId, slowQuery(roles)),
   ])
@@ -200,7 +209,7 @@ async function read(source: Source): Promise<Telemetry> {
 const cache = new Map<string, { at: number; value: Promise<Telemetry> }>()
 
 export function telemetry(source: Source, now = Date.now()): Promise<Telemetry> {
-  const id = `${source.workspaceId}|${source.roles?.join(',') ?? ''}`
+  const id = `${source.workspaceId}|${source.roles?.join(',') ?? ''}|${JSON.stringify(source.events)}`
   const hit = cache.get(id)
   if (hit && now - hit.at < CACHE_MS) return hit.value
   const value = read(source)

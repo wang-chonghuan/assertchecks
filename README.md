@@ -108,7 +108,10 @@ project's tickets go: Plane (workspace slug and API token) or Linear (API key), 
 that platform, and an assignee; and optionally a Slack incoming webhook. Then the server, every 10
 minutes, files one ticket for each error problem in Needs a ticket, with the error, its stack and an
 automatic interpretation from Azure OpenAI, attaches it to the problem and posts it to Slack. Tickets a
-person attaches are posted too. Slow operations get no automatic ticket. `pnpm admin errors:auto
+person attaches are posted too. Slow operations get no automatic ticket. A failure that leaves no exception, only a custom event the
+project records, counts once the project declares it: `pnpm admin source:events <project>
+<event>:<property>=<value>` (for example `bf_auth_recovery:outcome=failed`); it then becomes a problem
+like an exception and no noise rule applies to it. `pnpm admin errors:auto
 <project>` runs the same filing once. Keys and webhooks are kept in the database and never shown again.
 
 ## Development
@@ -150,6 +153,8 @@ pnpm admin check:update <project-slug> <check-slug> [--slug] [--name] [--env] [-
 pnpm admin check:token <project-slug> <check-slug>
 pnpm admin source:set <project-slug> --workspace-id <customer-id> --workspace <resource-id> [--roles a,b]
 pnpm admin source:remove <project-slug>
+pnpm admin source:events <project-slug> [<event>:<property>=<value> ...]
+pnpm admin errors:auto <project-slug> [--limit <n>]
 ```
 
 ## Deployment

@@ -37,7 +37,7 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   on cases from run results), `ticket-links` (attaching and removing tickets),
   `client-tokens` (the client's sign-in as a person), and for automatic tickets (ASSERT-49)
   `auto-tickets` (claim, interpret, file, attach, announce), `ticket-platforms` (Plane and Linear),
-  `interpret` (Azure OpenAI), `slack` (incoming webhooks), `ticket-text` (pure ticket and message
+  `interpret` (Azure OpenAI), `slack` (incoming webhooks), `failure-events` (custom events a project declares as failures, ASSERT-50), `ticket-text` (pure ticket and message
   words) and `plugins/auto-tickets` (the production timer).
 - `src/infui/` — every UI token and the Ant theme built from them (charter/ui.md).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
@@ -59,7 +59,9 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   secret or connection string for a project's telemetry exists in AssertChecks, its database, its
   environment or the repository; the database holds only the workspace reference. Raw error events
   stay in the project's telemetry; AssertChecks stores only the problems it derives from them and a
-  person's decisions on those problems.
+  person's decisions on those problems. Problems come from exceptions and from the custom events a project
+  declared as failures (`error_sources.failure_events`, set with `pnpm admin source:events`); AssertChecks
+  never decides on its own that an event is a failure, and no noise rule applies to a declared one.
 - Automatic tickets run in the server, never on a person's machine: every 10 minutes the Container App
   files a ticket for each error problem in Needs a ticket of every project with a ticket destination.
   The timer starts only in the Container App (production build with `CONTAINER_APP_NAME`), because local
