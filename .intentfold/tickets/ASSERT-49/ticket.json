@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-49",
   "mode": "autonomous",
-  "stage": "developing",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-49",
   "branch": "ASSERT-49-errors-slack",

@@ -7,6 +7,10 @@
 4. **Slack 用 incoming webhook。** owner 问“有没有更简单的方式，比如什么webhook?”，并提供了测试频道的 webhook。
 15. **工单去向在页面填写：平台、项目、负责人，Plane 和 Linear 都支持，能下拉就下拉。**（owner 原话：“项目和责任人的名字能拉最好，不能下拉，应该支持模糊的”）服务器接入密钥后可以列出项目和成员，所以做下拉。
 
+16a. **验收开单的地方。** owner：“用我的linear key吧，写吧，项目是 benefits-finder, 给qingyang wang”，随后改为“等，你先测试nsdk的发单，是narrative-sdk项目”“都放到ENG这个team下”。NSDK 的 6 张单开在 narrative-sdk（ENG），未指定负责人，指派给 owner 本人。
+18a. **解读模型。** owner：“用luna-high模型”，即 `gpt-5.6-luna`，reasoning effort high。
+22. **授权。** owner：“我授权你auto权限，你做”。据此授予 owner 账号和 Container App 托管身份在 `finley-codex` 上的 Cognitive Services OpenAI User，并保存 owner 的 Linear、Plane 密钥到 nsdk、sandbox 的设置里。
+
 ## 替你决定的
 
 2. **验收用的 Plane 项目。** 在 intentmill 工作区新建 “AssertChecks Sandbox”，sandbox 的工单开在那里。依据：sandbox 读的是 BF 真实报错，不能写进 BF 的工单系统，也不该混进 assertchecks 的真实工单；owner 要求“只让我做我不得不做的”。
@@ -25,3 +29,6 @@
 19. **平台密钥存在数据库，页面和接口从不回显。** 依据：和 owner 说的“需要密钥等就申请呗”一致；明文存库意味着能读库的人能拿到密钥，数据库只有运维和本机开发能连。
 20. **工单语言：Linear 英文，Plane 中文。** 依据：owner 现有两个平台的惯例。
 21. **错误消息和堆栈会发给 Azure OpenAI（公司自己的租户，瑞典中部）并写进工单。** 依据：这些内容已在项目自己的 Application Insights 里；如果其中含个人数据，处理范围也仅限公司自己的系统。
+23. **解读失败就不开单，下一轮重试。**（验收中改定，替代第 7 条里“解读失败照样开单”的做法）依据：验收时 Azure 授权尚未完全生效，8 张 Plane 单开成了没有解读的单，且之后不会补；owner 要求工单携带解读。
+24. **每轮先验证一次平台密钥。** 依据：密钥失效时不必为每个问题先调用模型。
+25. **Linear 项目属于多个 team 时按 team 分别列出。** 依据：narrative-sdk 同时属于 BUG、PRO、ENG，issue 只能属于一个 team。
