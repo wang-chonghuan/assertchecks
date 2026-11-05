@@ -100,6 +100,17 @@ run; `late` applies only to checks with a period and only scheduled runs reset i
 cannot hide a missing scheduled run. A check without a period has no schedule. The web UI writes only
 tickets on cases and problems and Not handling on problems; times are shown in UTC.
 
+## Production errors and automatic tickets
+
+A project's Production errors tab reads its own Azure Log Analytics workspace (connected with
+`pnpm admin source:set`) and groups failures into problems. On the same tab a member chooses where the
+project's tickets go: Plane (workspace slug and API token) or Linear (API key), a project or team from
+that platform, and an assignee; and optionally a Slack incoming webhook. Then the server, every 10
+minutes, files one ticket for each error problem in Needs a ticket, with the error, its stack and an
+automatic interpretation from Azure OpenAI, attaches it to the problem and posts it to Slack. Tickets a
+person attaches are posted too. Slow operations get no automatic ticket. `pnpm admin errors:auto
+<project>` runs the same filing once. Keys and webhooks are kept in the database and never shown again.
+
 ## Development
 
 Requires Node 24 and pnpm. Create `.env` (git-ignored) with `DATABASE_URL`, `DATABASE_SCHEMA`, and the

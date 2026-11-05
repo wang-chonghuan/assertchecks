@@ -2,7 +2,12 @@ import { createServerFn } from '@tanstack/react-start'
 import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
 import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
-import { decideProblem as decide, productionErrors, type Decision } from './production-errors'
+import {
+  decideProblem as decide, platformPeople, platformTargets, productionErrors, readProductionErrors, removeDestination,
+  saveDestination, saveSlack, type AccessInput, type Decision,
+} from './production-errors'
+import { announce } from './auto-tickets'
+import { webhookUrl } from './slack'
 import { attachTicket as attach, caseIds, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
 import { approveLogin, clientLogin, LOGIN_CODE } from './client-tokens'
 
@@ -110,8 +115,21 @@ export const attachTicket = createServerFn({ method: 'POST' })
     return { project: text(data.project, 'project'), ticket: ticketUrl(data.ticket), subject }
   })
   .handler(async ({ data }) => {
-    if (!(await attach(await requireUser(), data.project, data.subject, data.ticket))) throw notFound()
-    return { ok: true }
+    const user = await requireUser()
+    const attached = found(await attach(user, data.project, data.subject, data.ticket))
+    // A new ticket on a production error goes to the project's Slack channel, when it has one.
+    let slack: string | null = null
+    if (attached.added && 'problem' in data.subject) {
+      const problemId = data.subject.problem
+      const problem = (await readProductionErrors(attached.project)).problems.find((item) => item.id === problemId)
+      if (problem) {
+        slack = await announce({
+          projectId: attached.project.id, projectSlug: attached.project.slug, projectName: attached.project.name,
+          ticket: data.ticket, problems: [problem], automatic: false, by: user.email,
+        })
+      }
+    }
+    return { ok: true, slack }
   })
 
 export const removeTicket = createServerFn({ method: 'POST' })
@@ -143,3 +161,71 @@ export const getClientLogin = createServerFn({ method: 'GET' })
 export const approveClientLogin = createServerFn({ method: 'POST' })
   .validator(loginCodeOf)
   .handler(async ({ data }) => ({ approved: await approveLogin((await requireUser()).id, data.code) }))
+
+// Automatic tickets (ASSERT-49). A key typed into the form is sent here and never sent back; an empty key
+// means the saved one.
+function access(data: { platform?: unknown; workspace?: unknown; token?: unknown }): AccessInput {
+  if (data.platform !== 'plane' && data.platform !== 'linear') throw new Error('platform must be plane or linear')
+  const token = typeof data.token === 'string' && data.token.trim() ? data.token.trim() : null
+  if (token && token.length > 512) throw new Error('the access key is too long')
+  let workspace: string | null = null
+  if (data.platform === 'plane') {
+    workspace = text(data.workspace, 'workspace').trim()
+    if (!/^[\w-]{1,64}$/.test(workspace)) throw new Error('workspace must be the slug in app.plane.so/<slug>/')
+  }
+  return { platform: data.platform, workspace, token }
+}
+
+const named = (value: unknown, field: string): { id: string; name: string } => {
+  const item = value as { id?: unknown; name?: unknown } | null
+  return { id: text(item?.id, field), name: text(item?.name, field) }
+}
+
+const teamOf = (value: unknown): string | null => {
+  const team = (value as { teamId?: unknown } | null)?.teamId
+  return typeof team === 'string' && team ? team : null
+}
+
+export const getTicketTargets = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown; platform: unknown; workspace?: unknown; token?: unknown }) =>
+    ({ project: text(data.project, 'project'), access: access(data) }))
+  .handler(async ({ data }) => found(await platformTargets(await requireUser(), data.project, data.access)))
+
+export const getTicketPeople = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown; platform: unknown; workspace?: unknown; token?: unknown; target: unknown }) => ({
+    project: text(data.project, 'project'),
+    access: access(data),
+    target: { id: named(data.target, 'target').id, teamId: teamOf(data.target) },
+  }))
+  .handler(async ({ data }) => found(await platformPeople(await requireUser(), data.project, data.access, data.target)))
+
+export const saveTicketDestination = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown; platform: unknown; workspace?: unknown; token?: unknown; target: unknown; assignee?: unknown }) => ({
+    project: text(data.project, 'project'),
+    destination: {
+      ...access(data),
+      target: { ...named(data.target, 'target'), teamId: teamOf(data.target) },
+      assignee: data.assignee ? named(data.assignee, 'assignee') : null,
+    },
+  }))
+  .handler(async ({ data }) => {
+    if (!(await saveDestination(await requireUser(), data.project, data.destination))) throw notFound()
+    return { ok: true }
+  })
+
+export const removeTicketDestination = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
+  .handler(async ({ data }) => {
+    if (!(await removeDestination(await requireUser(), data.project))) throw notFound()
+    return { ok: true }
+  })
+
+export const saveSlackChannel = createServerFn({ method: 'POST' })
+  .validator((data: { project: unknown; webhook: unknown }) => ({
+    project: text(data.project, 'project'),
+    webhook: data.webhook === null ? null : webhookUrl(data.webhook),
+  }))
+  .handler(async ({ data }) => {
+    if (!(await saveSlack(await requireUser(), data.project, data.webhook))) throw notFound()
+    return { ok: true }
+  })

@@ -18,7 +18,11 @@ const config = defineConfig(({ mode }) => ({
   // The pre-rendered Ant stylesheet contains a rule lightningcss rejects; esbuild minifies it as browsers parse it.
   build: { cssMinify: 'esbuild' },
   plugins: [
-    nitro({ compressPublicAssets: { gzip: true, brotli: true } }),
+    nitro({
+      compressPublicAssets: { gzip: true, brotli: true },
+      // The production timer for automatic tickets; it switches itself off outside the Container App.
+      plugins: [resolve(import.meta.dirname, 'src/server/plugins/auto-tickets.ts')],
+    }),
 
     tanstackStart(),
     viteReact(),

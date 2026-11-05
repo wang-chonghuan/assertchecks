@@ -8,8 +8,12 @@ import { PRODUCT_NAME } from '../../../../components/brand'
 import { space } from '../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/')({
-  // ?tab=errors opens Production errors; Tests is the default tab.
-  validateSearch: (search: Record<string, unknown>): { tab?: 'errors' } => (search.tab === 'errors' ? { tab: 'errors' } : {}),
+  // ?tab=errors opens Production errors; Tests is the default tab. &problem=<id> opens one problem there.
+  validateSearch: (search: Record<string, unknown>): { tab?: 'errors'; problem?: string } => {
+    if (search.tab !== 'errors') return {}
+    const problem = String(search.problem ?? '')
+    return /^[1-9][0-9]{0,17}$/.test(problem) ? { tab: 'errors', problem } : { tab: 'errors' }
+  },
   loader: ({ params }) => getOverview({ data: { project: params.project } }),
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.project.name ?? 'Project'} · ${PRODUCT_NAME}` }] }),
   component: OverviewPage,
@@ -17,7 +21,7 @@ export const Route = createFileRoute('/_app/p/$project/')({
 
 function OverviewPage() {
   const { project, checks } = Route.useLoaderData()
-  const { tab } = Route.useSearch()
+  const { tab, problem } = Route.useSearch()
   const navigate = useNavigate()
 
   const cards = checks.length === 0 ? (
@@ -56,7 +60,7 @@ function OverviewPage() {
         items={[
           { key: 'tests', label: 'Tests', children: tests },
           // Rendered once opened, so the project page reads production telemetry only when asked.
-          { key: 'errors', label: 'Production errors', children: <ProductionErrorsTab key={project.slug} project={project.slug} /> },
+          { key: 'errors', label: 'Production errors', children: <ProductionErrorsTab key={project.slug} project={project.slug} focus={problem} /> },
         ]}
       />
     </Flex>

@@ -34,8 +34,11 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   (server functions used by routes), `telemetry` (the KQL that reads a workspace and de-duplicates
   failures), `problems` (pure assembly of the production-errors view) and `production-errors` (its
   membership-scoped reads, problem upserts and decisions), `tickets` (pure judgement of tickets
-  on cases from run results), `ticket-links` (attaching and removing tickets) and
-  `client-tokens` (the client's sign-in as a person).
+  on cases from run results), `ticket-links` (attaching and removing tickets),
+  `client-tokens` (the client's sign-in as a person), and for automatic tickets (ASSERT-49)
+  `auto-tickets` (claim, interpret, file, attach, announce), `ticket-platforms` (Plane and Linear),
+  `interpret` (Azure OpenAI), `slack` (incoming webhooks), `ticket-text` (pure ticket and message
+  words) and `plugins/auto-tickets` (the production timer).
 - `src/infui/` — every UI token and the Ant theme built from them (charter/ui.md).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
   (`connect-guide`) that both the homepage and "Copy for your agent" render.
@@ -43,7 +46,8 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   zero-dependency client projects download on every run.
 - `db/migrations/` — numbered SQL migrations applied by `scripts/migrate.ts`.
 - `scripts/admin.ts` — the operator CLI; users, memberships, projects, checks and error sources are
-  managed only here. The web UI writes only people's decisions on production problems.
+  managed only here. The web UI writes people's decisions on production problems and a project's
+  automatic-ticket settings (where tickets go and its Slack channel).
 - `tests/` — Node test runner unit tests for pure logic.
 
 **Key decisions**
@@ -56,6 +60,13 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   environment or the repository; the database holds only the workspace reference. Raw error events
   stay in the project's telemetry; AssertChecks stores only the problems it derives from them and a
   person's decisions on those problems.
+- Automatic tickets run in the server, never on a person's machine: every 10 minutes the Container App
+  files a ticket for each error problem in Needs a ticket of every project with a ticket destination.
+  The timer starts only in the Container App (production build with `CONTAINER_APP_NAME`), because local
+  development shares the database; one run at a time holds a Postgres advisory lock. A problem is
+  claimed in `auto_tickets` before its platform is called, so it is never filed twice; a failed one is
+  retried only after its project's settings change. The interpretation comes from Azure OpenAI
+  (`finley-codex`), called as AssertChecks's own Azure identity with no key, and sees only telemetry.
 - The report format is fixed. `public/schemas/*.json` is its single definition: the server validates
   against those files, the site serves them unchanged, and the homepage and client point to them.
 - The homepage and the privacy page are public and show no project data; everything else requires

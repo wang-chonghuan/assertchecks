@@ -4,6 +4,7 @@ import { ExportOutlined, MoreOutlined, QuestionCircleOutlined } from '@ant-desig
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { attachTicket, decideProblem, getProductionErrors, removeTicket } from '../server/fns'
 import { AttachTicketModal, TicketUrl } from './tickets'
+import { AutomaticTicketsCard } from './automatic-tickets'
 import { ErrorLog } from './error-log'
 import type { NoiseCategory, ProblemGroup, ProblemView, ProductionErrors } from '../lib/types'
 import { utc } from './status'
@@ -149,7 +150,8 @@ function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: 
   )
 }
 
-export function ProductionErrorsTab({ project }: { project: string }) {
+// `focus` names a problem to open, from a ticket's or Slack message's link.
+export function ProductionErrorsTab({ project, focus }: { project: string; focus?: string }) {
   const { token } = theme.useToken()
   const { message } = App.useApp()
   const [data, setData] = useState<ProductionErrors | null>(null)
@@ -178,6 +180,12 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       message.error(`Saving failed: ${(error as Error).message}`)
     }
   }
+  // The linked problem opens and comes into view once the data is there.
+  useEffect(() => {
+    if (!focus || !data) return
+    document.querySelector(`[data-row-key="${CSS.escape(focus)}"]`)?.scrollIntoView({ block: 'center' })
+  }, [focus, data])
+
   const decide = (problem: ProblemView, decision: 'ignored' | 'none', reason?: string) =>
     save(() => decideProblem({ data: { project, problem: problem.id, decision, reason } }))
 
@@ -216,6 +224,16 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   const inGroup = (group: ProblemGroup) => data.problems.filter((problem) => problem.group === group)
 
   const statusOf = (problem: ProblemView): ReactNode => {
+    const auto = problem.auto
+    // An automatic ticket that could not be filed, or not announced, says why.
+    const autoNote = auto && auto.state !== 'created'
+      ? (
+          <Flex vertical align="flex-start">
+            <Tag color={auto.state === 'failed' ? 'error' : 'processing'}>{auto.state === 'failed' ? 'Automatic ticket failed' : 'Filing a ticket'}</Tag>
+            {auto.error && <Typography.Text style={{ ...text.caption, wordBreak: 'break-word' }}>{auto.error}</Typography.Text>}
+          </Flex>
+        )
+      : auto?.error ? <Typography.Text style={{ ...text.caption, wordBreak: 'break-word' }}>{auto.error}</Typography.Text> : null
     if (problem.ignored) {
       return (
         <Flex vertical>
@@ -225,7 +243,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       )
     }
     const newest = problem.tickets[0]
-    if (!newest) return null
+    if (!newest) return autoNote
     const since = problem.sinceTicket
     return (
       <Flex vertical gap={space.stack} align="flex-start">
@@ -238,6 +256,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
             by {newest.by}, {utc(newest.at)}{problem.tickets.length > 1 ? ` · ${problem.tickets.length - 1} earlier ticket${problem.tickets.length > 2 ? 's' : ''}` : ''}
           </Typography.Text>
         </Flex>
+        {autoNote}
       </Flex>
     )
   }
@@ -313,6 +332,7 @@ export function ProductionErrorsTab({ project }: { project: string }) {
       dataSource={rows}
       // The expand icon sits at the row's end so problem names line up with the card title; the whole row opens.
       expandable={{
+        defaultExpandedRowKeys: focus ? [focus] : [],
         expandedRowRender: (problem) => (
           <ProblemDetail problem={problem} onRemove={(link) => save(() => removeTicket({ data: { project, link } }))} />
         ),
@@ -327,9 +347,9 @@ export function ProductionErrorsTab({ project }: { project: string }) {
   const triage = inGroup('triage')
   // Problems happening now need a ticket; untriaged ones not seen in the past 7 days and every problem
   // quiet for 30+ days wait folded together, most recent first.
-  const needsTicket = triage.filter((problem) => problem.count7d > 0 || problem.isNew)
+  const needsTicket = triage.filter((problem) => problem.needsTicket)
   const inProgress = inGroup('ticket')
-  const notSeen = [...triage.filter((problem) => !(problem.count7d > 0 || problem.isNew)), ...inGroup('quiet')]
+  const notSeen = [...triage.filter((problem) => !problem.needsTicket), ...inGroup('quiet')]
     .sort((a, b) => b.lastSeen.localeCompare(a.lastSeen))
   const ignored = inGroup('ignored')
   const noiseTotal = data.noise.reduce((total, item) => total + item.total, 0)
@@ -396,10 +416,13 @@ export function ProductionErrorsTab({ project }: { project: string }) {
           </Typography.Text>
         </Flex>
       </Card>
+      <AutomaticTicketsCard project={project} automation={data.automation} onChanged={load} />
       <Card title={`Needs a ticket (${needsTicket.length})`}>{table(needsTicket, 'No problem seen in the past 7 days needs a ticket.')}</Card>
       <Card title={`In progress (${inProgress.length})`}>{table(inProgress, 'No problem carries a ticket.')}</Card>
       <Collapse
         bordered={false}
+        // A linked problem in a folded group opens its group.
+        defaultActiveKey={folds.filter((fold) => (fold.key === 'not-seen' ? notSeen : fold.key === 'ignored' ? ignored : []).some((problem) => problem.id === focus)).map((fold) => fold.key)}
         style={{ background: token.colorBgContainer }}
         items={folds.map((item) => ({ ...item, styles: { header: { paddingInline: cardPadding }, body: { paddingInline: cardPadding } } }))}
       />
@@ -413,7 +436,10 @@ export function ProductionErrorsTab({ project }: { project: string }) {
         subject={attaching?.key}
         onCancel={() => setAttaching(null)}
         onSave={(url) => (attaching
-          ? save(() => attachTicket({ data: { project, ticket: url, problem: attaching.id } }))
+          ? save(async () => {
+              const reply = await attachTicket({ data: { project, ticket: url, problem: attaching.id } })
+              if (reply.slack) message.warning(`The ticket is attached, but Slack did not get it: ${reply.slack}`)
+            })
           : Promise.resolve())}
       />
     </Flex>
