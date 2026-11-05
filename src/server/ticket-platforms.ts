@@ -3,7 +3,8 @@
 export type Platform = 'plane' | 'linear'
 
 export interface Access { platform: Platform; token: string; workspace: string | null }
-// Where tickets go: a Plane project, or a Linear team or one of its projects (teamId is the team).
+// Where tickets go: a Plane project, or a Linear team or a project within one of its teams (teamId is the
+// team). A Linear project shared by several teams is listed once per team, since an issue has one team.
 export interface Target { id: string; name: string; teamId: string | null }
 export interface Person { id: string; name: string }
 export interface Ticket { title: string; markdown: string; html: string }
@@ -80,13 +81,13 @@ export async function targets(access: Access): Promise<Target[]> {
     teams: { nodes: { id: string; name: string; key: string }[] }
     projects: { nodes: { id: string; name: string; teams: { nodes: { id: string; key: string }[] } }[] }
   }>(access, `query {
-    teams(first: 100) { nodes { id name key } }
-    projects(first: 200, filter: { state: { nin: ["completed", "canceled"] } }) { nodes { id name teams { nodes { id key } } } }
+    teams(first: 50) { nodes { id name key } }
+    projects(first: 100, filter: { state: { nin: ["completed", "canceled"] } }) { nodes { id name teams(first: 10) { nodes { id key } } } }
   }`)
   const teams = data.teams.nodes.map((team) => ({ id: team.id, name: `${team.name} (${team.key})`, teamId: team.id }))
     .sort((a, b) => a.name.localeCompare(b.name))
-  const projects = data.projects.nodes.filter((project) => project.teams.nodes.length > 0)
-    .map((project) => ({ id: project.id, name: `${project.name} (${project.teams.nodes[0].key} project)`, teamId: project.teams.nodes[0].id }))
+  const projects = data.projects.nodes.flatMap((project) => project.teams.nodes
+    .map((team) => ({ id: project.id, name: `${project.name} (${team.key} project)`, teamId: team.id })))
     .sort((a, b) => a.name.localeCompare(b.name))
   return [...teams, ...projects]
 }

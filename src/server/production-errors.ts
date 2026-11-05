@@ -201,7 +201,9 @@ export async function saveDestination(user: { id: string; email: string }, proje
   if (!found) return false
   const access = accessFor(input, await automationOf(found.id))
   const reachable = await targets(access)
-  if (!reachable.some((target) => target.id === input.target.id)) throw new Error('that project is not reachable with this key')
+  if (!reachable.some((target) => target.id === input.target.id && target.teamId === input.target.teamId)) {
+    throw new Error('that project is not reachable with this key')
+  }
   if (input.platform === 'linear' && !input.target.teamId) throw new Error('Linear tickets need a team')
   if (input.assignee && !(await people(access, input.target)).some((person) => person.id === input.assignee?.id)) {
     throw new Error('that person cannot be assigned there')

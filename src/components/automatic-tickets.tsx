@@ -12,6 +12,8 @@ import { space, text } from '../infui/tokens'
 const PLATFORM: Record<TicketPlatform, string> = { plane: 'Plane', linear: 'Linear' }
 
 interface Target { id: string; name: string; teamId: string | null }
+// A Linear project shared by several teams appears once per team, so an option is the pair.
+const optionOf = (target: { id: string; teamId: string | null }) => `${target.id}/${target.teamId ?? ''}`
 interface Person { id: string; name: string }
 
 interface DestinationForm { platform: TicketPlatform; workspace?: string; token?: string; target?: string; assignee?: string }
@@ -54,7 +56,8 @@ function DestinationModal({ open, project, current, onCancel, onSaved }: {
       const reply = await getTicketTargets({ data: accessFields() })
       setAccount(reply.account)
       setTargets(reply.targets)
-      const keep = current?.target && reply.targets.some((target) => target.id === current.target?.id) ? current.target.id : undefined
+      const saved = current?.target ? reply.targets.find((target) => target.id === current.target?.id && target.name === current.target?.name) : undefined
+      const keep = saved ? optionOf(saved) : undefined
       form.setFieldsValue({ target: keep, assignee: undefined })
       if (keep) await loadPeople(keep, reply.targets)
     } catch (error) {
@@ -65,8 +68,8 @@ function DestinationModal({ open, project, current, onCancel, onSaved }: {
     }
   }
 
-  const loadPeople = async (targetId: string, list = targets) => {
-    const target = list.find((item) => item.id === targetId)
+  const loadPeople = async (option: string, list = targets) => {
+    const target = list.find((item) => optionOf(item) === option)
     if (!target) return
     try {
       const reply = await getTicketPeople({ data: { ...accessFields(), target } })
@@ -81,7 +84,7 @@ function DestinationModal({ open, project, current, onCancel, onSaved }: {
 
   const save = async () => {
     const values = await form.validateFields()
-    const target = targets.find((item) => item.id === values.target)
+    const target = targets.find((item) => optionOf(item) === values.target)
     if (!target) return
     const assignee = people.find((person) => person.id === values.assignee) ?? null
     setSaving(true)
@@ -138,7 +141,7 @@ function DestinationModal({ open, project, current, onCancel, onSaved }: {
           {targets.length > 0 && (
             <>
               <Form.Item name="target" label={platform === 'plane' ? 'Project' : 'Team or project'} rules={[{ required: true, message: 'Choose where tickets go.' }]}>
-                <Select showSearch={{ optionFilterProp: 'label' }} placeholder="Type to search" options={targets.map((target) => ({ value: target.id, label: target.name }))} />
+                <Select showSearch={{ optionFilterProp: 'label' }} placeholder="Type to search" options={targets.map((target) => ({ value: optionOf(target), label: target.name }))} />
               </Form.Item>
               <Form.Item name="assignee" label="Assignee" extra="Leave empty to file tickets unassigned.">
                 <Select allowClear showSearch={{ optionFilterProp: 'label' }} placeholder="Type to search" options={people.map((person) => ({ value: person.id, label: person.name }))} />
