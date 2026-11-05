@@ -23,7 +23,7 @@ test('a problem link opens the Production errors tab at that problem', () => {
 })
 
 test('a Linear ticket is English: the error, where, when, how often, the interpretation marked as automatic, the stack and the link', () => {
-  const ticket = ticketText({ language: 'en', problem: problem(), reading: { text: 'What happens\nAn order without lines is submitted.' }, link: LINK })
+  const ticket = ticketText({ language: 'en', problem: problem(), reading: 'What happens\nAn order without lines is submitted.', link: LINK })
   assert.equal(ticket.title, 'Production error: InvalidOperationException: Order 981 has no lines')
   for (const part of [
     'Latest error: InvalidOperationException: Order 981 has no lines',
@@ -42,10 +42,10 @@ test('a Plane ticket is Chinese HTML with every value escaped and the link click
   const ticket = ticketText({
     language: 'zh',
     problem: problem({ latest: { at: '2026-11-05T09:15:00.000Z', type: null, message: '<script>alert(1)</script>', stack: null } }),
-    reading: { text: '发生了什么' },
+    reading: '发生了什么',
     link: LINK,
   })
-  assert.equal(ticket.title, '生产报错: <script>alert(1)</script>')
+  assert.equal(ticket.title, '生产报错：<script>alert(1)</script>')
   assert.ok(ticket.html.includes('<h2>自动解读</h2>'))
   assert.ok(ticket.html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'))
   assert.ok(!ticket.html.includes('<script>'))
@@ -53,14 +53,16 @@ test('a Plane ticket is Chinese HTML with every value escaped and the link click
   assert.ok(!ticket.html.includes('<h2>最近一次堆栈</h2>'), 'no stack, no stack section')
 })
 
-test('a ticket is still filed when the interpretation failed, and says why it has none', () => {
-  const ticket = ticketText({ language: 'en', problem: problem(), reading: { error: 'Azure OpenAI: HTTP 429' }, link: LINK })
-  assert.ok(ticket.markdown.includes('Not available: Azure OpenAI: HTTP 429'))
+test('a message that already starts with its type does not repeat the type', () => {
+  const browser = problem({ latest: { at: '2026-11-05T09:15:00.000Z', type: 'RangeError', message: 'RangeError: Maximum call stack size exceeded.', stack: null } })
+  const ticket = ticketText({ language: 'en', problem: browser, reading: 'r', link: LINK })
+  assert.equal(ticket.title, 'Production error: RangeError: Maximum call stack size exceeded.')
+  assert.ok(ticket.markdown.includes('Latest error: RangeError: Maximum call stack size exceeded.\n'))
 })
 
 test('a long message makes a title of at most 120 characters, on one line', () => {
   const long = problem({ latest: { at: '2026-11-05T09:15:00.000Z', type: 'Error', message: `line one\n${'x'.repeat(300)}`, stack: null } })
-  const { title } = ticketText({ language: 'en', problem: long, reading: { text: 'r' }, link: LINK })
+  const { title } = ticketText({ language: 'en', problem: long, reading: 'r', link: LINK })
   assert.equal(title.length, 120)
   assert.ok(!title.includes('\n'))
   assert.ok(title.endsWith('…'))
@@ -68,7 +70,7 @@ test('a long message makes a title of at most 120 characters, on one line', () =
 
 test('a code fence inside the stack cannot close the stack block early', () => {
   const fenced = problem({ latest: { at: '2026-11-05T09:15:00.000Z', type: 'Error', message: 'm', stack: 'a\n```\nb' } })
-  const { markdown } = ticketText({ language: 'en', problem: fenced, reading: { text: 'r' }, link: LINK })
+  const { markdown } = ticketText({ language: 'en', problem: fenced, reading: 'r', link: LINK })
   assert.equal(markdown.match(/```/g)?.length, 2)
 })
 

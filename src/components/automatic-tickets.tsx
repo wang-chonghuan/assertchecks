@@ -1,6 +1,6 @@
 // Automatic tickets for production errors (ASSERT-49): where a project's tickets go and which Slack
 // channel hears about them. Keys typed here go to the server and are never shown again.
-import { Alert, App, Button, Card, Flex, Form, Input, Modal, Popconfirm, Select, Typography } from 'antd'
+import { Alert, App, Button, Card, Flex, Form, Input, Modal, Popconfirm, Select, Typography, theme } from 'antd'
 import { useEffect, useState } from 'react'
 import {
   getTicketPeople, getTicketTargets, removeTicketDestination, saveSlackChannel, saveTicketDestination,
@@ -196,6 +196,9 @@ function SlackModal({ open, project, onCancel, onSaved }: { open: boolean; proje
 
 export function AutomaticTicketsCard({ project, automation, onChanged }: { project: string; automation: AutomationView | null; onChanged: () => Promise<void> }) {
   const { message } = App.useApp()
+  const { token } = theme.useToken()
+  // The words take the row; on a phone the buttons move below them instead of squeezing them.
+  const words = { flex: `1 1 ${token.controlHeight * 8}px`, minWidth: 0 }
   const [editing, setEditing] = useState<'destination' | 'slack' | null>(null)
   const run = async (change: () => Promise<unknown>) => {
     try { await change(); await onChanged() } catch (error) { message.error(`Saving failed: ${(error as Error).message}`) }
@@ -207,7 +210,7 @@ export function AutomaticTicketsCard({ project, automation, onChanged }: { proje
     <Card title="Automatic tickets">
       <Flex vertical gap={space.group}>
         <Flex justify="space-between" align="flex-start" gap={space.group} wrap>
-          <Flex vertical style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Flex vertical style={words}>
             <Typography.Text style={text.label}>Tickets</Typography.Text>
             <Typography.Text style={text.body}>
               {active
@@ -225,7 +228,7 @@ export function AutomaticTicketsCard({ project, automation, onChanged }: { proje
           </Flex>
         </Flex>
         <Flex justify="space-between" align="flex-start" gap={space.group} wrap>
-          <Flex vertical style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Flex vertical style={words}>
             <Typography.Text style={text.label}>Slack</Typography.Text>
             <Typography.Text style={text.body}>
               {automation?.slack ? `Every ticket put on an error is posted through ${automation.slack}.` : 'No channel. Tickets are not posted to Slack.'}

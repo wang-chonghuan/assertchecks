@@ -9,10 +9,11 @@ import { space } from '../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/')({
   // ?tab=errors opens Production errors; Tests is the default tab. &problem=<id> opens one problem there.
-  validateSearch: (search: Record<string, unknown>): { tab?: 'errors'; problem?: string } => {
+  // The router reads ?problem=2277 as a number; kept a number so the address stays as linked.
+  validateSearch: (search: Record<string, unknown>): { tab?: 'errors'; problem?: number } => {
     if (search.tab !== 'errors') return {}
-    const problem = String(search.problem ?? '')
-    return /^[1-9][0-9]{0,17}$/.test(problem) ? { tab: 'errors', problem } : { tab: 'errors' }
+    const problem = Number(search.problem)
+    return Number.isSafeInteger(problem) && problem > 0 ? { tab: 'errors', problem } : { tab: 'errors' }
   },
   loader: ({ params }) => getOverview({ data: { project: params.project } }),
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.project.name ?? 'Project'} · ${PRODUCT_NAME}` }] }),
@@ -60,7 +61,7 @@ function OverviewPage() {
         items={[
           { key: 'tests', label: 'Tests', children: tests },
           // Rendered once opened, so the project page reads production telemetry only when asked.
-          { key: 'errors', label: 'Production errors', children: <ProductionErrorsTab key={project.slug} project={project.slug} focus={problem} /> },
+          { key: 'errors', label: 'Production errors', children: <ProductionErrorsTab key={project.slug} project={project.slug} focus={problem === undefined ? undefined : String(problem)} /> },
         ]}
       />
     </Flex>

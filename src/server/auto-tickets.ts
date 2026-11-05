@@ -3,7 +3,7 @@
 // interpretation, files the ticket on the project's platform, attaches it, and posts it to Slack.
 import { sql } from './db'
 import { automationOf, readProductionErrors } from './production-errors'
-import { createTicket } from './ticket-platforms'
+import { createTicket, verify } from './ticket-platforms'
 import { interpret, type ErrorFacts, type Language } from './interpret'
 import { postToSlack } from './slack'
 import { problemLink, slackText, ticketText } from './ticket-text'
@@ -30,8 +30,9 @@ const facts = (problem: ProblemView): ErrorFacts => ({
   stack: problem.latest?.stack ?? null,
 })
 
-// Takes the problem for this run. A problem is taken once; one whose ticket failed is taken again only
-// after the settings changed, so an unchanged mistake does not fail every ten minutes.
+// Takes the problem for this run. A problem is taken once; one whose ticket failed is taken again after the
+// settings changed, so an unchanged mistake does not fail every ten minutes, or on the next run when only
+// the interpretation failed (stored with the earliest config_at), since that is usually passing.
 async function claim(problemId: string, configAt: Date): Promise<boolean> {
   const rows = await sql()`
     INSERT INTO auto_tickets (problem_id, state, config_at) VALUES (${problemId}, 'creating', ${configAt})
@@ -81,17 +82,23 @@ export async function fileAutomaticTickets(projectId: string): Promise<RunSummar
   if (view.state !== 'ready') return { ...summary, skipped: view.error ?? view.state }
   const access = { platform: automation.platform, token: automation.token, workspace: automation.workspace }
   const language: Language = automation.platform === 'plane' ? 'zh' : 'en'
+  // A refused key fails every problem the same way; find out once, before asking the model for anything.
+  const refused = await verify(access).then(() => null, (error: Error) => error)
 
   for (const problem of view.problems.filter((item) => item.kind === 'error' && item.needsTicket)) {
     if (!(await claim(problem.id, automation.updated_at))) continue
     const link = problemLink(ORIGIN, found.slug, problem.id)
     try {
-      let reading: { text: string } | { error: string }
+      if (refused) throw refused
+      let reading: string
       try {
-        reading = { text: await interpret(facts(problem), language) }
+        reading = await interpret(facts(problem), language)
       } catch (error) {
-        // A ticket without its interpretation still beats no ticket.
-        reading = { error: (error as Error).message }
+        // Every ticket carries its interpretation: without one, nothing is filed and the next run tries again.
+        const message = `Interpretation: ${(error as Error).message}`.slice(0, 500)
+        await sql()`UPDATE auto_tickets SET state = 'failed', error = ${message}, config_at = '-infinity', updated_at = now() WHERE problem_id = ${problem.id}`
+        summary.failed.push({ problem: problem.key, error: message })
+        continue
       }
       const url = await createTicket(access, {
         targetId: automation.target_id, teamId: automation.team_id, assigneeId: automation.assignee_id,

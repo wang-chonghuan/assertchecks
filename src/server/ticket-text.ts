@@ -13,9 +13,12 @@ export const problemLink = (origin: string, project: string, problemId: string) 
 const one = (value: string) => value.replace(/\s+/g, ' ').trim()
 const clip = (value: string, max: number) => (value.length > max ? `${value.slice(0, max - 1)}…` : value)
 
+// The latest error in one line. Browser messages often start with their type already; it is not repeated.
 function latestLine(problem: ProblemView): string {
   if (!problem.latest) return problem.key
-  return one(`${problem.latest.type ? `${problem.latest.type}: ` : ''}${problem.latest.message}`) || problem.key
+  const { type, message } = problem.latest
+  const prefix = type && !message.startsWith(type) ? `${type}: ` : ''
+  return one(`${prefix}${message}`) || problem.key
 }
 
 const source = (problem: ProblemView) => (problem.browser ? 'Browser' : (problem.role ?? 'server'))
@@ -25,6 +28,7 @@ interface Block { heading: string; lines?: string[]; code?: string }
 
 const WORDS = {
   en: {
+    colon: ': ',
     title: 'Production error',
     failed: 'What failed',
     error: 'Latest error',
@@ -34,7 +38,6 @@ const WORDS = {
     variants: 'Message variants',
     reading: 'Automatic interpretation',
     readingNote: 'Written by AssertChecks from the telemetry only (messages, stack, place and counts), without the code; not a confirmed cause.',
-    unavailable: 'Not available',
     stack: 'Latest stack',
     open: 'In AssertChecks',
     seenText: (first: string, last: string) => `first ${first}, last ${last}`,
@@ -42,6 +45,7 @@ const WORDS = {
     notRecorded: 'not recorded',
   },
   zh: {
+    colon: '：',
     title: '生产报错',
     failed: '报错内容',
     error: '最近一次错误',
@@ -51,7 +55,6 @@ const WORDS = {
     variants: '消息变体',
     reading: '自动解读',
     readingNote: '由 AssertChecks 仅根据遥测（消息、堆栈、位置和次数）写出，没有看代码，不是已确认的原因。',
-    unavailable: '无法生成',
     stack: '最近一次堆栈',
     open: 'AssertChecks 链接',
     seenText: (first: string, last: string) => `首次 ${first}，最近 ${last}`,
@@ -65,20 +68,21 @@ const utc = (iso: string) => `${iso.slice(0, 16).replace('T', ' ')} UTC`
 export function ticketText(input: {
   language: Language
   problem: ProblemView
-  // The automatic interpretation, or why there is none.
-  reading: { text: string } | { error: string }
+  // The automatic interpretation; a ticket is never filed without one.
+  reading: string
   link: string
 }): { title: string; markdown: string; html: string } {
   const { problem, link } = input
   const w = WORDS[input.language]
+  const c = w.colon
   const blocks: Block[] = [
     {
       heading: w.failed,
       lines: [
-        `${w.error}: ${latestLine(problem)}`,
-        `${w.where}: ${problem.place ?? w.notRecorded} (${source(problem)})`,
-        `${w.seen}: ${w.seenText(utc(problem.firstSeen), utc(problem.lastSeen))}`,
-        `${w.failures}: ${w.failuresText(problem)}`,
+        `${w.error}${c}${latestLine(problem)}`,
+        `${w.where}${c}${problem.place ?? w.notRecorded} (${source(problem)})`,
+        `${w.seen}${c}${w.seenText(utc(problem.firstSeen), utc(problem.lastSeen))}`,
+        `${w.failures}${c}${w.failuresText(problem)}`,
       ],
     },
     ...(problem.variants.length > 1
@@ -86,14 +90,12 @@ export function ticketText(input: {
       : []),
     {
       heading: w.reading,
-      lines: 'text' in input.reading
-        ? [w.readingNote, ...input.reading.text.split('\n').filter((line) => line.trim())]
-        : [`${w.unavailable}: ${input.reading.error}`],
+      lines: [w.readingNote, ...input.reading.split('\n').filter((line) => line.trim())],
     },
     ...(problem.latest?.stack ? [{ heading: w.stack, code: clip(problem.latest.stack, STACK_CHARS) }] : []),
     { heading: w.open, lines: [link] },
   ]
-  const title = clip(`${w.title}: ${latestLine(problem)}`, TITLE_CHARS)
+  const title = clip(`${w.title}${c}${latestLine(problem)}`, TITLE_CHARS)
   return { title, markdown: toMarkdown(blocks), html: toHtml(blocks) }
 }
 
