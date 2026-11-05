@@ -1,7 +1,7 @@
 // Tickets on cases and on production problems (ASSERT-37): attach and remove. Every read and write goes
 // through the user's membership.
 import { sql } from './db'
-import { project } from './queries'
+import { project, type ProjectRow } from './queries'
 
 export type Subject = { cases: string[] } | { problem: string }
 
@@ -26,24 +26,25 @@ export function caseIds(value: unknown): string[] {
 }
 
 // Attach one ticket to cases of the project or to one of its problems. A subject that already carries
-// this ticket keeps it unchanged. Returns false when the project or the problem is not the user's.
+// this ticket keeps it unchanged. Null when the project or the problem is not the user's; otherwise the
+// project and whether the ticket is new on this subject, so a new one can be announced.
 export async function attachTicket(
   user: { id: string; email: string }, projectSlug: string, subject: Subject, url: string,
-): Promise<boolean> {
+): Promise<{ project: ProjectRow; added: boolean } | null> {
   const found = await project(user.id, projectSlug)
-  if (!found) return false
+  if (!found) return null
   if ('problem' in subject) {
     const rows = await sql()`
       INSERT INTO ticket_links (project_id, problem_id, url, attached_by)
       SELECT project_id, id, ${url}, ${user.email} FROM error_problems WHERE id = ${subject.problem} AND project_id = ${found.id}
       ON CONFLICT DO NOTHING RETURNING id
     `
-    if (rows.length) return true
+    if (rows.length) return { project: found, added: true }
     const [known] = await sql()`SELECT 1 FROM error_problems WHERE id = ${subject.problem} AND project_id = ${found.id}`
-    return Boolean(known)
+    return known ? { project: found, added: false } : null
   }
-  await insertCaseLinks(found.id, subject.cases, url, user.email)
-  return true
+  const added = await insertCaseLinks(found.id, subject.cases, url, user.email)
+  return { project: found, added: added.length > 0 }
 }
 
 // The cases that carry this ticket now and did not before. The page's Attach and the client's link share it.

@@ -1,7 +1,7 @@
 // Pure assembly of the production-errors view from what the telemetry says and what people decided.
 // Nothing here reads the database or Azure, so every rule is unit-tested.
 import type { NoiseRow, ProblemVariantRow, SlowHour, Telemetry } from './telemetry'
-import type { NoiseCategory, ProblemGroup, ProblemIgnored, ProblemKind, ProblemView, ProductionErrors, TicketLink } from '../lib/types'
+import type { AutomationView, AutoTicketState, NoiseCategory, ProblemGroup, ProblemIgnored, ProblemKind, ProblemView, ProductionErrors, TicketLink } from '../lib/types'
 
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
@@ -26,6 +26,7 @@ export interface StoredProblem {
   ignored: ProblemIgnored | null
   // Newest first.
   tickets: TicketLink[]
+  auto: AutoTicketState | null
 }
 
 export interface Seen { kind: ProblemKind; key: string; firstSeen: Date; lastSeen: Date }
@@ -136,6 +137,7 @@ export function assemble(input: {
   data: Telemetry
   now: Date
   portalUrl: string | null
+  automation: AutomationView | null
 }): ProductionErrors {
   const { stored, data } = input
   const now = input.now.getTime()
@@ -166,16 +168,18 @@ export function assemble(input: {
     const variants = problem.kind === 'error' ? (variantsOf.get(problem.key) ?? []) : []
     const latest = latestVariant(variants)
     const slow = problem.kind === 'slow' ? latestSlow(slowOf.get(problem.key) ?? []) : undefined
+    const isNew = now - problem.firstSeen.getTime() <= DAY
+    const count7d = sum(list, now - 7 * DAY)
     return {
       id: problem.id,
       kind: problem.kind,
       key: problem.key,
       group,
-      isNew: now - problem.firstSeen.getTime() <= DAY,
+      isNew,
       firstSeen: problem.firstSeen.toISOString(),
       lastSeen: problem.lastSeen.toISOString(),
       count24h: sum(list, now - DAY),
-      count7d: sum(list, now - 7 * DAY),
+      count7d,
       count90d: sum(list, 0),
       ignored: problem.ignored,
       tickets: problem.tickets,
@@ -193,6 +197,9 @@ export function assemble(input: {
         .slice(0, VARIANTS).map((row) => ({ template: row.template, count: row.count, lastAt: row.last.toISOString() })),
       latest: latest ? { at: latest.last.toISOString(), type: latest.type, message: latest.message, stack: latest.stack } : null,
       slow: slow ? { p95Ms: Math.round(slow.p95Ms), usualMs: Math.round(slow.usualMs) } : null,
+      // Problems happening now need a ticket; untriaged ones not seen in 7 days wait with the quiet ones.
+      needsTicket: group === 'triage' && (count7d > 0 || isNew),
+      auto: problem.auto,
     }
   }).sort(compare)
 
@@ -227,6 +234,7 @@ export function assemble(input: {
     },
     daily,
     problems,
+    automation: input.automation,
     noise: noiseSummary(data.noise),
   }
 }
@@ -244,6 +252,7 @@ export function withoutData(
     headline: { triage: 0, isNew: 0, ticket: 0, stillOccurring: 0, last24h: 0, previous24h: 0 },
     daily: [],
     problems: [],
+    automation: null,
     noise: [],
   }
 }

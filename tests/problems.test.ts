@@ -11,7 +11,7 @@ const project = { slug: 'p', name: 'P' }
 function stored(id: string, key: string, firstHoursAgo: number, lastHoursAgo: number, extra: Partial<StoredProblem> = {}): StoredProblem {
   return {
     id, kind: 'error', key, firstSeen: ago(firstHoursAgo), lastSeen: ago(lastHoursAgo),
-    ignored: null, tickets: [], ...extra,
+    ignored: null, tickets: [], auto: null, ...extra,
   }
 }
 
@@ -33,7 +33,7 @@ const view = (result: ReturnType<typeof assemble>, id: string) => {
 
 test('an untriaged problem first seen within a day is new and to triage; failures are counted by window', () => {
   const result = assemble({
-    project, now: NOW, portalUrl: null,
+    project, now: NOW, portalUrl: null, automation: null,
     stored: [stored('1', 'TimeoutError', 2, 1), stored('2', 'ValueError', 200, 30)],
     data: data([['TimeoutError', 2, 3], ['TimeoutError', 1, 1], ['ValueError', 30, 2], ['ValueError', 100, 4]]),
   })
@@ -50,7 +50,7 @@ test('a ticket keeps the problem visible and counts what happened after it was a
   const ticketAt = (hoursAgo: number, url = 'https://linear.app/x/ENG-1') => ({ tickets: [{ id: url, url, by: 'a@b.c', at: ago(hoursAgo).toISOString() }] })
   const ticket = ticketAt(10)
   const result = assemble({
-    project, now: NOW, portalUrl: null,
+    project, now: NOW, portalUrl: null, automation: null,
     stored: [
       stored('1', 'Still', 100, 2, ticket),
       stored('2', 'Quiet', 100, 50, ticketAt(48)),
@@ -66,15 +66,15 @@ test('a ticket keeps the problem visible and counts what happened after it was a
 })
 
 test('a problem quiet for 30 days leaves the working lists and comes back when it recurs', () => {
-  const quiet = assemble({ project, now: NOW, portalUrl: null, stored: [stored('1', 'Old', 2000, 31 * 24)], data: data([['Old', 31 * 24, 1]]) })
+  const quiet = assemble({ project, now: NOW, portalUrl: null, automation: null, stored: [stored('1', 'Old', 2000, 31 * 24)], data: data([['Old', 31 * 24, 1]]) })
   assert.equal(view(quiet, '1').group, 'quiet')
-  const back = assemble({ project, now: NOW, portalUrl: null, stored: [stored('1', 'Old', 2000, 1)], data: data([['Old', 1, 1]]) })
+  const back = assemble({ project, now: NOW, portalUrl: null, automation: null, stored: [stored('1', 'Old', 2000, 1)], data: data([['Old', 1, 1]]) })
   assert.equal(view(back, '1').group, 'triage')
 })
 
 test('not handling folds the problem away and removes it from the failure counts', () => {
   const result = assemble({
-    project, now: NOW, portalUrl: null,
+    project, now: NOW, portalUrl: null, automation: null,
     stored: [stored('1', 'Noise', 5, 1, { ignored: { reason: 'extension', by: 'a@b.c', at: ago(1).toISOString() } }), stored('2', 'Real', 5, 1)],
     data: data([['Noise', 1, 40], ['Real', 1, 2]]),
   })
@@ -105,7 +105,7 @@ test('slow hours become slow problems with their latest p95, and are not counted
   ] })
   assert.deepEqual(seenProblems(telemetry).map((item) => [item.kind, item.key]), [['slow', 'POST /auth']])
   const result = assemble({
-    project, now: NOW, portalUrl: null,
+    project, now: NOW, portalUrl: null, automation: null,
     stored: [{ ...stored('1', 'POST /auth', 30, 2), kind: 'slow' }],
     data: telemetry,
   })
@@ -125,7 +125,7 @@ test('first and last sighting merge across a problem\'s message variants', () =>
 
 test('a stored problem the telemetry still covers but no longer counts is dropped unless decided on', () => {
   const result = assemble({
-    project, now: NOW, portalUrl: null,
+    project, now: NOW, portalUrl: null, automation: null,
     stored: [
       stored('1', 'NowNoise', 300, 200),
       stored('2', 'Decided', 300, 200, { ignored: { reason: 'r', by: 'a@b.c', at: ago(1).toISOString() } }),
@@ -142,11 +142,27 @@ test('a problem keeps every ticket; "since the ticket" counts from the newest', 
     { id: '1', url: 'https://linear.app/x/ENG-1', by: 'a@b.c', at: ago(50).toISOString() },
   ]
   const result = assemble({
-    project, now: NOW, portalUrl: null,
+    project, now: NOW, portalUrl: null, automation: null,
     stored: [stored('1', 'Twice', 100, 1, { tickets })],
     data: data([['Twice', 40, 4], ['Twice', 1, 2]]),
   })
   assert.equal(view(result, '1').tickets.length, 2)
   assert.deepEqual(view(result, '1').sinceTicket, { count: 2, quietDays: null })
   assert.equal(view(result, '1').group, 'ticket')
+})
+
+test('a problem needs a ticket when it is untriaged and seen in the past 7 days or new; a ticket or Not handling ends that', () => {
+  const ticket = { id: 't', url: 'https://linear.app/x/issue/ENG-1', by: 'a@example.com', at: ago(5).toISOString() }
+  const result = assemble({
+    project, now: NOW, portalUrl: null, automation: null,
+    stored: [
+      stored('1', 'Recent', 300, 2),
+      stored('2', 'OldQuiet', 400, 200),
+      stored('3', 'Ticketed', 300, 2, { tickets: [ticket] }),
+      stored('4', 'Ignored', 300, 2, { ignored: { reason: 'noise', by: 'a@example.com', at: ago(1).toISOString() } }),
+      stored('5', 'BrandNew', 2, 2),
+    ],
+    data: data([['Recent', 2, 1], ['OldQuiet', 200, 1], ['Ticketed', 2, 1], ['Ignored', 2, 1], ['BrandNew', 2, 1]]),
+  })
+  assert.deepEqual(['1', '2', '3', '4', '5'].map((id) => view(result, id).needsTicket), [true, false, false, false, true])
 })

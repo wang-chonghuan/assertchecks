@@ -15,7 +15,7 @@ import type {
 // How many stored runs the history lists, newest first.
 const HISTORY_RUNS = 50
 
-interface ProjectRow { id: string; slug: string; name: string }
+export interface ProjectRow { id: string; slug: string; name: string }
 interface CheckRow {
   id: string; slug: string; name: string; environment: string; period_seconds: number | null; grace_seconds: number
   created_at: Date; selection: Selection

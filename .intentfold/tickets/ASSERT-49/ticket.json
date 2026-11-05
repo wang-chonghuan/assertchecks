@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-49",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-49",
+  "branch": "ASSERT-49-errors-slack",
+  "base": "9c76abd6f701ae6caf1ca66ddc1eecd095cf63b0",
+  "ports": { "web": 63049 }
+}

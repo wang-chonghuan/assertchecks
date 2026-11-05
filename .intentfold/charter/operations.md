@@ -125,6 +125,20 @@ the developer's `az login`, which must be able to read the configured workspaces
 Container App's system-assigned managed identity holds the Log Analytics Reader role on each
 configured workspace and nothing else.
 
+Automatic tickets (ASSERT-49) call Azure OpenAI as the same identities: the Container App's managed
+identity and the developer's `az login` each hold Cognitive Services OpenAI User on `finley-codex`:
+
+```bash
+az role assignment create --assignee-object-id <principal-id> --assignee-principal-type <ServicePrincipal|User> \
+  --role "Cognitive Services OpenAI User" \
+  --scope "$(az cognitiveservices account show -g finley-azure-openai -n finley-codex --query id -o tsv)"
+pnpm admin errors:auto <project-slug>   # file a project's automatic tickets now, as the timer does
+```
+
+Where a project's tickets go, its platform key and its Slack webhook are set on its Production errors
+tab. Acceptance points `sandbox` at the Plane project `AssertChecks Sandbox` and the test Slack webhook
+`sandbox/slack-webhook` in `.credentials.local`; never at nsdk's or bf's ticket systems.
+
 **Deploy**
 
 Apply migrations first (same database as local), then redeploy with n-easyapp cap2 from a clean,
@@ -207,4 +221,7 @@ without switching accounts; a ticket may add runs, tickets and checks there and 
    the human's explicit approval; other repositories and the running site depend on them.
 9. **Granting AssertChecks's identity read access to a project's workspace** — not without the
    human's explicit approval. **Granting it any role beyond Log Analytics Reader on a single
-   workspace** — forbidden outright.
+   workspace and Cognitive Services OpenAI User on `finley-codex` (owner's request, ASSERT-49)** —
+   forbidden outright.
+10. **Pointing a real project's automatic tickets at its ticket system** — not without the human's
+   explicit approval: the first run files a ticket for every error that needs one at once.

@@ -205,6 +205,28 @@ export interface ProblemView {
   latest: { at: string; type: string | null; message: string; stack: string | null } | null
   // A slow operation's latest slow hour.
   slow: { p95Ms: number; usualMs: number } | null
+  // In the Needs a ticket list: no ticket, not marked Not handling, seen in the past 7 days or new.
+  needsTicket: boolean
+  // The automatic ticket for this problem (ASSERT-49), when one was attempted.
+  auto: AutoTicketState | null
+}
+
+export interface AutoTicketState { state: 'creating' | 'created' | 'failed'; url: string | null; error: string | null; at: string }
+
+// Where a project's automatic tickets go (ASSERT-49). The access key never leaves the server.
+export type TicketPlatform = 'plane' | 'linear'
+export interface AutomationView {
+  platform: TicketPlatform | null
+  // Who the saved key belongs to on the platform, as last verified.
+  workspace: string | null
+  target: { id: string; name: string } | null
+  assignee: { id: string; name: string } | null
+  // The channel's name as a person gave it (an older setting shows hooks.slack.com/…abcd).
+  slack: string | null
+  // Tickets are filed automatically only when a platform and a target are set.
+  active: boolean
+  updatedBy: string
+  updatedAt: string
 }
 
 export interface ProductionErrors {
@@ -218,6 +240,7 @@ export interface ProductionErrors {
   // The last 30 UTC days, oldest first: failures of problems that are not marked Not handling.
   daily: { day: string; count: number }[]
   problems: ProblemView[]
+  automation: AutomationView | null
   // The last 7 days of what is never a problem.
   noise: { category: NoiseCategory; total: number; items: { item: string; count: number }[] }[]
 }
