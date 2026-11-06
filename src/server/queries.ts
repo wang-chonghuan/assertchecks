@@ -5,7 +5,7 @@ import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import { catalogChanges } from './catalog-changes'
 import { caseMeta, type CaseMeta } from '../lib/organize'
-import { caseStatus, type CaseRun } from './tickets'
+import { caseStatus, needsTicketCount, type CaseRun } from './tickets'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type {
   BugReport, CaseBug, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase,
@@ -39,10 +39,11 @@ const slimCatalog = () => sql()`CASE WHEN jsonb_typeof(catalog->'cases') = 'arra
     'failure', c->'failure', 'group', c->'group', 'tags', c->'tags')) ORDER BY i), '[]'::jsonb)
   FROM jsonb_array_elements(catalog->'cases') WITH ORDINALITY AS x(c, i))) END`
 
-// A run's results without error text, enough to count passes and failures.
-const slimSummary = () => sql()`CASE WHEN jsonb_typeof(summary) = 'array' THEN (
+// A run's results without error text, enough to count passes and failures; only these cases when given.
+const slimSummary = (caseIds?: string[]) => sql()`CASE WHEN jsonb_typeof(summary) = 'array' THEN (
   SELECT COALESCE(jsonb_agg(jsonb_build_object('case', s->'case', 'status', s->'status', 'thens', s->'thens') ORDER BY i), '[]'::jsonb)
-  FROM jsonb_array_elements(summary) WITH ORDINALITY AS x(s, i)) END`
+  FROM jsonb_array_elements(summary) WITH ORDINALITY AS x(s, i)
+  ${caseIds ? sql()`WHERE s->>'case' = ANY(${caseIds})` : sql()``}) END`
 
 function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
   return {
@@ -93,13 +94,14 @@ async function finishedRun(checkId: string, runId: string): Promise<LatestDbRow 
   return row ?? null
 }
 
-// The newest runs of a check, any kind, with what each needs for one history row.
-export async function recentRuns(checkId: string): Promise<(RunDbRow & {
+// The newest runs of a check, any kind, with what each needs for one history row; with case IDs, each
+// run's results only for those cases.
+export async function recentRuns(checkId: string, caseIds?: string[]): Promise<(RunDbRow & {
   cases: string[] | null; summary: CaseResult[] | null; deployed_start: Versions | null; deployed_end: Versions | null
 })[]> {
   return sql()`
     SELECT id, started_at, finished_at, outcome, outcome_reason, exit_code, test_sha, trigger, cases,
-           ${slimSummary()} AS summary, deployed_start, deployed_end
+           ${slimSummary(caseIds)} AS summary, deployed_start, deployed_end
     FROM runs WHERE check_id = ${checkId}
     ORDER BY started_at DESC, id DESC LIMIT ${HISTORY_RUNS}
   `
@@ -141,7 +143,7 @@ export async function caseBugs(projectId: string, caseIds?: string[]): Promise<M
     caseLinks(projectId, caseIds),
     sql()<{ id: string; slug: string }[]>`SELECT id, slug FROM checks WHERE project_id = ${projectId} ORDER BY name`,
   ])
-  const byCheck = (await Promise.all(checks.map((check) => recentRuns(check.id)))).map(runsByCase)
+  const byCheck = (await Promise.all(checks.map((check) => recentRuns(check.id, caseIds)))).map(runsByCase)
   const ids = caseIds ?? [...new Set([...links.keys(), ...byCheck.flatMap((runs) => [...runs.keys()])])]
   const bugs = new Map<string, CaseBug & { check: string }>()
   for (const id of ids) {
@@ -316,6 +318,8 @@ async function card(check: CheckRow, now: Date, chosen?: LatestDbRow): Promise<{
       active: active ? toRun(active, check.grace_seconds, now) : null,
       partial: partialRun,
       notPassed: failed,
+      // Filled by the callers that read the project's tickets.
+      needsTicket: null,
       outsideRun: outside,
       counts: latest ? counts(latest, failed, outside) : null,
       catalogChanges: changes,
@@ -341,7 +345,18 @@ export async function overview(userId: string, projectSlug: string): Promise<Ove
     WHERE project_id = ${found.id} ORDER BY name
   `
   const cards = await Promise.all(checks.map((check) => card(check, now)))
-  return { project: { slug: found.slug, name: found.name }, checks: cards.map((item) => item.card) }
+  // Only the cases that did not pass are judged, which keeps the extra read small.
+  const ids = [...new Set(cards.flatMap(({ card: item }) => item.notPassed.map((result) => result.case)))]
+  const bugs = ids.length ? await caseBugs(found.id, ids) : new Map<string, CaseBug>()
+  return {
+    project: { slug: found.slug, name: found.name },
+    checks: cards.map(({ card: item }) => withNeedsTicket(item, bugs)),
+  }
+}
+
+// A card of the latest full run with how many of its cases that did not pass need a ticket.
+function withNeedsTicket(item: CheckCard, bugs: Map<string, CaseBug>): CheckCard {
+  return item.notPassed.length ? { ...item, needsTicket: needsTicketCount(item.notPassed, bugs) } : item
 }
 
 export async function checkDetail(
@@ -380,7 +395,8 @@ export async function checkDetail(
   }))
   return {
     project: { slug: found.slug, name: found.name },
-    check: checkCard,
+    // Tickets are judged as they are now, so an older run's card does not count them.
+    check: chosen ? checkCard : withNeedsTicket(checkCard, bugs),
     latest: latestRun,
     viewingLatest: !chosen,
     history,

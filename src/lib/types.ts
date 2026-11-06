@@ -45,6 +45,9 @@ export interface CheckCard {
   partial: PartialRun | null
   // Cases of the latest full run that did not pass, in run order; empty when all passed.
   notPassed: CaseResult[]
+  // How many of notPassed need a ticket, each judged as the check page judges it (ASSERT-52); null
+  // when it is not shown: every case passed, or an older run is on view.
+  needsTicket: number | null
   // Catalog cases the check's selection leaves out (draft or manual, never retired), with the
   // catalog's own explanation when it gives one.
   outsideRun: OutsideCase[]

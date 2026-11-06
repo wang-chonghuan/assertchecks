@@ -1,4 +1,4 @@
-import { Alert, Descriptions, Flex, Popover, Typography, theme } from 'antd'
+import { Alert, Descriptions, Flex, Popover, Tag, Typography, theme } from 'antd'
 import { InfoCircleOutlined, LoadingOutlined } from '@ant-design/icons'
 import { OutcomeTag, duration, utc } from './status'
 import type { CatalogChange, CheckCard } from '../lib/types'
@@ -6,7 +6,8 @@ import { ASSERTCHECKS_STYLE, space, text } from '../infui/tokens'
 
 // The overview of one environment's latest run, shared by the project page cards, the check page and
 // the homepage example, so all three always look the same. It answers one question: of the cases that
-// ran, how many failed? Everything else about the run sits behind the info popover.
+// ran, how many failed, and how many of those still need a ticket? Everything else about the run sits
+// behind the info popover.
 export function CheckSummary({ check, compact = false }: { check: CheckCard; compact?: boolean }) {
   const { token } = theme.useToken()
   const { latest, counts } = check
@@ -44,7 +45,8 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
 
       {latest && counts && headline ? (
         <>
-          <Flex align="baseline" justify="space-between" gap={space.stack} wrap style={{ marginBottom: space.group }}>
+          <Flex align="baseline" justify="space-between" gap={space.stack} wrap
+            style={{ marginBottom: check.needsTicket === null ? space.group : space.stack }}>
             <Flex align="baseline" gap={space.stack}>
               <span style={{ ...text.heading1, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: counts.failed > 0 ? token.colorError : token.colorText }}>
                 {headline.value}
@@ -61,6 +63,16 @@ export function CheckSummary({ check, compact = false }: { check: CheckCard; com
             </Flex>
             {unusual && <OutcomeTag run={latest} />}
           </Flex>
+
+          {/* Directly under the headline it qualifies, on every card. Cases with a ticket on them are being
+              handled; only the rest still need one, red while any do and green at none. */}
+          {check.needsTicket !== null && (
+            <Flex style={{ marginBottom: space.group }}>
+              <Tag color={check.needsTicket > 0 ? 'error' : 'success'}>
+                {check.needsTicket} {check.needsTicket === 1 ? 'needs' : 'need'} a ticket
+              </Tag>
+            </Flex>
+          )}
 
           <Flex role="img" aria-label={segments.map((segment) => `${segment.value} ${segment.label}`).join(', ')}
             gap={token.lineWidth * 2} style={{ height: ASSERTCHECKS_STYLE.summaryBarHeight, borderRadius: token.borderRadiusLG, overflow: 'hidden', background: token.colorFillSecondary }}>
