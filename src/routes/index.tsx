@@ -59,6 +59,8 @@ const EXAMPLE: CheckCard = {
   active: null,
   partial: null,
   notPassed: [],
+  // Most of the example's failures already carry a ticket.
+  needsTicket: 3,
   outsideRun: [],
   counts: { total: 265, passed: 229, failed: 31, notRun: 0, draft: 4, manual: 1 },
   catalogChanges: [],

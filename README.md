@@ -93,7 +93,8 @@ skipped or flaky, every declared Then passed, and every tested version was recor
 between start and end. Assertion failures are `failed`; anything not fully executed is `incomplete`.
 Bodies are limited to 5 MB. Unknown tokens return 404.
 
-Each check shows its latest finished full run. When that run's catalog removed a required case, or
+Each check shows its latest finished full run, and how many of the cases that did not pass in it need a
+ticket (a case with a ticket on it is not counted; one failing again after its fix is). When that run's catalog removed a required case, or
 moved one out of the check's selection, compared with the previous full run, the check shows a
 "Catalog changed" notice; the run is still judged as reported. Status (`new`, `up`, `failing`, `late`) follows that
 run; `late` applies only to checks with a period and only scheduled runs reset it, so manual runs

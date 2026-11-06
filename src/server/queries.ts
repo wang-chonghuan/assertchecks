@@ -5,7 +5,7 @@ import { sql } from './db'
 import { checkStatus, runTimedOut } from './status'
 import { catalogChanges } from './catalog-changes'
 import { caseMeta, type CaseMeta } from '../lib/organize'
-import { caseStatus, type CaseRun } from './tickets'
+import { caseStatus, needsTicketCount, type CaseRun } from './tickets'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type {
   BugReport, CaseBug, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase,
@@ -316,6 +316,8 @@ async function card(check: CheckRow, now: Date, chosen?: LatestDbRow): Promise<{
       active: active ? toRun(active, check.grace_seconds, now) : null,
       partial: partialRun,
       notPassed: failed,
+      // Filled by the callers that read the project's tickets.
+      needsTicket: null,
       outsideRun: outside,
       counts: latest ? counts(latest, failed, outside) : null,
       catalogChanges: changes,
@@ -340,8 +342,17 @@ export async function overview(userId: string, projectSlug: string): Promise<Ove
     SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at, selection FROM checks
     WHERE project_id = ${found.id} ORDER BY name
   `
-  const cards = await Promise.all(checks.map((check) => card(check, now)))
-  return { project: { slug: found.slug, name: found.name }, checks: cards.map((item) => item.card) }
+  // The project's tickets are judged alongside the cards, so the page waits no longer than before.
+  const [cards, bugs] = await Promise.all([Promise.all(checks.map((check) => card(check, now))), caseBugs(found.id)])
+  return {
+    project: { slug: found.slug, name: found.name },
+    checks: cards.map(({ card: item }) => withNeedsTicket(item, bugs)),
+  }
+}
+
+// A card of the latest full run with how many of its cases that did not pass need a ticket.
+function withNeedsTicket(item: CheckCard, bugs: Map<string, CaseBug>): CheckCard {
+  return item.notPassed.length ? { ...item, needsTicket: needsTicketCount(item.notPassed, bugs) } : item
 }
 
 export async function checkDetail(
@@ -380,7 +391,8 @@ export async function checkDetail(
   }))
   return {
     project: { slug: found.slug, name: found.name },
-    check: checkCard,
+    // Tickets are judged as they are now, so an older run's card does not count them.
+    check: chosen ? checkCard : withNeedsTicket(checkCard, bugs),
     latest: latestRun,
     viewingLatest: !chosen,
     history,

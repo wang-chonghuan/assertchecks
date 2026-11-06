@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { caseStatus, type CaseRun } from '../src/server/tickets'
+import { caseStatus, needsTicketCount, type CaseRun } from '../src/server/tickets'
 
 const NOW = new Date('2026-10-22T12:00:00Z')
 const DAY = 24 * 60 * 60 * 1000
@@ -42,4 +42,18 @@ test('a case failing again after its ticket fixed it needs a new ticket and name
   assert.deepEqual(result?.tickets.map((item) => item.id), ['ENG-1', 'ENG-2'])
   // A new ticket after that puts it back in progress.
   assert.equal(caseStatus([ticket('ENG-3', 1), ticket('ENG-1', 9)], [runs([8, true], [7, true], [2, false])])?.status, 'in-progress')
+})
+
+test('a card counts only the cases that did not pass and still need a ticket', () => {
+  // E2E-001 has no ticket; E2E-002 fails with its ticket on it; E2E-003 failed again after its fix.
+  const bugs = new Map([
+    ['E2E-001', caseStatus([], [runs([1, false])])!],
+    ['E2E-002', caseStatus([ticket('ENG-1', 2)], [runs([3, false], [1, false])])!],
+    ['E2E-003', caseStatus([ticket('ENG-2', 9)], [runs([8, true], [7, true], [1, false])])!],
+  ])
+  const notPassed = (...ids: string[]) => ids.map((id) => ({ case: id }))
+  assert.equal(needsTicketCount(notPassed('E2E-001', 'E2E-002', 'E2E-003'), bugs), 2)
+  // Every case that did not pass has a ticket on it.
+  assert.equal(needsTicketCount(notPassed('E2E-002'), bugs), 0)
+  assert.equal(needsTicketCount([], bugs), 0)
 })

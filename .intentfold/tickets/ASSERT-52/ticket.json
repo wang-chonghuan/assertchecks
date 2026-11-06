@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-52",
+  "mode": "autonomous",
+  "stage": "handoff-ready",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-52",
+  "branch": "ASSERT-52-needs-ticket-count",
+  "base": "271756e583c4981bd300cfa4b68df7f9a3d723f4",
+  "ports": { "web": 63052 }
+}
