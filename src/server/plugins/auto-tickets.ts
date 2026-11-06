@@ -20,7 +20,7 @@ export default definePlugin(() => {
         return
       }
       for (const result of results) {
-        console.log(`automatic tickets: ${result.project}: ${result.skipped ? `skipped (${result.skipped})` : `${result.filed.length} filed, ${result.failed.length} failed`}`)
+        console.log(`automatic tickets: ${result.project}: ${result.skipped ? `skipped (${result.skipped})` : `${result.filed.length} filed, ${result.grouped} on an overflow ticket, ${result.failed.length} failed`}`)
         for (const failure of result.failed) console.error(`automatic tickets: ${result.project}: ${failure.problem}: ${failure.error}`)
       }
     } catch (error) {

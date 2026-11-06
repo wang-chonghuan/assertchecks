@@ -29,9 +29,10 @@ const USAGE = `usage: pnpm admin <command>
   source:remove <project-slug>          stop reading the project's production errors
   source:events <project-slug> [<event>:<property>=<value> ...]
              count these custom events as failures, like exceptions (none: declare no events)
-  errors:auto <project-slug> [--limit <n>]  file the project's automatic tickets now, as the production
-                                        timer does every 10 minutes; --limit files at most n, most
-                                        frequent first (settings: the Production errors tab)
+  errors:auto <project-slug> [--limit <n>] [--per-hour <n>]
+             file the project's automatic tickets now, as the production timer does every 10 minutes;
+             --limit files at most n, most frequent first; --per-hour lowers the hourly cap of 10 to
+             try the overflow ticket on a test project (settings: the Production errors tab)
   list                                  show users, projects, memberships and checks`
 
 const { positionals, values } = parseArgs({
@@ -49,6 +50,7 @@ const { positionals, values } = parseArgs({
     workspace: { type: 'string' },
     roles: { type: 'string' },
     limit: { type: 'string' },
+    'per-hour': { type: 'string' },
   },
 })
 const [command, ...args] = positionals
@@ -246,14 +248,19 @@ async function main(): Promise<void> {
     case 'errors:auto': {
       const [project] = need(1)
       const { id } = await one(db<{ id: string }[]>`SELECT id FROM projects WHERE slug = ${project}`, 'no such project')
-      const limit = values.limit === undefined ? Infinity : Number(values.limit)
-      if (!(limit > 0) || (limit !== Infinity && !Number.isInteger(limit))) throw new Error('--limit must be a positive integer')
-      const result = await withRunLock(() => fileAutomaticTickets(id, limit))
+      const count = (value: string | undefined, flag: string) => {
+        if (value === undefined) return undefined
+        const parsed = Number(value)
+        if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`--${flag} must be a positive integer`)
+        return parsed
+      }
+      const options = { limit: count(values.limit, 'limit'), perHour: count(values['per-hour'], 'per-hour') }
+      const result = await withRunLock(() => fileAutomaticTickets(id, options))
       if (!result) throw new Error('another run is filing tickets now; try again in a minute')
       if (result.skipped) console.log(`${project}: skipped (${result.skipped})`)
       for (const url of result.filed) console.log(`filed ${url}`)
       for (const failure of result.failed) console.log(`failed ${failure.problem}: ${failure.error}`)
-      console.log(`${project}: ${result.filed.length} filed, ${result.failed.length} failed`)
+      console.log(`${project}: ${result.filed.length} filed, ${result.grouped} on an overflow ticket, ${result.failed.length} failed`)
       return
     }
     case 'list': {

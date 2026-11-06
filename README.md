@@ -108,7 +108,9 @@ project's tickets go: Plane (workspace slug and API token) or Linear (API key), 
 that platform, and an assignee; and optionally a Slack incoming webhook. Then the server, every 10
 minutes, files one ticket for each error problem in Needs a ticket, with the error, its stack and an
 automatic interpretation from Azure OpenAI, attaches it to the problem and posts it to Slack. Tickets a
-person attaches are posted too. Slow operations get no automatic ticket. A failure that leaves no exception, only a custom event the
+person attaches are posted too. Slow operations get no automatic ticket. A project gets at most 10 automatic tickets in any 60 minutes;
+beyond that, the hour's remaining problems share one overflow ticket, the 11th, and problems later in that
+hour join it without another ticket or Slack post. A failure that leaves no exception, only a custom event the
 project records, counts once the project declares it: `pnpm admin source:events <project>
 <event>:<property>=<value>` (for example `bf_auth_recovery:outcome=failed`); it then becomes a problem
 like an exception and no noise rule applies to it. `pnpm admin errors:auto
