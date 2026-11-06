@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-50",
   "mode": "autonomous",
-  "stage": "developing",
+  "stage": "handed-off",
   "finish": "auto-deploy",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-50",
   "branch": "ASSERT-50-failure-events",
