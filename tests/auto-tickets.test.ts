@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { problemLink, slackText, ticketText } from '../src/server/ticket-text'
+import { overflowText, problemLink, slackText, ticketText } from '../src/server/ticket-text'
 import { webhookHint, webhookUrl } from '../src/server/slack'
 import { factsText } from '../src/server/interpret'
 import type { ProblemView } from '../src/lib/types'
@@ -104,4 +104,26 @@ test('the model reads the telemetry facts with the stack cut short', () => {
   assert.ok(textOf.includes('Latest error: TypeError: x is undefined'))
   assert.ok(textOf.includes('Where: not recorded (browser)'))
   assert.ok(textOf.length < 6_500)
+})
+
+test('an overflow ticket lists every problem of the hour with its link, and says why they share one ticket', () => {
+  const problems = [problem(), problem({ id: '43', latest: { at: '2026-11-05T09:15:00.000Z', type: 'TypeError', message: 'x is undefined', stack: null }, browser: true, place: '/' })]
+    .map((item) => ({ problem: item, link: problemLink('https://assertchecks.com', 'shop', item.id) }))
+  const en = overflowText({ language: 'en', perHour: 10, problems })
+  assert.equal(en.title, 'Production error surge: 2 problems in an hour')
+  assert.ok(en.markdown.includes('More than 10 problems needed a ticket within an hour'))
+  assert.ok(en.markdown.includes('TypeError: x is undefined | Where: / (Browser) | Failures: 3 in 24 hours, 12 in 7 days, 40 in 90 days'))
+  assert.ok(en.markdown.includes('https://assertchecks.com/p/shop?tab=errors&problem=43'))
+  const zh = overflowText({ language: 'zh', perHour: 10, problems })
+  assert.equal(zh.title, '生产报错激增：1 小时内 2 个问题')
+  assert.ok(zh.html.includes('<h2>问题</h2>'))
+})
+
+test('a surge message names the shared ticket and lists at most ten problems', () => {
+  const many = Array.from({ length: 12 }, (_, index) => ({ problem: problem({ id: String(index) }), link: `${LINK}${index}` }))
+  const message = slackText({ project: 'Shop', ticket: 'https://t/1', automatic: true, by: 'AssertChecks (automatic)', problems: many, surge: true })
+  const lines = message.split('\n')
+  assert.equal(lines[0], 'Production error surge in *Shop*: 12 problems within an hour share one ticket: https://t/1')
+  assert.equal(lines.filter((line) => line.startsWith('• ')).length, 10)
+  assert.equal(lines.at(-1), '…and 2 more')
 })

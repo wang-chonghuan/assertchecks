@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util'
 import { sql } from '../src/server/db'
 import { hashToken, randomToken } from '../src/server/crypto'
 import { fileAutomaticTickets, withRunLock } from '../src/server/auto-tickets'
+import { failureEventKey, parseFailureEvent } from '../src/server/failure-events'
 
 const USAGE = `usage: pnpm admin <command>
   user:add <email>                      allow an email; it sees the projects it is a member of
@@ -26,9 +27,12 @@ const USAGE = `usage: pnpm admin <command>
              read the project's production errors from this Log Analytics workspace, optionally only
              these app roles; AssertChecks's identity needs Log Analytics Reader on it
   source:remove <project-slug>          stop reading the project's production errors
-  errors:auto <project-slug> [--limit <n>]  file the project's automatic tickets now, as the production
-                                        timer does every 10 minutes; --limit files at most n, most
-                                        frequent first (settings: the Production errors tab)
+  source:events <project-slug> [<event>:<property>=<value> ...]
+             count these custom events as failures, like exceptions (none: declare no events)
+  errors:auto <project-slug> [--limit <n>] [--per-hour <n>]
+             file the project's automatic tickets now, as the production timer does every 10 minutes;
+             --limit files at most n, most frequent first; --per-hour lowers the hourly cap of 10 to
+             try the overflow ticket on a test project (settings: the Production errors tab)
   list                                  show users, projects, memberships and checks`
 
 const { positionals, values } = parseArgs({
@@ -46,6 +50,7 @@ const { positionals, values } = parseArgs({
     workspace: { type: 'string' },
     roles: { type: 'string' },
     limit: { type: 'string' },
+    'per-hour': { type: 'string' },
   },
 })
 const [command, ...args] = positionals
@@ -227,17 +232,35 @@ async function main(): Promise<void> {
       console.log(`${project} no longer reads production errors`)
       return
     }
+    case 'source:events': {
+      const [project, ...specs] = args
+      if (!project) throw new Error(USAGE)
+      const declared = specs.map(parseFailureEvent)
+      await one(db`
+        UPDATE error_sources s SET failure_events = ${declared.length ? db.json(declared as never) : null}
+        FROM projects p WHERE s.project_id = p.id AND p.slug = ${project} RETURNING s.project_id
+      `, 'no error source for that project')
+      console.log(declared.length
+        ? `${project} counts these events as failures: ${declared.map(failureEventKey).join('; ')}`
+        : `${project} declares no failure events`)
+      return
+    }
     case 'errors:auto': {
       const [project] = need(1)
       const { id } = await one(db<{ id: string }[]>`SELECT id FROM projects WHERE slug = ${project}`, 'no such project')
-      const limit = values.limit === undefined ? Infinity : Number(values.limit)
-      if (!(limit > 0) || (limit !== Infinity && !Number.isInteger(limit))) throw new Error('--limit must be a positive integer')
-      const result = await withRunLock(() => fileAutomaticTickets(id, limit))
+      const count = (value: string | undefined, flag: string) => {
+        if (value === undefined) return undefined
+        const parsed = Number(value)
+        if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`--${flag} must be a positive integer`)
+        return parsed
+      }
+      const options = { limit: count(values.limit, 'limit'), perHour: count(values['per-hour'], 'per-hour') }
+      const result = await withRunLock(() => fileAutomaticTickets(id, options))
       if (!result) throw new Error('another run is filing tickets now; try again in a minute')
       if (result.skipped) console.log(`${project}: skipped (${result.skipped})`)
       for (const url of result.filed) console.log(`filed ${url}`)
       for (const failure of result.failed) console.log(`failed ${failure.problem}: ${failure.error}`)
-      console.log(`${project}: ${result.filed.length} filed, ${result.failed.length} failed`)
+      console.log(`${project}: ${result.filed.length} filed, ${result.grouped} on an overflow ticket, ${result.failed.length} failed`)
       return
     }
     case 'list': {
@@ -253,7 +276,8 @@ async function main(): Promise<void> {
         FROM checks c JOIN projects p ON p.id = c.project_id ORDER BY 1, 2
       `)
       console.table(await db`
-        SELECT p.slug AS project, s.workspace_path AS workspace, array_to_string(s.roles, ',') AS roles
+        SELECT p.slug AS project, s.workspace_path AS workspace, array_to_string(s.roles, ',') AS roles,
+          s.failure_events::text AS failure_events
         FROM error_sources s JOIN projects p ON p.id = s.project_id ORDER BY 1
       `)
       return

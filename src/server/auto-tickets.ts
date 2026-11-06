@@ -6,14 +6,15 @@ import { automationOf, readProductionErrors } from './production-errors'
 import { createTicket, verify } from './ticket-platforms'
 import { interpret, type ErrorFacts, type Language } from './interpret'
 import { postToSlack } from './slack'
-import { problemLink, slackText, ticketText } from './ticket-text'
+import { overflowText, problemLink, slackText, ticketText } from './ticket-text'
 import { ORIGIN } from '../lib/connect-guide'
 import type { ProblemView } from '../lib/types'
 
 // Who automatic tickets are attached by, as the page shows it.
 export const AUTOMATIC = 'AssertChecks (automatic)'
 
-export interface RunSummary { project: string; filed: string[]; failed: { problem: string; error: string }[]; skipped?: string }
+// `grouped` counts the problems put on an overflow ticket instead of one of their own.
+export interface RunSummary { project: string; filed: string[]; failed: { problem: string; error: string }[]; grouped: number; skipped?: string }
 
 const facts = (problem: ProblemView): ErrorFacts => ({
   key: problem.key,
@@ -53,6 +54,7 @@ export async function announce(input: {
   problems: ProblemView[]
   automatic: boolean
   by: string
+  surge?: boolean
 }): Promise<string | null> {
   const automation = await automationOf(input.projectId)
   if (!automation?.slack_webhook) return null
@@ -65,6 +67,7 @@ export async function announce(input: {
       problems: errors.map((problem) => ({ problem, link: problemLink(ORIGIN, input.projectSlug, problem.id) })),
       automatic: input.automatic,
       by: input.by,
+      surge: input.surge,
     }))
     return null
   } catch (error) {
@@ -72,24 +75,89 @@ export async function announce(input: {
   }
 }
 
-// `limit` files at most that many tickets, most frequent problems first: an operator's first, careful run.
-export async function fileAutomaticTickets(projectId: string, limit = Infinity): Promise<RunSummary> {
+// At most this many tickets per project in any 60 minutes; the rest of that hour's problems share one
+// overflow ticket, the 11th (owner, 2026-11-06).
+export const PER_HOUR = 10
+
+export interface FileOptions {
+  // File at most this many tickets in this run, most frequent problems first: an operator's careful run.
+  limit?: number
+  // The hourly cap; only an operator trying the overflow on a test project lowers it.
+  perHour?: number
+}
+
+// Records why a problem's ticket was not filed. A network blip or a platform outage passes on its own: try
+// again next run. A refused key or a rejected request does not: wait until someone changes the settings.
+async function recordFailure(problemId: string, error: unknown): Promise<string> {
+  // Node's "fetch failed" hides why; its cause names it (ETIMEDOUT, ECONNRESET, ...).
+  const cause = (error as { cause?: { code?: string } }).cause?.code
+  const message = `${(error as Error).message}${cause ? ` (${cause})` : ''}`.slice(0, 500)
+  const passing = /fetch failed|ETIMEDOUT|ECONNRESET|timed? ?out|aborted|HTTP (429|5\d\d)/i.test(message)
+  await sql()`
+    UPDATE auto_tickets SET state = 'failed', error = ${message}, updated_at = now(),
+      config_at = CASE WHEN ${passing} THEN '-infinity'::timestamptz ELSE config_at END
+    WHERE problem_id = ${problemId}
+  `
+  return message
+}
+
+async function recordFiled(problemIds: string[], url: string, overflow: boolean, note: string | null): Promise<void> {
+  await sql()`
+    UPDATE auto_tickets SET state = 'created', url = ${url}, overflow = ${overflow}, error = ${note}, filed_at = now(), updated_at = now()
+    WHERE problem_id IN ${sql()(problemIds)}
+  `
+}
+
+// The project's last 60 minutes: how many ordinary tickets were filed, and the overflow ticket opened in
+// that time, if any, which later problems of the hour join.
+async function lastHour(projectId: string): Promise<{ filed: number; overflow: string | null }> {
+  const [row] = await sql()<{ filed: number; overflow: string | null }[]>`
+    SELECT
+      (SELECT count(*)::int FROM auto_tickets a JOIN error_problems e ON e.id = a.problem_id
+        WHERE e.project_id = ${projectId} AND a.state = 'created' AND NOT a.overflow AND a.filed_at > now() - interval '1 hour') AS filed,
+      (SELECT a.url FROM auto_tickets a JOIN error_problems e ON e.id = a.problem_id
+        WHERE e.project_id = ${projectId} AND a.state = 'created' AND a.overflow
+        GROUP BY a.url HAVING min(a.filed_at) > now() - interval '1 hour' ORDER BY min(a.filed_at) DESC LIMIT 1) AS overflow
+  `
+  return row
+}
+
+const attach = (projectId: string, problems: ProblemView[], url: string) => sql()`
+  INSERT INTO ticket_links ${sql()(problems.map((problem) => ({ project_id: projectId, problem_id: problem.id, url, attached_by: AUTOMATIC })),
+    'project_id', 'problem_id', 'url', 'attached_by')}
+  ON CONFLICT DO NOTHING
+`
+
+export async function fileAutomaticTickets(projectId: string, options: FileOptions = {}): Promise<RunSummary> {
+  const limit = options.limit ?? Infinity
+  const perHour = options.perHour ?? PER_HOUR
   const [found] = await sql()<{ id: string; slug: string; name: string }[]>`SELECT id, slug, name FROM projects WHERE id = ${projectId}`
-  if (!found) return { project: projectId, filed: [], failed: [], skipped: 'no such project' }
-  const summary: RunSummary = { project: found.slug, filed: [], failed: [] }
+  if (!found) return { project: projectId, filed: [], failed: [], grouped: 0, skipped: 'no such project' }
+  const summary: RunSummary = { project: found.slug, filed: [], failed: [], grouped: 0 }
   const automation = await automationOf(found.id)
   if (!automation?.platform || !automation.token || !automation.target_id) return { ...summary, skipped: 'no ticket destination' }
   const view = await readProductionErrors(found)
   if (view.state !== 'ready') return { ...summary, skipped: view.error ?? view.state }
   const access = { platform: automation.platform, token: automation.token, workspace: automation.workspace }
+  const at = { targetId: automation.target_id, teamId: automation.team_id, assigneeId: automation.assignee_id }
   const language: Language = automation.platform === 'plane' ? 'zh' : 'en'
+  const announceAll = (url: string, problems: ProblemView[], surge: boolean) => announce({
+    projectId: found.id, projectSlug: found.slug, projectName: found.name, ticket: url, problems, automatic: true, by: AUTOMATIC, surge,
+  })
   // A refused key fails every problem the same way; find out once, before asking the model for anything.
   const refused = await verify(access).then(() => null, (error: Error) => error)
+  const hour = await lastHour(found.id)
+  let filedThisHour = hour.filed
+  const spill: ProblemView[] = []
 
   for (const problem of view.problems.filter((item) => item.kind === 'error' && item.needsTicket)) {
     if (summary.filed.length + summary.failed.length >= limit) break
     if (!(await claim(problem.id, automation.updated_at))) continue
-    const link = problemLink(ORIGIN, found.slug, problem.id)
+    // Past the hour's limit a problem waits for the overflow ticket below.
+    if (filedThisHour >= perHour) {
+      spill.push(problem)
+      continue
+    }
     try {
       if (refused) throw refused
       let reading: string
@@ -102,34 +170,38 @@ export async function fileAutomaticTickets(projectId: string, limit = Infinity):
         summary.failed.push({ problem: problem.key, error: message })
         continue
       }
-      const url = await createTicket(access, {
-        targetId: automation.target_id, teamId: automation.team_id, assigneeId: automation.assignee_id,
-      }, ticketText({ language, problem, reading, link }))
-      await sql()`
-        INSERT INTO ticket_links (project_id, problem_id, url, attached_by)
-        VALUES (${found.id}, ${problem.id}, ${url}, ${AUTOMATIC}) ON CONFLICT DO NOTHING
-      `
-      const slack = await announce({
-        projectId: found.id, projectSlug: found.slug, projectName: found.name, ticket: url, problems: [problem], automatic: true, by: AUTOMATIC,
-      })
-      await sql()`
-        UPDATE auto_tickets SET state = 'created', url = ${url}, error = ${slack ? `Slack: ${slack}` : null}, updated_at = now()
-        WHERE problem_id = ${problem.id}
-      `
+      const url = await createTicket(access, at, ticketText({ language, problem, reading, link: problemLink(ORIGIN, found.slug, problem.id) }))
+      await attach(found.id, [problem], url)
+      const slack = await announceAll(url, [problem], false)
+      await recordFiled([problem.id], url, false, slack ? `Slack: ${slack}` : null)
       summary.filed.push(url)
+      filedThisHour += 1
     } catch (error) {
-      // Node's "fetch failed" hides why; its cause names it (ETIMEDOUT, ECONNRESET, ...).
-      const cause = (error as { cause?: { code?: string } }).cause?.code
-      const message = `${(error as Error).message}${cause ? ` (${cause})` : ''}`.slice(0, 500)
-      // A network blip or a platform outage passes on its own: try again next run. A refused key or a
-      // rejected request does not: wait until someone changes the settings.
-      const passing = /fetch failed|ETIMEDOUT|ECONNRESET|timed? ?out|aborted|HTTP (429|5\d\d)/i.test(message)
-      await sql()`
-        UPDATE auto_tickets SET state = 'failed', error = ${message}, updated_at = now(),
-          config_at = CASE WHEN ${passing} THEN '-infinity'::timestamptz ELSE config_at END
-        WHERE problem_id = ${problem.id}
-      `
-      summary.failed.push({ problem: problem.key, error: message })
+      summary.failed.push({ problem: problem.key, error: await recordFailure(problem.id, error) })
+    }
+  }
+
+  if (spill.length) {
+    const ids = spill.map((problem) => problem.id)
+    try {
+      if (hour.overflow) {
+        // The hour already has its overflow ticket: these problems join it quietly.
+        await attach(found.id, spill, hour.overflow)
+        await recordFiled(ids, hour.overflow, true, null)
+        summary.grouped += spill.length
+      } else {
+        if (refused) throw refused
+        const url = await createTicket(access, at, overflowText({
+          language, perHour, problems: spill.map((problem) => ({ problem, link: problemLink(ORIGIN, found.slug, problem.id) })),
+        }))
+        await attach(found.id, spill, url)
+        const slack = await announceAll(url, spill, true)
+        await recordFiled(ids, url, true, slack ? `Slack: ${slack}` : null)
+        summary.filed.push(url)
+        summary.grouped += spill.length
+      }
+    } catch (error) {
+      for (const problem of spill) summary.failed.push({ problem: problem.key, error: await recordFailure(problem.id, error) })
     }
   }
   return summary
