@@ -18,7 +18,7 @@ export const Route = createRootRoute({
     ],
     links: [
       // The body typeface, preloaded so text does not render in the fallback first.
-      { rel: 'preload', href: '/fonts/space-grotesk/space-grotesk-latin.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
+      { rel: 'preload', href: '/fonts/inter/inter-latin.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
       { rel: 'stylesheet', href: antdCss },
       { rel: 'stylesheet', href: appCss },
     ],

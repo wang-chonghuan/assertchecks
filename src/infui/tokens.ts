@@ -25,9 +25,9 @@ export const ASSERTCHECKS_STYLE = {
   cardPadding: 16,
   cardHeaderHeight: 44,
   headerHeight: 52,
-  // Type, all measured on adsy.com: Space Grotesk (self-hosted in public/fonts/space-grotesk/).
+  // Type: Inter (self-hosted in public/fonts/inter/); sizes and weights measured on adsy.com.
   fontFamilyCode: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace",
-  fontFamily: "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   fontSize: 16, // body, navigation, buttons
   fontSizeSM: 14, // card descriptions
   fontSizeLG: 20, // emphasised lead text, card titles
