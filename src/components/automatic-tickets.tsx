@@ -255,7 +255,7 @@ export function AutomaticTicketsCard({ project, automation, onChanged }: { proje
             )}
           </Flex>
         </Flex>
-        {automation && <Typography.Text style={text.caption}>Changed by {automation.updatedBy}, {utc(automation.updatedAt)}</Typography.Text>}
+        {automation && <Typography.Text style={text.caption}>Changed by {automation.updatedBy}, <span style={{ whiteSpace: 'nowrap' }}>{utc(automation.updatedAt)}</span></Typography.Text>}
       </Flex>
       <DestinationModal open={editing === 'destination'} project={project} current={automation} onCancel={() => setEditing(null)} onSaved={saved} />
       <SlackModal open={editing === 'slack'} project={project} onCancel={() => setEditing(null)} onSaved={saved} />
