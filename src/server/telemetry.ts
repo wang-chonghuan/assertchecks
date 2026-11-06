@@ -61,6 +61,10 @@ const ANALYTICS = ['google-analytics.com', 'googletagmanager.com', 'doubleclick.
 // The client went away mid-request; the type may sit in the outer type or only in the ProblemId.
 const ABORTED = `(OuterType has_any ("ConnectionAbortedException", "ClientDisconnect") or ProblemId has_any ("ConnectionAbortedException", "ClientDisconnect")
     or (ClientType == "Browser" and OuterType has "AbortError"))`
+// A browser error whose stack runs only inside a browser extension: the visitor's extension failed, not the
+// product's code. A stack that also names a page of the site is the product's own.
+const EXTENSION = `(ClientType == "Browser" and tostring(Details[0].rawStack) matches regex @"(chrome|moz|safari-web)-extension://"
+    and not(tostring(Details[0].rawStack) matches regex @"https?://"))`
 // A slow hour: enough requests to matter, a p95 of at least a second and at least twice the usual.
 const SLOW_MIN_REQUESTS = 10
 const SLOW_MIN_P95_MS = 1000
@@ -92,6 +96,7 @@ let failures = ${sources}
 | extend noise = case(
     ${declared.length ? 'declared == true, "",' : ''}
     ClientType == "Browser" and OuterMessage has "Script error", "script",
+    ${EXTENSION}, "extension",
     ${ABORTED}, "aborted",
     OperationId in (clientErrors), "client",
     "")
@@ -127,6 +132,7 @@ union
   (requests | where not(scan) and toint(ResultCode) between (400 .. 499) | summarize n = count() by category = "client", item = strcat(ResultCode, " ", Name)),
   (AppExceptions | where TimeGenerated > since ${roles}
     | extend category = case(ClientType == "Browser" and OuterMessage has "Script error", "script",
+        ${EXTENSION}, "extension",
         ${ABORTED}, "aborted", "")
     | where category != ""
     | summarize n = dcount(iff(isempty(OperationId), _ItemId, OperationId)) by category, item = ProblemId),

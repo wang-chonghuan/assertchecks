@@ -94,7 +94,7 @@ export function together(
 }
 
 function noiseSummary(rows: NoiseRow[]): ProductionErrors['noise'] {
-  const order: NoiseCategory[] = ['client', 'scanner', 'aborted', 'analytics', 'script']
+  const order: NoiseCategory[] = ['client', 'scanner', 'aborted', 'analytics', 'script', 'extension']
   return order.map((category) => {
     const items = rows.filter((row) => row.category === category).sort((a, b) => b.count - a.count)
     return {

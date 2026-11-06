@@ -61,7 +61,9 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   stay in the project's telemetry; AssertChecks stores only the problems it derives from them and a
   person's decisions on those problems. Problems come from exceptions and from the custom events a project
   declared as failures (`error_sources.failure_events`, set with `pnpm admin source:events`); AssertChecks
-  never decides on its own that an event is a failure, and no noise rule applies to a declared one.
+  never decides on its own that an event is a failure, and no noise rule applies to a declared one. A
+  browser error whose stack runs only inside a browser extension (`chrome-`, `moz-`, `safari-web-extension://`)
+  is noise: the visitor's extension failed, not the product.
 - Automatic tickets run in the server, never on a person's machine: every 10 minutes the Container App
   files a ticket for each error problem in Needs a ticket of every project with a ticket destination.
   The timer starts only in the Container App (production build with `CONTAINER_APP_NAME`), because local

@@ -16,6 +16,7 @@ const NOISE_LABEL: Record<NoiseCategory, string> = {
   aborted: 'Requests the client aborted',
   analytics: 'Blocked analytics calls',
   script: 'Cross-origin "Script error."',
+  extension: 'Errors inside browser extensions',
 }
 
 // The folded groups line up with the cards above them.

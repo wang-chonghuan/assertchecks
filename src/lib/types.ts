@@ -170,7 +170,7 @@ export interface CaseDetail {
 // counts are failures (requests, page visits or slow hours), not raw records.
 export type ProblemKind = 'error' | 'slow'
 export type ProblemGroup = 'triage' | 'ticket' | 'quiet' | 'ignored'
-export type NoiseCategory = 'client' | 'scanner' | 'aborted' | 'analytics' | 'script'
+export type NoiseCategory = 'client' | 'scanner' | 'aborted' | 'analytics' | 'script' | 'extension'
 
 // A ticket attached to a case or a problem. A subject keeps every ticket it ever had; none replaces another.
 export interface TicketLink { id: string; url: string; by: string; at: string }
