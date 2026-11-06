@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-51",
+  "mode": "autonomous",
+  "stage": "handoff-ready",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-51",
+  "branch": "ASSERT-51-inter-font",
+  "base": "ae87db859e93abbb4587f865d4899ea36274cf4f",
+  "ports": { "web": 63051 }
+}
