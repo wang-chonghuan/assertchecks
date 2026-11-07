@@ -119,7 +119,9 @@ function HomePage() {
         >
           {/* The hero sits closer to the header than a section does, so the example card is not framed by empty bands. */}
           <div style={{ ...section, paddingBlock: space.block }}>
-            <Row gutter={[space.section, space.block]} align="middle">
+            {/* The columns sit side by side only from lg; below it a horizontal gutter would push the row past
+                the phone's page gutter and scroll the page sideways (ASSERT-53). */}
+            <Row gutter={[{ xs: 0, lg: space.section }, space.block]} align="middle">
               <Col xs={24} lg={13}>
                 <Flex vertical gap={space.group} align="start">
                   <Typography.Title

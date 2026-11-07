@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-53",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-53",
+  "branch": "ASSERT-53-hero-overflow",
+  "base": "c78aeed1dc0560589e9165f10e52deb0422c3c14",
+  "ports": { "web": 63053 }
+}
