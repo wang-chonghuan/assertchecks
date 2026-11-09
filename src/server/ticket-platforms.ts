@@ -109,20 +109,50 @@ export async function people(access: Access, target: { id: string; teamId: strin
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// Files one ticket and returns its address.
+// Every automatic ticket carries this label, so a team can find them all with one filter (ASSERT-54).
+export const LABEL = 'production-error'
+
+// The label to use among those with that name: the team's own first, then a workspace-wide one.
+export function pickLabel(labels: { id: string; name: string; teamId: string | null }[], teamId: string | null): string | null {
+  const named = labels.filter((label) => label.name.toLowerCase() === LABEL)
+  return (named.find((label) => teamId !== null && label.teamId === teamId) ?? named.find((label) => label.teamId === null))?.id ?? null
+}
+
+// The label's id at the target, created there when it does not exist yet.
+async function labelId(access: Access, at: { targetId: string; teamId: string | null }): Promise<string> {
+  if (access.platform === 'plane') {
+    const path = `workspaces/${workspace(access)}/projects/${encodeURIComponent(at.targetId)}/labels/`
+    const labels = listOf(await plane<{ id: string; name: string }[] | { results: { id: string; name: string }[] }>(access, path))
+    return pickLabel(labels.map((label) => ({ ...label, teamId: null })), null)
+      ?? (await plane<{ id: string }>(access, path, { method: 'POST', body: { name: LABEL } })).id
+  }
+  const data = await linear<{ issueLabels: { nodes: { id: string; name: string; team: { id: string } | null }[] } }>(access,
+    'query ($name: String!) { issueLabels(first: 50, filter: { name: { eqIgnoreCase: $name } }) { nodes { id name team { id } } } }', { name: LABEL })
+  const found = pickLabel(data.issueLabels.nodes.map((label) => ({ id: label.id, name: label.name, teamId: label.team?.id ?? null })), at.teamId)
+  if (found) return found
+  const made = await linear<{ issueLabelCreate: { success: boolean; issueLabel: { id: string } | null } }>(access, `
+    mutation ($input: IssueLabelCreateInput!) { issueLabelCreate(input: $input) { success issueLabel { id } } }`,
+  { input: { name: LABEL, teamId: at.teamId } })
+  if (!made.issueLabelCreate.success || !made.issueLabelCreate.issueLabel) throw new Error(`Linear did not create the ${LABEL} label`)
+  return made.issueLabelCreate.issueLabel.id
+}
+
+// Files one ticket, labelled, and returns its address.
 export async function createTicket(
   access: Access, at: { targetId: string; teamId: string | null; assigneeId: string | null }, ticket: Ticket,
 ): Promise<string> {
   if (access.platform === 'plane') {
     const base = `workspaces/${workspace(access)}/projects/${encodeURIComponent(at.targetId)}`
     const project = await plane<{ identifier: string }>(access, `${base}/`)
+    const label = await labelId(access, at)
     const issue = await plane<{ sequence_id: number }>(access, `${base}/work-items/`, {
       method: 'POST',
-      body: { name: ticket.title, description_html: ticket.html, ...(at.assigneeId ? { assignees: [at.assigneeId] } : {}) },
+      body: { name: ticket.title, description_html: ticket.html, labels: [label], ...(at.assigneeId ? { assignees: [at.assigneeId] } : {}) },
     })
     return `${PLANE_APP}/${workspace(access)}/browse/${project.identifier}-${issue.sequence_id}/`
   }
   if (!at.teamId) throw new Error('Linear tickets need a team')
+  const label = await labelId(access, at)
   const data = await linear<{ issueCreate: { success: boolean; issue: { url: string } | null } }>(access, `
     mutation ($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { url } } }`, {
     input: {
@@ -131,6 +161,7 @@ export async function createTicket(
       ...(at.assigneeId ? { assigneeId: at.assigneeId } : {}),
       title: ticket.title,
       description: ticket.markdown,
+      labelIds: [label],
     },
   })
   if (!data.issueCreate.success || !data.issueCreate.issue) throw new Error('Linear did not create the ticket')
