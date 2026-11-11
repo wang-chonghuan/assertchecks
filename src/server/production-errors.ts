@@ -2,7 +2,7 @@
 // decisions people make on them, and where its automatic tickets go (ASSERT-49). Reads and writes for a
 // person go through their membership; the automatic run reads a project directly (auto-tickets.ts).
 import { sql } from './db'
-import { project, type ProjectRow } from './queries'
+import { project, memberProject, type ProjectRow, type Viewer } from './queries'
 import { telemetry } from './telemetry'
 import { failureEvents } from './failure-events'
 import { assemble, seenProblems, withoutData, type StoredProblem } from './problems'
@@ -131,8 +131,8 @@ export async function readProductionErrors(found: ProjectRow): Promise<Productio
   })
 }
 
-export async function productionErrors(userId: string, projectSlug: string): Promise<ProductionErrors | null> {
-  const found = await project(userId, projectSlug)
+export async function productionErrors(viewer: Viewer, projectSlug: string): Promise<ProductionErrors | null> {
+  const found = await project(viewer, projectSlug)
   return found ? readProductionErrors(found) : null
 }
 
@@ -143,7 +143,7 @@ export type Decision = { decision: 'ignored'; reason: string } | { decision: 'no
 export async function decideProblem(
   user: { id: string; email: string }, projectSlug: string, problemId: string, decision: Decision,
 ): Promise<boolean> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return false
   const reason = decision.decision === 'ignored' ? decision.reason : null
   const decided = decision.decision !== 'none'
@@ -177,7 +177,7 @@ function accessFor(input: AccessInput, saved: AutomationRow | null): Access {
 export async function platformTargets(
   user: { id: string }, projectSlug: string, input: AccessInput,
 ): Promise<{ account: string; targets: Target[] } | null> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return null
   const access = accessFor(input, await automationOf(found.id))
   return { account: await verify(access), targets: await targets(access) }
@@ -186,7 +186,7 @@ export async function platformTargets(
 export async function platformPeople(
   user: { id: string }, projectSlug: string, input: AccessInput, target: { id: string; teamId: string | null },
 ): Promise<Person[] | null> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return null
   return people(accessFor(input, await automationOf(found.id)), target)
 }
@@ -199,7 +199,7 @@ export interface DestinationInput extends AccessInput {
 // Saves where tickets go after proving the key reaches that target. Changing it lets problems whose
 // automatic ticket failed be tried again.
 export async function saveDestination(user: { id: string; email: string }, projectSlug: string, input: DestinationInput): Promise<boolean> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return false
   const access = accessFor(input, await automationOf(found.id))
   const reachable = await targets(access)
@@ -228,7 +228,7 @@ export async function saveDestination(user: { id: string; email: string }, proje
 
 // Stops automatic tickets: forgets the platform and its key. The Slack channel stays.
 export async function removeDestination(user: { id: string; email: string }, projectSlug: string): Promise<boolean> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return false
   await sql()`
     UPDATE error_automation SET platform = null, token = null, workspace = null, target_id = null, target_name = null,
@@ -242,7 +242,7 @@ export async function removeDestination(user: { id: string; email: string }, pro
 export async function saveSlack(
   user: { id: string; email: string }, projectSlug: string, webhook: string | null, channel: string | null = null,
 ): Promise<boolean> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return false
   if (webhook) {
     await postToSlack(webhook, `AssertChecks will post the tickets on *${found.name}*'s production errors in this channel.`)

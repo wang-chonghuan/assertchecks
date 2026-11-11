@@ -1,7 +1,7 @@
 // Tickets on cases and on production problems (ASSERT-37): attach and remove. Every read and write goes
 // through the user's membership.
 import { sql } from './db'
-import { project, type ProjectRow } from './queries'
+import { memberProject, type ProjectRow } from './queries'
 
 export type Subject = { cases: string[] } | { problem: string }
 
@@ -31,7 +31,7 @@ export function caseIds(value: unknown): string[] {
 export async function attachTicket(
   user: { id: string; email: string }, projectSlug: string, subject: Subject, url: string,
 ): Promise<{ project: ProjectRow; added: boolean } | null> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return null
   if ('problem' in subject) {
     const rows = await sql()`
@@ -63,7 +63,7 @@ async function insertCaseLinks(projectId: string, cases: string[], url: string, 
 export async function linkFromClient(
   user: { id: string; email: string }, projectSlug: string, cases: string[], url: string,
 ): Promise<{ unknown: string[] } | { linked: string[]; already: string[] } | null> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return null
   const known = await sql()<{ id: string }[]>`
     SELECT DISTINCT c->>'id' AS id FROM checks k
@@ -83,7 +83,7 @@ export async function linkFromClient(
 
 // Remove a ticket link pasted by mistake.
 export async function removeTicket(user: { id: string }, projectSlug: string, linkId: string): Promise<boolean> {
-  const found = await project(user.id, projectSlug)
+  const found = await memberProject(user.id, projectSlug)
   if (!found) return false
   const rows = await sql()`DELETE FROM ticket_links WHERE id = ${linkId} AND project_id = ${found.id} RETURNING id`
   return rows.length === 1

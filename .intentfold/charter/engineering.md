@@ -45,8 +45,8 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 - `public/schemas/` — the published catalog and result formats; `public/client/assertchecks.mjs` — the
   zero-dependency client projects download on every run.
 - `db/migrations/` — numbered SQL migrations applied by `scripts/migrate.ts`.
-- `scripts/admin.ts` — the operator CLI; users, memberships, projects, checks and error sources are
-  managed only here. The web UI writes people's decisions on production problems and a project's
+- `scripts/admin.ts` — the operator CLI; users, memberships, project email-domain groups, projects,
+  checks and error sources are managed only here. The web UI writes people's decisions on production problems and a project's
   automatic-ticket settings (where tickets go and its Slack channel).
 - `tests/` — Node test runner unit tests for pure logic.
 
@@ -80,10 +80,16 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
 - Identity comes from Clerk (application `assertchecks`: email verification code or Google; production
   Google uses the owner's OAuth client in Google Cloud project `assertchecks-auth`). Access comes
   only from users and memberships created with the CLI, matched by the verified email; an email the
-  CLI never added can sign in but sees no project.
+  CLI never added can sign in but sees no project. A project may also grant an email-domain group
+  (`pnpm admin group:add`), stored in `memberships` like any member via a placeholder `users` row whose
+  email is a bare domain (no `@`): a signed-in user whose verified email domain matches can view that
+  project read-only without an individual membership, so a run link can be shared with a team (ASSERT-55).
+  Editing stays membership-only (the person must be a member by id).
 - Check state is derived on read; no stored status table. A ticket's state on a case is derived the
   same way, from the check's runs since the ticket was attached; only the link itself is stored.
-- Every read is scoped by the signed-in user's memberships; a miss is a 404.
+- Every read is scoped to projects the signed-in user may view — an explicit member, or their email
+  domain is in the project's group; a miss is a 404. Edits are scoped to explicit members only, so a
+  domain-group viewer is read-only.
 - Two credentials, one job each. A check's ping token reports that check's runs and nothing else; it
   lives in the project's CI secrets. A person's client token, made by the client and bound to them when
   they approve its code while signed in, lets the client read and link tickets as that person through
