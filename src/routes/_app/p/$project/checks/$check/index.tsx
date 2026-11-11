@@ -2,7 +2,7 @@ import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-r
 import { Alert, App, Button, Card, Empty, Flex, Grid, Select, Table, Tabs, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useState, type ReactNode } from 'react'
-import { CopyOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { CopyOutlined, ExportOutlined, QuestionCircleOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { latestBugReport } from '../../../../../../lib/bug-report'
 import {
   CaseStatusTag, CheckStatusTag, OutcomeTag, OutsideRunTag, Sha, ThenTag, utc,
@@ -389,9 +389,19 @@ function RunHistory({ history, shownId, project, check }: {
   history: RunHistoryItem[]; shownId: string | null; project: string; check: string
 }) {
   const { token } = theme.useToken()
+  const { message } = App.useApp()
   const navigate = useNavigate()
   const pageSize = 5
   const shownIndex = history.findIndex((run) => run.id === shownId)
+  const copyRunLink = async (runId: string) => {
+    const href = `${window.location.origin}/p/${encodeURIComponent(project)}/checks/${encodeURIComponent(check)}/?run=${runId}`
+    try {
+      await navigator.clipboard.writeText(href)
+      message.success(`Copied the link to run #${runId}.`)
+    } catch {
+      message.error('Copying failed. Allow clipboard access for this page and try again.')
+    }
+  }
   const columns: TableColumnsType<RunHistoryItem> = [
     { title: 'Run', dataIndex: 'id', render: (id: string) => <Typography.Text style={id === shownId ? text.label : undefined}>#{id}</Typography.Text> },
     { title: 'Started', dataIndex: 'startedAt', render: (at: string) => utc(at) },
@@ -441,6 +451,23 @@ function RunHistory({ history, shownId, project, check }: {
         )
         : <Typography.Text style={text.caption}>not recorded</Typography.Text>,
     }]),
+    // A share icon per run: copies that run's own link without opening the run.
+    {
+      title: '',
+      key: 'share',
+      align: 'right',
+      render: (_, run) => run.finishedAt === null ? null : (
+        <Tooltip title="Copy a link to this run">
+          <Button
+            type="text"
+            size="small"
+            icon={<ShareAltOutlined />}
+            aria-label={`Copy link to run #${run.id}`}
+            onClick={(event) => { event.stopPropagation(); void copyRunLink(run.id) }}
+          />
+        </Tooltip>
+      ),
+    },
   ]
   return (
     <Table
