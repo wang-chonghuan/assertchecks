@@ -64,14 +64,19 @@ export interface Viewer { id: string | null; email: string }
 
 const emailDomain = (email: string): string => email.toLowerCase().split('@')[1] ?? ''
 
-// The project with this slug when the viewer may see it: an explicit member, or their email domain is in
-// the project's allowed domains (ASSERT-55). Every read goes through this; a miss is a 404.
+// A project's email-domain group is stored in `memberships` like any other member (ASSERT-55): a `users`
+// row whose email is a bare domain (no `@`, so it can never be a real sign-in) stands for the group, and a
+// membership to it grants everyone at that domain read access. The access check below matches the person by
+// id or the group by their email domain.
+
+// The project with this slug when the viewer may see it: an explicit member, or a member of its email-domain
+// group. Every read goes through this; a miss is a 404.
 export async function project(viewer: Viewer, slug: string): Promise<ProjectRow | null> {
   const [row] = await sql()<ProjectRow[]>`
     SELECT p.id, p.slug, p.name FROM projects p
-    WHERE p.slug = ${slug} AND (
-      EXISTS (SELECT 1 FROM memberships m WHERE m.project_id = p.id AND m.user_id = ${viewer.id})
-      OR EXISTS (SELECT 1 FROM project_domains d WHERE d.project_id = p.id AND d.domain = ${emailDomain(viewer.email)})
+    WHERE p.slug = ${slug} AND EXISTS (
+      SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id
+      WHERE m.project_id = p.id AND (m.user_id = ${viewer.id} OR u.email = ${emailDomain(viewer.email)})
     )
   `
   return row ?? null
@@ -347,11 +352,13 @@ async function card(check: CheckRow, now: Date, chosen?: LatestDbRow): Promise<{
 }
 
 export async function me(user: { id: string | null; email: string }, remembered: string | null): Promise<Me> {
-  // The switcher lists projects the user is a member of and projects their email domain may view (ASSERT-55).
+  // The switcher lists projects the user is a member of and projects their email-domain group may view (ASSERT-55).
   const projects = await sql()<{ slug: string; name: string }[]>`
     SELECT p.slug, p.name FROM projects p
-    WHERE EXISTS (SELECT 1 FROM memberships m WHERE m.project_id = p.id AND m.user_id = ${user.id})
-       OR EXISTS (SELECT 1 FROM project_domains d WHERE d.project_id = p.id AND d.domain = ${emailDomain(user.email)})
+    WHERE EXISTS (
+      SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id
+      WHERE m.project_id = p.id AND (m.user_id = ${user.id} OR u.email = ${emailDomain(user.email)})
+    )
     ORDER BY p.name
   `
   const lastProject = projects.some((project) => project.slug === remembered) ? remembered : null

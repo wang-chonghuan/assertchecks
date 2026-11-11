@@ -81,9 +81,10 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   Google uses the owner's OAuth client in Google Cloud project `assertchecks-auth`). Access comes
   only from users and memberships created with the CLI, matched by the verified email; an email the
   CLI never added can sign in but sees no project. A project may also grant an email-domain group
-  (`project_domains`, set with `pnpm admin group:add`): a signed-in user whose verified email domain is
-  listed can view that project read-only without an individual membership, so a run link can be shared
-  with a team (ASSERT-55). Editing stays membership-only.
+  (`pnpm admin group:add`), stored in `memberships` like any member via a placeholder `users` row whose
+  email is a bare domain (no `@`): a signed-in user whose verified email domain matches can view that
+  project read-only without an individual membership, so a run link can be shared with a team (ASSERT-55).
+  Editing stays membership-only (the person must be a member by id).
 - Check state is derived on read; no stored status table. A ticket's state on a case is derived the
   same way, from the check's runs since the ticket was attached; only the link itself is stored.
 - Every read is scoped to projects the signed-in user may view — an explicit member, or their email

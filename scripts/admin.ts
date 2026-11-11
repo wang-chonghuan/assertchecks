@@ -126,14 +126,18 @@ async function main(): Promise<void> {
       console.log(`${email.toLowerCase()} can no longer see ${project}`)
       return
     }
+    // A domain group is a membership whose "user" is a bare domain (no @). Everyone signing in with that
+    // email domain then gets read access through the normal membership check.
     case 'group:add': {
       const [project, domain] = need(2)
       const d = domain.replace(/^@/, '').toLowerCase()
+      if (!d || d.includes('@')) throw new Error('give a bare email domain, e.g. example.com')
+      await db`INSERT INTO users (email) VALUES (${d}) ON CONFLICT DO NOTHING`
       await one(db`
-        INSERT INTO project_domains (project_id, domain)
-        SELECT p.id, ${d} FROM projects p WHERE p.slug = ${project}
-        ON CONFLICT DO NOTHING RETURNING project_id
-      `, 'unknown project, or domain already allowed')
+        INSERT INTO memberships (user_id, project_id)
+        SELECT u.id, p.id FROM users u, projects p WHERE u.email = ${d} AND p.slug = ${project}
+        ON CONFLICT DO NOTHING RETURNING user_id
+      `, 'unknown project, or that domain already views it')
       console.log(`everyone at @${d} can now view ${project} (read-only)`)
       return
     }
@@ -141,10 +145,12 @@ async function main(): Promise<void> {
       const [project, domain] = need(2)
       const d = domain.replace(/^@/, '').toLowerCase()
       await one(db`
-        DELETE FROM project_domains pd USING projects p
-        WHERE pd.project_id = p.id AND p.slug = ${project} AND pd.domain = ${d}
-        RETURNING pd.project_id
-      `, 'that domain was not allowed on that project')
+        DELETE FROM memberships m USING users u, projects p
+        WHERE m.user_id = u.id AND m.project_id = p.id AND u.email = ${d} AND p.slug = ${project}
+        RETURNING m.user_id
+      `, 'that domain was not viewing that project')
+      // Tidy up the domain's placeholder user once it grants nothing.
+      await db`DELETE FROM users u WHERE u.email = ${d} AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)`
       console.log(`@${d} can no longer view ${project}`)
       return
     }
@@ -293,11 +299,13 @@ async function main(): Promise<void> {
       console.table(await db`SELECT slug, name FROM projects ORDER BY slug`)
       console.table(await db`
         SELECT u.email, p.slug AS project FROM memberships m
-        JOIN users u ON u.id = m.user_id JOIN projects p ON p.id = m.project_id ORDER BY 1, 2
+        JOIN users u ON u.id = m.user_id JOIN projects p ON p.id = m.project_id
+        WHERE u.email LIKE '%@%' ORDER BY 1, 2
       `)
       console.table(await db`
-        SELECT p.slug AS project, d.domain FROM project_domains d
-        JOIN projects p ON p.id = d.project_id ORDER BY 1, 2
+        SELECT p.slug AS project, u.email AS domain FROM memberships m
+        JOIN users u ON u.id = m.user_id JOIN projects p ON p.id = m.project_id
+        WHERE u.email NOT LIKE '%@%' ORDER BY 1, 2
       `)
       console.table(await db`
         SELECT p.slug AS project, c.slug, c.name, c.environment, c.period_seconds, c.grace_seconds, c.selection::text
