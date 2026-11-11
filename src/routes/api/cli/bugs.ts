@@ -16,11 +16,11 @@ export const Route = createFileRoute('/api/cli/bugs')({
         const check = query.get('check')
         if (!project) return Response.json({ projects: (await me(person, null)).projects })
         if (!check) {
-          const view = await overview(person.id, project)
+          const view = await overview(person, project)
           if (!view) return Response.json({ error: 'not found' }, { status: 404 })
           return Response.json({ checks: view.checks.map(({ slug, name, environment }) => ({ slug, name, environment })) })
         }
-        const report = await bugReport(person.id, project, check)
+        const report = await bugReport(person, project, check)
         if (!report) return Response.json({ error: 'not found' }, { status: 404 })
         return new Response(latestBugReport(publicOrigin(request), report), { headers: { 'content-type': 'text/plain; charset=utf-8' } })
       },

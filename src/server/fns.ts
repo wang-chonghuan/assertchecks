@@ -28,6 +28,14 @@ async function requireUser() {
   return { id: user.id, email: user.email }
 }
 
+// A signed-in viewer for a read: a CLI user is not required, because a project's email-domain group can
+// view it read-only (ASSERT-55). Not signed in still goes to the login page.
+async function requireViewer() {
+  const user = await currentUser()
+  if (!user) throw redirect({ to: '/login' })
+  return user
+}
+
 function found<T>(value: T | null): T {
   if (value === null) throw notFound()
   return value
@@ -47,7 +55,7 @@ export const getMe = createServerFn({ method: 'GET' }).handler(async () => {
 
 export const getOverview = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
-  .handler(async ({ data }) => remembered(await overview((await requireUser()).id, data.project)))
+  .handler(async ({ data }) => remembered(await overview(await requireViewer(), data.project)))
 
 export const getCheck = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown; check: unknown; run?: unknown }) => ({
@@ -56,7 +64,7 @@ export const getCheck = createServerFn({ method: 'GET' })
     run: runNumber(data.run),
   }))
   .handler(async ({ data }) =>
-    remembered(await checkDetail((await requireUser()).id, data.project, data.check, data.run)))
+    remembered(await checkDetail(await requireViewer(), data.project, data.check, data.run)))
 
 export const getCase = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown; check: unknown; case: unknown; run?: unknown }) => ({
@@ -66,7 +74,7 @@ export const getCase = createServerFn({ method: 'GET' })
     run: runNumber(data.run),
   }))
   .handler(async ({ data }) =>
-    remembered(await caseDetail((await requireUser()).id, data.project, data.check, data.case, data.run)))
+    remembered(await caseDetail(await requireViewer(), data.project, data.check, data.case, data.run)))
 
 // Fetched only when someone copies a bug report, so the check page stays light.
 export const getBugReport = createServerFn({ method: 'GET' })
@@ -74,12 +82,12 @@ export const getBugReport = createServerFn({ method: 'GET' })
     project: text(data.project, 'project'),
     check: text(data.check, 'check'),
   }))
-  .handler(async ({ data }) => found(await bugReport((await requireUser()).id, data.project, data.check)))
+  .handler(async ({ data }) => found(await bugReport(await requireViewer(), data.project, data.check)))
 
 // Read only when the Production errors tab is open: it queries the project's telemetry.
 export const getProductionErrors = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
-  .handler(async ({ data }) => found(await productionErrors((await requireUser()).id, data.project)))
+  .handler(async ({ data }) => found(await productionErrors(await requireViewer(), data.project)))
 
 const ID = /^[1-9][0-9]{0,17}$/
 

@@ -13,6 +13,8 @@ const USAGE = `usage: pnpm admin <command>
   project:add <slug> <name>             create a project
   member:add <email> <project-slug>     grant a user access to a project
   member:remove <email> <project-slug>  revoke a user's access to a project
+  group:add <project-slug> <domain>     let everyone at an email domain view the project (read-only)
+  group:remove <project-slug> <domain>  stop an email domain from viewing the project
   project:remove <slug> --confirm <slug>     delete a project with its checks, runs and memberships
   user:remove <email> --confirm <email>      delete a user with its memberships
   client:revoke <email>                 sign the user's AssertChecks clients out on every computer
@@ -122,6 +124,34 @@ async function main(): Promise<void> {
         RETURNING m.user_id
       `, 'membership not found')
       console.log(`${email.toLowerCase()} can no longer see ${project}`)
+      return
+    }
+    // A domain group is a membership whose "user" is a bare domain (no @). Everyone signing in with that
+    // email domain then gets read access through the normal membership check.
+    case 'group:add': {
+      const [project, domain] = need(2)
+      const d = domain.replace(/^@/, '').toLowerCase()
+      if (!d || d.includes('@')) throw new Error('give a bare email domain, e.g. example.com')
+      await db`INSERT INTO users (email) VALUES (${d}) ON CONFLICT DO NOTHING`
+      await one(db`
+        INSERT INTO memberships (user_id, project_id)
+        SELECT u.id, p.id FROM users u, projects p WHERE u.email = ${d} AND p.slug = ${project}
+        ON CONFLICT DO NOTHING RETURNING user_id
+      `, 'unknown project, or that domain already views it')
+      console.log(`everyone at @${d} can now view ${project} (read-only)`)
+      return
+    }
+    case 'group:remove': {
+      const [project, domain] = need(2)
+      const d = domain.replace(/^@/, '').toLowerCase()
+      await one(db`
+        DELETE FROM memberships m USING users u, projects p
+        WHERE m.user_id = u.id AND m.project_id = p.id AND u.email = ${d} AND p.slug = ${project}
+        RETURNING m.user_id
+      `, 'that domain was not viewing that project')
+      // Tidy up the domain's placeholder user once it grants nothing.
+      await db`DELETE FROM users u WHERE u.email = ${d} AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)`
+      console.log(`@${d} can no longer view ${project}`)
       return
     }
     // Removal is for ticket-scoped test data; the repeated name guards against deleting the wrong object.
@@ -269,7 +299,13 @@ async function main(): Promise<void> {
       console.table(await db`SELECT slug, name FROM projects ORDER BY slug`)
       console.table(await db`
         SELECT u.email, p.slug AS project FROM memberships m
-        JOIN users u ON u.id = m.user_id JOIN projects p ON p.id = m.project_id ORDER BY 1, 2
+        JOIN users u ON u.id = m.user_id JOIN projects p ON p.id = m.project_id
+        WHERE u.email LIKE '%@%' ORDER BY 1, 2
+      `)
+      console.table(await db`
+        SELECT p.slug AS project, u.email AS domain FROM memberships m
+        JOIN users u ON u.id = m.user_id JOIN projects p ON p.id = m.project_id
+        WHERE u.email NOT LIKE '%@%' ORDER BY 1, 2
       `)
       console.table(await db`
         SELECT p.slug AS project, c.slug, c.name, c.environment, c.period_seconds, c.grace_seconds, c.selection::text
