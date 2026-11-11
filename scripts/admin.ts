@@ -3,6 +3,7 @@
 // People sign in with Clerk email codes; a user here is the email that grants access through memberships.
 // Generated ping tokens are printed once and stored only as hashes.
 import { parseArgs } from 'node:util'
+import { readFileSync } from 'node:fs'
 import { sql } from '../src/server/db'
 import { hashToken, randomToken } from '../src/server/crypto'
 import { fileAutomaticTickets, withRunLock } from '../src/server/auto-tickets'
@@ -15,6 +16,9 @@ const USAGE = `usage: pnpm admin <command>
   member:remove <email> <project-slug>  revoke a user's access to a project
   group:add <project-slug> <domain>     let everyone at an email domain view the project (read-only)
   group:remove <project-slug> <domain>  stop an email domain from viewing the project
+  alerts:set <project-slug> [--contacts <file.json>]   set BF alert config: Twilio from env
+            (TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_SECRET, TWILIO_FROM), contacts from a JSON file
+  alerts:show <project-slug>            show the alert config (secrets masked)
   project:remove <slug> --confirm <slug>     delete a project with its checks, runs and memberships
   user:remove <email> --confirm <email>      delete a user with its memberships
   client:revoke <email>                 sign the user's AssertChecks clients out on every computer
@@ -53,6 +57,7 @@ const { positionals, values } = parseArgs({
     roles: { type: 'string' },
     limit: { type: 'string' },
     'per-hour': { type: 'string' },
+    contacts: { type: 'string' },
   },
 })
 const [command, ...args] = positionals
@@ -152,6 +157,55 @@ async function main(): Promise<void> {
       // Tidy up the domain's placeholder user once it grants nothing.
       await db`DELETE FROM users u WHERE u.email = ${d} AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)`
       console.log(`@${d} can no longer view ${project}`)
+      return
+    }
+    // BF alert config (ASSERT-56). Twilio credentials come from environment variables so they never reach
+    // the shell history; contacts come from a JSON file. Only fields given are changed. Secrets live only in
+    // the database, never logged.
+    case 'alerts:set': {
+      const [project] = need(1)
+      const env = {
+        account: process.env.TWILIO_ACCOUNT_SID ?? null,
+        key: process.env.TWILIO_API_KEY_SID ?? null,
+        secret: process.env.TWILIO_API_SECRET ?? null,
+        from: process.env.TWILIO_FROM ?? null,
+      }
+      let contacts: unknown = undefined
+      if (values.contacts) {
+        contacts = JSON.parse(readFileSync(values.contacts, 'utf8'))
+        if (!Array.isArray(contacts)) throw new Error('--contacts file must be a JSON array')
+        for (const c of contacts as Record<string, unknown>[]) {
+          if (c.role !== 'primary' && c.role !== 'backup' && c.role !== 'final') throw new Error('each contact needs role primary|backup|final')
+        }
+      }
+      await one(db`
+        INSERT INTO alert_config (project_id, twilio_account_sid, twilio_api_key_sid, twilio_api_secret, twilio_from, contacts, updated_by)
+        SELECT p.id, ${env.account}, ${env.key}, ${env.secret}, ${env.from}, ${contacts === undefined ? db`'[]'::jsonb` : db.json(contacts as never)}, 'cli'
+        FROM projects p WHERE p.slug = ${project}
+        ON CONFLICT (project_id) DO UPDATE SET
+          twilio_account_sid = COALESCE(EXCLUDED.twilio_account_sid, alert_config.twilio_account_sid),
+          twilio_api_key_sid = COALESCE(EXCLUDED.twilio_api_key_sid, alert_config.twilio_api_key_sid),
+          twilio_api_secret  = COALESCE(EXCLUDED.twilio_api_secret, alert_config.twilio_api_secret),
+          twilio_from        = COALESCE(EXCLUDED.twilio_from, alert_config.twilio_from),
+          contacts           = ${contacts === undefined ? db`alert_config.contacts` : db.json(contacts as never)},
+          updated_by = 'cli', updated_at = now()
+        RETURNING project_id
+      `, 'unknown project')
+      console.log(`alert config saved for ${project}`)
+      return
+    }
+    case 'alerts:show': {
+      const [project] = need(1)
+      const row = await one(db<{ account: string | null; key: string | null; secret: string | null; from: string | null; contacts: unknown }[]>`
+        SELECT a.twilio_account_sid AS account, a.twilio_api_key_sid AS key, a.twilio_api_secret AS secret, a.twilio_from AS from, a.contacts
+        FROM alert_config a JOIN projects p ON p.id = a.project_id WHERE p.slug = ${project}
+      `, 'no alert config for that project')
+      const mask = (value: string | null) => value ? `set (…${value.slice(-4)})` : 'unset'
+      console.log(`twilio account: ${mask(row.account)}`)
+      console.log(`twilio api key: ${mask(row.key)}`)
+      console.log(`twilio secret: ${row.secret ? 'set' : 'unset'}`)
+      console.log(`twilio from: ${row.from ?? 'unset'}`)
+      console.table(row.contacts)
       return
     }
     // Removal is for ticket-scoped test data; the repeated name guards against deleting the wrong object.

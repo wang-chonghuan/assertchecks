@@ -20,8 +20,11 @@ const config = defineConfig(({ mode }) => ({
   plugins: [
     nitro({
       compressPublicAssets: { gzip: true, brotli: true },
-      // The production timer for automatic tickets; it switches itself off outside the Container App.
-      plugins: [resolve(import.meta.dirname, 'src/server/plugins/auto-tickets.ts')],
+      // Production timers (automatic tickets, and BF alert escalation); each switches itself off outside the Container App.
+      plugins: [
+        resolve(import.meta.dirname, 'src/server/plugins/auto-tickets.ts'),
+        resolve(import.meta.dirname, 'src/server/plugins/escalation.ts'),
+      ],
     }),
 
     tanstackStart(),

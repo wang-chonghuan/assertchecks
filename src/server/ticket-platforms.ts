@@ -138,23 +138,25 @@ async function labelId(access: Access, at: { targetId: string; teamId: string | 
 }
 
 // Files one ticket, labelled, and returns its address.
+// The filed ticket: its URL, and on Linear its issue id, which later reads its comments (ASSERT-56).
+export interface FiledTicket { url: string; id: string | null }
 export async function createTicket(
   access: Access, at: { targetId: string; teamId: string | null; assigneeId: string | null }, ticket: Ticket,
-): Promise<string> {
+): Promise<FiledTicket> {
   if (access.platform === 'plane') {
     const base = `workspaces/${workspace(access)}/projects/${encodeURIComponent(at.targetId)}`
     const project = await plane<{ identifier: string }>(access, `${base}/`)
     const label = await labelId(access, at)
-    const issue = await plane<{ sequence_id: number }>(access, `${base}/work-items/`, {
+    const issue = await plane<{ id: string; sequence_id: number }>(access, `${base}/work-items/`, {
       method: 'POST',
       body: { name: ticket.title, description_html: ticket.html, labels: [label], ...(at.assigneeId ? { assignees: [at.assigneeId] } : {}) },
     })
-    return `${PLANE_APP}/${workspace(access)}/browse/${project.identifier}-${issue.sequence_id}/`
+    return { url: `${PLANE_APP}/${workspace(access)}/browse/${project.identifier}-${issue.sequence_id}/`, id: issue.id }
   }
   if (!at.teamId) throw new Error('Linear tickets need a team')
   const label = await labelId(access, at)
-  const data = await linear<{ issueCreate: { success: boolean; issue: { url: string } | null } }>(access, `
-    mutation ($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { url } } }`, {
+  const data = await linear<{ issueCreate: { success: boolean; issue: { id: string; url: string } | null } }>(access, `
+    mutation ($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id url } } }`, {
     input: {
       teamId: at.teamId,
       ...(at.targetId !== at.teamId ? { projectId: at.targetId } : {}),
@@ -165,5 +167,22 @@ export async function createTicket(
     },
   })
   if (!data.issueCreate.success || !data.issueCreate.issue) throw new Error('Linear did not create the ticket')
-  return data.issueCreate.issue.url
+  return { url: data.issueCreate.issue.url, id: data.issueCreate.issue.id }
+}
+
+// A ticket's comments, newest first is not guaranteed, for deciding whether a person has responded
+// (ASSERT-56). Only Linear is read, since that is where BF's automatic tickets go; the author's email
+// identifies who replied, and an integration/bot comment is not a human response.
+export interface IssueComment { authorEmail: string | null; createdAt: string; isBot: boolean }
+
+export async function issueComments(access: Access, issueId: string): Promise<IssueComment[]> {
+  if (access.platform !== 'linear') return []
+  const data = await linear<{ issue: { comments: { nodes: { createdAt: string; user: { email: string | null } | null; botActor: { id: string } | null }[] } } | null }>(access, `
+    query ($id: String!) { issue(id: $id) { comments { nodes { createdAt user { email } botActor { id } } } } }`, { id: issueId })
+  const nodes = data.issue?.comments.nodes ?? []
+  return nodes.map((node) => ({
+    authorEmail: node.user?.email?.toLowerCase() ?? null,
+    createdAt: node.createdAt,
+    isBot: !node.user || node.botActor !== null,
+  }))
 }
