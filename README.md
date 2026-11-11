@@ -140,7 +140,9 @@ Migrations in `db/migrations/` are additive only and run with `pnpm migrate`.
 
 Users, project memberships and checks are managed only with the CLI. People sign in with Clerk, by a code
 sent to their email or with Google; a user here is an email that is allowed in, and it sees only the
-projects it is a member of. Generated ping tokens are printed once and stored only as hashes.
+projects it is a member of. A project can also grant an email-domain group, so everyone at a domain can
+view it read-only and a run link can be shared with a team; editing still needs an individual membership.
+Generated ping tokens are printed once and stored only as hashes.
 
 ```bash
 pnpm admin list
@@ -148,6 +150,8 @@ pnpm admin user:add <email>
 pnpm admin project:add <slug> <name>
 pnpm admin member:add <email> <project-slug>
 pnpm admin member:remove <email> <project-slug>
+pnpm admin group:add <project-slug> <domain>
+pnpm admin group:remove <project-slug> <domain>
 pnpm admin project:remove <slug> --confirm <slug>
 pnpm admin user:remove <email> --confirm <email>
 pnpm admin client:revoke <email>

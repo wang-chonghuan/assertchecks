@@ -59,8 +59,27 @@ function toRun(row: RunDbRow, graceSeconds: number, now: Date): RunRow {
   }
 }
 
-// The project with this slug when the user is a member of it; everything else reads through this.
-export async function project(userId: string, slug: string): Promise<ProjectRow | null> {
+// The viewer's identity for a read: the signed-in email, and the CLI user id when that email has one.
+export interface Viewer { id: string | null; email: string }
+
+const emailDomain = (email: string): string => email.toLowerCase().split('@')[1] ?? ''
+
+// The project with this slug when the viewer may see it: an explicit member, or their email domain is in
+// the project's allowed domains (ASSERT-55). Every read goes through this; a miss is a 404.
+export async function project(viewer: Viewer, slug: string): Promise<ProjectRow | null> {
+  const [row] = await sql()<ProjectRow[]>`
+    SELECT p.id, p.slug, p.name FROM projects p
+    WHERE p.slug = ${slug} AND (
+      EXISTS (SELECT 1 FROM memberships m WHERE m.project_id = p.id AND m.user_id = ${viewer.id})
+      OR EXISTS (SELECT 1 FROM project_domains d WHERE d.project_id = p.id AND d.domain = ${emailDomain(viewer.email)})
+    )
+  `
+  return row ?? null
+}
+
+// The project with this slug only when the user is an explicit member. Editing goes through this, so a
+// domain-group viewer (read-only) cannot change anything.
+export async function memberProject(userId: string, slug: string): Promise<ProjectRow | null> {
   const [row] = await sql()<ProjectRow[]>`
     SELECT p.id, p.slug, p.name FROM projects p JOIN memberships m ON m.project_id = p.id
     WHERE m.user_id = ${userId} AND p.slug = ${slug}
@@ -328,16 +347,19 @@ async function card(check: CheckRow, now: Date, chosen?: LatestDbRow): Promise<{
 }
 
 export async function me(user: { id: string | null; email: string }, remembered: string | null): Promise<Me> {
-  const projects = user.id === null ? [] : await sql()<{ slug: string; name: string }[]>`
-    SELECT p.slug, p.name FROM projects p JOIN memberships m ON m.project_id = p.id
-    WHERE m.user_id = ${user.id} ORDER BY p.name
+  // The switcher lists projects the user is a member of and projects their email domain may view (ASSERT-55).
+  const projects = await sql()<{ slug: string; name: string }[]>`
+    SELECT p.slug, p.name FROM projects p
+    WHERE EXISTS (SELECT 1 FROM memberships m WHERE m.project_id = p.id AND m.user_id = ${user.id})
+       OR EXISTS (SELECT 1 FROM project_domains d WHERE d.project_id = p.id AND d.domain = ${emailDomain(user.email)})
+    ORDER BY p.name
   `
   const lastProject = projects.some((project) => project.slug === remembered) ? remembered : null
   return { email: user.email, projects: [...projects], lastProject }
 }
 
-export async function overview(userId: string, projectSlug: string): Promise<Overview | null> {
-  const found = await project(userId, projectSlug)
+export async function overview(viewer: Viewer, projectSlug: string): Promise<Overview | null> {
+  const found = await project(viewer, projectSlug)
   if (!found) return null
   const now = new Date()
   const checks = await sql()<CheckRow[]>`
@@ -360,9 +382,9 @@ function withNeedsTicket(item: CheckCard, bugs: Map<string, CaseBug>): CheckCard
 }
 
 export async function checkDetail(
-  userId: string, projectSlug: string, checkSlug: string, runId?: string,
+  viewer: Viewer, projectSlug: string, checkSlug: string, runId?: string,
 ): Promise<CheckDetail | null> {
-  const found = await project(userId, projectSlug)
+  const found = await project(viewer, projectSlug)
   if (!found) return null
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
@@ -406,9 +428,9 @@ export async function checkDetail(
 }
 
 export async function caseDetail(
-  userId: string, projectSlug: string, checkSlug: string, caseId: string, runId?: string,
+  viewer: Viewer, projectSlug: string, checkSlug: string, caseId: string, runId?: string,
 ): Promise<CaseDetail | null> {
-  const found = await project(userId, projectSlug)
+  const found = await project(viewer, projectSlug)
   if (!found) return null
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null
@@ -453,8 +475,8 @@ export async function caseDetail(
 // Every case that did not pass in the check's latest full run, with its spec from that run's catalog.
 // Earlier runs do not count: a failure that no longer happens is not filed, and one already filed carries
 // its ticket.
-export async function bugReport(userId: string, projectSlug: string, checkSlug: string): Promise<BugReport | null> {
-  const found = await project(userId, projectSlug)
+export async function bugReport(viewer: Viewer, projectSlug: string, checkSlug: string): Promise<BugReport | null> {
+  const found = await project(viewer, projectSlug)
   if (!found) return null
   const check = await findCheck(found.id, checkSlug)
   if (!check) return null

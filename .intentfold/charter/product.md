@@ -25,8 +25,10 @@ AssertChecks shows whether each project works in production, in two views:
 **Who it is for**
 
 Internal use by the owner and one organization: the company's projects (currently NSDK and BF) and
-the owner's own projects. People sign in and see only the projects they belong to; one person may
-belong to several projects. The owner reads the production-errors view every day.
+the owner's own projects. People sign in and see only the projects they belong to, whether added
+individually or through a project's email-domain group, which lets a run link be shared with a whole
+team for viewing; one person may belong to several projects. The owner reads the production-errors view
+every day.
 
 **What good looks like**
 

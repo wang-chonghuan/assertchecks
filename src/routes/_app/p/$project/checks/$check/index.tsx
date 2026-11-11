@@ -230,6 +230,26 @@ function CheckPage() {
         </Typography.Title>
         <Flex align="center" gap={space.stack} wrap>
           {viewingLatest || !latest ? <CheckStatusTag status={check.status} /> : <OutcomeTag run={latest} />}
+          {latest && (
+            <Tooltip title="Copy a link to this run to share with people who can view this project">
+              <Button
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={async () => {
+                  // Pin the run id so the link always opens this exact run, not whatever is latest later.
+                  const href = `${window.location.origin}/p/${encodeURIComponent(project.slug)}/checks/${encodeURIComponent(check.slug)}/?run=${latest.id}`
+                  try {
+                    await navigator.clipboard.writeText(href)
+                    message.success(`Copied the link to run #${latest.id}.`)
+                  } catch {
+                    message.error('Copying failed. Allow clipboard access for this page and try again.')
+                  }
+                }}
+              >
+                Copy link
+              </Button>
+            </Tooltip>
+          )}
           {latest?.runUrl && (
             <Typography.Link href={latest.runUrl} target="_blank" rel="noreferrer">
               {latest.runnerKind === 'github-actions' ? 'GitHub Actions run' : 'CI run'} <ExportOutlined />

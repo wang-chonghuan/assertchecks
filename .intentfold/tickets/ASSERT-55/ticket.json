@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-55",
+  "mode": "autonomous",
+  "stage": "developing",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-55",
+  "branch": "ASSERT-55-share-groups",
+  "base": "f1e05c0",
+  "ports": { "web": 63055 }
+}

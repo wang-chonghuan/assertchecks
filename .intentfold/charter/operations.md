@@ -134,6 +134,8 @@ az role assignment create --assignee-object-id <principal-id> --assignee-princip
   --scope "$(az cognitiveservices account show -g finley-azure-openai -n finley-codex --query id -o tsv)"
 pnpm admin errors:auto <project-slug> [--limit <n>]   # file a project's automatic tickets now, as the timer does
 pnpm admin source:events <project-slug> [<event>:<property>=<value> ...]   # custom events that count as failures
+pnpm admin group:add <project-slug> <domain>      # let everyone at an email domain view the project (read-only)
+pnpm admin group:remove <project-slug> <domain>   # stop an email domain from viewing the project
 ```
 
 Where a project's tickets go, its platform key and its Slack webhook are set on its Production errors
@@ -226,3 +228,6 @@ without switching accounts; a ticket may add runs, tickets and checks there and 
    forbidden outright.
 10. **Pointing a real project's automatic tickets at its ticket system** — not without the human's
    explicit approval: the first run files a ticket for every error that needs one at once.
+11. **Adding an email-domain group to a real project (`nsdk`, `bf`, a customer)** — not without the
+   human's explicit approval: it lets everyone at that domain view the project's runs and production
+   errors read-only.
