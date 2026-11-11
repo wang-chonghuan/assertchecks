@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-54",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-54",
+  "branch": "ASSERT-54-error-ticket-label",
+  "base": "f1e05c088dfc28208189cd4278e4027e86fdcbb0",
+  "ports": { "web": 63054 }
+}

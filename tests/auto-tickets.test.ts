@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { overflowText, problemLink, slackText, ticketText } from '../src/server/ticket-text'
 import { webhookHint, webhookUrl } from '../src/server/slack'
 import { factsText } from '../src/server/interpret'
+import { pickLabel } from '../src/server/ticket-platforms'
 import type { ProblemView } from '../src/lib/types'
 
 const problem = (extra: Partial<ProblemView> = {}): ProblemView => ({
@@ -126,4 +127,17 @@ test('a surge message names the shared ticket and lists at most ten problems', (
   assert.equal(lines[0], 'Production error surge in *Shop*: 12 problems within an hour share one ticket: https://t/1')
   assert.equal(lines.filter((line) => line.startsWith('• ')).length, 10)
   assert.equal(lines.at(-1), '…and 2 more')
+})
+
+test('an automatic ticket takes the team\'s own production-error label first, then a workspace one, by name in any case', () => {
+  const labels = [
+    { id: 'other', name: 'production-error', teamId: 'team-b' },
+    { id: 'workspace', name: 'Production-Error', teamId: null },
+    { id: 'own', name: 'production-error', teamId: 'team-a' },
+    { id: 'near', name: 'production-errors', teamId: 'team-a' },
+  ]
+  assert.equal(pickLabel(labels, 'team-a'), 'own')
+  assert.equal(pickLabel(labels, 'team-c'), 'workspace')
+  assert.equal(pickLabel(labels.filter((label) => label.id !== 'workspace'), 'team-c'), null)
+  assert.equal(pickLabel([], null), null)
 })
