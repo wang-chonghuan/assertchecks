@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { splitSeverity } from '../src/server/interpret'
 import {
-  isWorkingTime, workingMsBetween, criticalStageDue, urgentEscalates, confirmationFrom, escalationMessage, type Contact,
+  isWorkingTime, workingMsBetween, criticalStageDue, urgentEscalates, confirmationFrom, escalationMessage,
+  onCallIndex, onCallRole, recallDue, type Contact, type Role,
 } from '../src/server/escalation'
 
 // November 2026 is winter in Ireland, so Dublin local time equals UTC — the fixtures read cleanly.
@@ -70,6 +71,33 @@ test('confirmationFrom ignores bot and automation replies', () => {
     comment(null, '2026-11-10T10:05:00Z', true),
     comment('qingyang.wang@narrativebanking.com', '2026-11-10T10:06:00Z', true),
   ], emails, since), null)
+})
+
+test('onCallIndex advances one step per whole week and wraps, clamping before the start', () => {
+  const start = at('2026-11-16T09:00:00Z') // Monday 09:00 Dublin (GMT in November)
+  assert.equal(onCallIndex(start, at('2026-11-16T08:00:00Z'), 3), 0) // before the first handover
+  assert.equal(onCallIndex(start, at('2026-11-18T12:00:00Z'), 3), 0) // week 1
+  assert.equal(onCallIndex(start, at('2026-11-23T09:00:00Z'), 3), 1) // week 2 begins exactly at the handover
+  assert.equal(onCallIndex(start, at('2026-11-23T08:59:00Z'), 3), 0) // one minute before, still week 1
+  assert.equal(onCallIndex(start, at('2026-11-30T09:00:00Z'), 3), 2) // week 3
+  assert.equal(onCallIndex(start, at('2026-12-07T09:00:00Z'), 3), 0) // week 4 wraps
+})
+
+test('onCallRole maps the week to the configured role order, null without a rotation', () => {
+  const order: Role[] = ['final', 'primary', 'backup'] // Chonghuan, Qingyang, Yafei
+  const start = at('2026-11-16T09:00:00Z')
+  assert.equal(onCallRole(order, start, at('2026-11-17T03:00:00Z')), 'final')   // week 1, out of hours
+  assert.equal(onCallRole(order, start, at('2026-11-24T03:00:00Z')), 'primary') // week 2
+  assert.equal(onCallRole(order, start, at('2026-12-01T03:00:00Z')), 'backup')  // week 3
+  assert.equal(onCallRole([], start, at('2026-11-17T03:00:00Z')), null)
+  assert.equal(onCallRole(order, null, at('2026-11-17T03:00:00Z')), null)
+})
+
+test('recallDue is true first time and again only after 15 minutes', () => {
+  const now = at('2026-11-17T03:00:00Z')
+  assert.equal(recallDue(null, now), true)
+  assert.equal(recallDue(at('2026-11-17T02:50:00Z'), now), false) // 10 minutes ago
+  assert.equal(recallDue(at('2026-11-17T02:45:00Z'), now), true)  // 15 minutes ago
 })
 
 test('escalationMessage names who must respond and carries no error message body', () => {

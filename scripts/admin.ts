@@ -16,8 +16,11 @@ const USAGE = `usage: pnpm admin <command>
   member:remove <email> <project-slug>  revoke a user's access to a project
   group:add <project-slug> <domain>     let everyone at an email domain view the project (read-only)
   group:remove <project-slug> <domain>  stop an email domain from viewing the project
-  alerts:set <project-slug> [--contacts <file.json>]   set BF alert config: Twilio from env
-            (TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_SECRET, TWILIO_FROM), contacts from a JSON file
+  alerts:set <project-slug> [--contacts <file.json>] [--rotation <roles>] [--rotation-start <iso>]
+            set BF alert config: Twilio from env (TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_SECRET,
+            TWILIO_FROM), contacts from a JSON file; --rotation is the out-of-hours on-call order as a
+            comma-separated list of roles (e.g. final,primary,backup) and --rotation-start the first handover
+            instant (a Monday 09:00 Ireland, ISO, e.g. 2026-11-16T09:00:00Z). Only options given are changed.
   alerts:show <project-slug>            show the alert config (secrets masked)
   project:remove <slug> --confirm <slug>     delete a project with its checks, runs and memberships
   user:remove <email> --confirm <email>      delete a user with its memberships
@@ -58,6 +61,8 @@ const { positionals, values } = parseArgs({
     limit: { type: 'string' },
     'per-hour': { type: 'string' },
     contacts: { type: 'string' },
+    rotation: { type: 'string' },
+    'rotation-start': { type: 'string' },
   },
 })
 const [command, ...args] = positionals
@@ -178,9 +183,24 @@ async function main(): Promise<void> {
           if (c.role !== 'primary' && c.role !== 'backup' && c.role !== 'final') throw new Error('each contact needs role primary|backup|final')
         }
       }
+      let rotation: string[] | undefined = undefined
+      if (values.rotation !== undefined) {
+        rotation = values.rotation.split(',').map((role) => role.trim()).filter(Boolean)
+        for (const role of rotation) {
+          if (role !== 'primary' && role !== 'backup' && role !== 'final') throw new Error('--rotation roles are primary|backup|final')
+        }
+      }
+      let rotationStart: Date | undefined = undefined
+      if (values['rotation-start'] !== undefined) {
+        rotationStart = new Date(values['rotation-start'])
+        if (Number.isNaN(rotationStart.getTime())) throw new Error('--rotation-start must be an ISO timestamp, e.g. 2026-11-16T09:00:00Z')
+      }
       await one(db`
-        INSERT INTO alert_config (project_id, twilio_account_sid, twilio_api_key_sid, twilio_api_secret, twilio_from, contacts, updated_by)
-        SELECT p.id, ${env.account}, ${env.key}, ${env.secret}, ${env.from}, ${contacts === undefined ? db`'[]'::jsonb` : db.json(contacts as never)}, 'cli'
+        INSERT INTO alert_config (project_id, twilio_account_sid, twilio_api_key_sid, twilio_api_secret, twilio_from, contacts, rotation, rotation_start, updated_by)
+        SELECT p.id, ${env.account}, ${env.key}, ${env.secret}, ${env.from},
+          ${contacts === undefined ? db`'[]'::jsonb` : db.json(contacts as never)},
+          ${rotation === undefined ? db`'[]'::jsonb` : db.json(rotation as never)},
+          ${rotationStart ?? null}, 'cli'
         FROM projects p WHERE p.slug = ${project}
         ON CONFLICT (project_id) DO UPDATE SET
           twilio_account_sid = COALESCE(EXCLUDED.twilio_account_sid, alert_config.twilio_account_sid),
@@ -188,6 +208,8 @@ async function main(): Promise<void> {
           twilio_api_secret  = COALESCE(EXCLUDED.twilio_api_secret, alert_config.twilio_api_secret),
           twilio_from        = COALESCE(EXCLUDED.twilio_from, alert_config.twilio_from),
           contacts           = ${contacts === undefined ? db`alert_config.contacts` : db.json(contacts as never)},
+          rotation           = ${rotation === undefined ? db`alert_config.rotation` : db.json(rotation as never)},
+          rotation_start     = COALESCE(${rotationStart ?? null}, alert_config.rotation_start),
           updated_by = 'cli', updated_at = now()
         RETURNING project_id
       `, 'unknown project')
@@ -196,8 +218,8 @@ async function main(): Promise<void> {
     }
     case 'alerts:show': {
       const [project] = need(1)
-      const row = await one(db<{ account: string | null; key: string | null; secret: string | null; from: string | null; contacts: unknown }[]>`
-        SELECT a.twilio_account_sid AS account, a.twilio_api_key_sid AS key, a.twilio_api_secret AS secret, a.twilio_from AS from, a.contacts
+      const row = await one(db<{ account: string | null; key: string | null; secret: string | null; from: string | null; contacts: unknown; rotation: unknown; rotation_start: Date | null }[]>`
+        SELECT a.twilio_account_sid AS account, a.twilio_api_key_sid AS key, a.twilio_api_secret AS secret, a.twilio_from AS from, a.contacts, a.rotation, a.rotation_start
         FROM alert_config a JOIN projects p ON p.id = a.project_id WHERE p.slug = ${project}
       `, 'no alert config for that project')
       const mask = (value: string | null) => value ? `set (…${value.slice(-4)})` : 'unset'
@@ -205,6 +227,8 @@ async function main(): Promise<void> {
       console.log(`twilio api key: ${mask(row.key)}`)
       console.log(`twilio secret: ${row.secret ? 'set' : 'unset'}`)
       console.log(`twilio from: ${row.from ?? 'unset'}`)
+      console.log(`out-of-hours rotation: ${Array.isArray(row.rotation) && row.rotation.length ? (row.rotation as string[]).join(' -> ') : 'unset'}`)
+      console.log(`rotation start: ${row.rotation_start ? new Date(row.rotation_start).toISOString() : 'unset'}`)
       console.table(row.contacts)
       return
     }

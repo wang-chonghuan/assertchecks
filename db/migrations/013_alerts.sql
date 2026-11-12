@@ -10,6 +10,12 @@ CREATE TABLE alert_config (
   twilio_from         text,
   -- [{ "role": "primary|backup|final", "name": ..., "slack_id": ..., "phone": ..., "email": ... }]
   contacts            jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(contacts) = 'array'),
+  -- Out-of-hours on-call rotation (ASSERT-56): an ordered list of roles, e.g. ["final","primary","backup"],
+  -- and the first handover instant (a Monday 09:00 Ireland). Outside working hours a critical ticket rings the
+  -- week's on-call person instead of the fixed primary; floor((now - rotation_start) / 7 days) mod length picks
+  -- the week, so the handover falls on each Monday 09:00 (a DST change can shift that moment by an hour).
+  rotation            jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(rotation) = 'array'),
+  rotation_start      timestamptz,
   updated_by          text,
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
@@ -29,6 +35,9 @@ CREATE TABLE ticket_escalations (
   created_at   timestamptz NOT NULL DEFAULT now(),
   stage1_at    timestamptz,
   stage2_at    timestamptz,
+  -- Out-of-hours re-ring pacing (critical): when the on-call person was last called, so the ring repeats
+  -- about every 15 minutes rather than every pass.
+  last_call_at timestamptz,
   confirmed_at timestamptz,
   confirmed_by text,
   checked_at   timestamptz,

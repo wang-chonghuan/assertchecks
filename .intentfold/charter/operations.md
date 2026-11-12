@@ -137,8 +137,11 @@ pnpm admin source:events <project-slug> [<event>:<property>=<value> ...]   # cus
 pnpm admin group:add <project-slug> <domain>      # let everyone at an email domain view the project (read-only)
 pnpm admin group:remove <project-slug> <domain>   # stop an email domain from viewing the project
 # BF alert escalation (ASSERT-56): Twilio from env vars (never on the command line), contacts from a JSON file.
-TWILIO_ACCOUNT_SID=... TWILIO_API_KEY_SID=... TWILIO_API_SECRET=... TWILIO_FROM=+353... \
-  pnpm admin alerts:set <project-slug> --contacts <file.json>   # [{role:primary|backup|final,name,slack_id,phone,email}]
+TWILIO_ACCOUNT_SID=... TWILIO_API_KEY_SID=... TWILIO_API_SECRET=... TWILIO_FROM=+1... \
+  pnpm admin alerts:set <project-slug> --contacts <file.json> \
+    --rotation final,primary,backup --rotation-start 2026-11-16T09:00:00Z
+  # contacts: [{role:primary|backup|final,name,slack_id,phone,email}]; --rotation is the out-of-hours on-call
+  # order (comma-separated roles), --rotation-start the first handover (a Monday 09:00 Ireland, ISO).
 pnpm admin alerts:show <project-slug>             # show the alert config, secrets masked
 ```
 

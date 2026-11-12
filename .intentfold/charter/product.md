@@ -48,8 +48,9 @@ solved; it shows when the problem last occurred.
 - It sends no alerts or notifications other than posting the tickets put on production errors to a
   project's chosen Slack channel, and, for a project that configures it, escalating an unacknowledged
   ticket by its severity — a Slack @mention of the responsible people and, for urgent/critical, a short
-  Twilio phone ring — until someone replies on the ticket (ASSERT-56, BF only). It does not detect a
-  service that fails silently without emitting telemetry.
+  Twilio phone ring — until someone replies on the ticket (ASSERT-56, BF only). Outside Ireland working
+  hours a critical ticket rings the week's on-call person on a weekly rotation rather than waking everyone.
+  It does not detect a service that fails silently without emitting telemetry.
 - It is not log search, APM or product analytics: traffic, sign-ups and funnels belong to PostHog,
   and deep investigation belongs to each project's own monitoring.
 - It connects to ticket systems (Plane and Linear) only to file the automatic tickets for production

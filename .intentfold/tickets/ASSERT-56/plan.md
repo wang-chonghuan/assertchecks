@@ -13,8 +13,11 @@
 
 - **low**：照常开单 + 发一条 Slack（沿用现有 announce），不打电话、不升级、不计时。
 - **urgent（默认）**：开单 + Slack @Qingyang；爱尔兰工作时间 Mon–Fri 09:00–17:30 内累计满 1 小时无人确认 → 升级 Yafei（Slack @Yafei + Twilio 电话）。计时与电话只在工作时间。
-- **critical（仅服务不可用，保守）**：立即（含夜间）@Qingyang + 电话 → +15min @Yafei + 电话 → +30min @Chonghuan + 电话；目标 30 分钟内确认。
+- **critical（仅服务不可用，保守）**：
+  - 工作时间内：立即 @Qingyang + 电话 → +15min @Yafei + 电话 → +30min @Chonghuan + 电话；目标 30 分钟内确认。
+  - 工作时间外（owner 追加 2026-11-12）：不惊动三人，只 @ 并呼叫**本周值班人**，未确认约每 15 分钟对同一人重拨，直到回复或进入工作时间；满 24h 无确认停止。值班按**每周轮值**，顺序 Chonghuan→Qingyang→Yafei（= final→primary→backup），**每周一 09:00 换班**，从 2026-11-16 开始；存 `alert_config.rotation`(角色序) + `rotation_start`。换班时刻按整周 ms 计算，爱尔兰夏令时切换时该时刻可能前后差 1 小时，对值班无影响。
 - 严重度由解读模型在开单时一次判定（不在后台任务里重复分类）。
+- 实现：`escalation.ts` 增 `onCallIndex/onCallRole/onCallContact/recallDue`；`startEscalation` 加 `now` 参数并在非工作时间 critical 首呼值班人、记 `last_call_at`；`runEscalations` 非工作时间 critical 走重拨分支（不动 stage），工作时间仍走 0/15/30 阶梯；选取条件改为 critical 只要未确认且建单 24h 内即保持开启。迁移 013 加 `alert_config.rotation/rotation_start`、`ticket_escalations.last_call_at`。CLI `alerts:set` 加 `--rotation`/`--rotation-start`。
 
 ## 路线
 

@@ -80,12 +80,16 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   urgent and critical create one `ticket_escalations` row per filed ticket and start a no-response ladder.
   A second production timer (`plugins/escalation`, its own advisory lock, only in the Container App) runs
   about once a minute: it treats a reply on the Linear ticket by one of the responsible people as
-  acknowledgement and stops; otherwise it escalates — critical to the backup at +15 min and the final
-  person at +30 min with a Twilio call at each, including at night; urgent to the backup once an hour of
-  Ireland working time (Mon–Fri 09:00–17:30) has passed with a call, never outside working hours. It never
-  files tickets, re-collects telemetry or re-runs the model. Twilio and the contacts' numbers live in
-  `alert_config`; AssertChecks calls only those configured numbers. A service that fails silently without
-  emitting telemetry is out of scope.
+  acknowledgement and stops; otherwise it escalates. During Ireland working hours (Mon–Fri 09:00–17:30) a
+  critical ticket climbs the fixed ladder — the backup at +15 min and the final person at +30 min, with a
+  Twilio call at each. Outside working hours a critical ticket instead rings the week's on-call person (a
+  weekly rotation of the three people, handover each Monday 09:00, stored as `alert_config.rotation` and
+  `rotation_start`) and rings them again about every 15 minutes until they reply, so the others are not woken
+  at night; a 24-hour cap stops a ticket nobody ever acknowledges. urgent escalates to the backup once an
+  hour of Ireland working time has passed, with a call, never outside working hours. It never files tickets,
+  re-collects telemetry or re-runs the model. Twilio and the contacts' numbers live in `alert_config`;
+  AssertChecks calls only those configured numbers. A service that fails silently without emitting telemetry
+  is out of scope.
 - The report format is fixed. `public/schemas/*.json` is its single definition: the server validates
   against those files, the site serves them unchanged, and the homepage and client point to them.
 - The homepage and the privacy page are public and show no project data; everything else requires

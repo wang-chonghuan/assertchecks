@@ -16,6 +16,10 @@ export interface Contact { role: Role; name: string; slackId: string | null; pho
 export interface AlertConfig {
   twilio: TwilioConfig
   contacts: Contact[]
+  // Out-of-hours on-call rotation: an ordered list of roles and the first handover instant (a Monday 09:00
+  // Ireland). Empty/null means no rotation, so out-of-hours critical falls back to the fixed primary.
+  rotation: Role[]
+  rotationStart: Date | null
   webhook: string | null
 }
 
@@ -115,15 +119,48 @@ function parseContacts(value: unknown): Contact[] {
 
 export const contactFor = (contacts: Contact[], role: Role): Contact | undefined => contacts.find((contact) => contact.role === role)
 
+// Weekly on-call rotation (ASSERT-56). `rotation` is an ordered list of roles and `start` is the first handover
+// instant (a Monday 09:00 Ireland). Each whole week since the start advances the on-call role by one, wrapping.
+// A DST change can move the handover moment by an hour twice a year, which does not matter for on-call.
+export const ROTATION_WEEK_MS = 7 * 24 * 60 * 60_000
+
+export function onCallIndex(start: Date, now: Date, length: number): number {
+  if (length <= 0) return 0
+  const weeks = Math.floor((now.getTime() - start.getTime()) / ROTATION_WEEK_MS)
+  return weeks <= 0 ? 0 : weeks % length
+}
+
+export function onCallRole(rotation: Role[], start: Date | null, now: Date): Role | null {
+  if (!start || rotation.length === 0) return null
+  return rotation[onCallIndex(start, now, rotation.length)]
+}
+
+// The contact on call for `now`, or null when no rotation is configured.
+export function onCallContact(config: AlertConfig, now: Date): Contact | null {
+  const role = onCallRole(config.rotation, config.rotationStart, now)
+  return role ? contactFor(config.contacts, role) ?? null : null
+}
+
+// Out-of-hours re-ring cadence: the on-call person is rung again about every 15 minutes until they reply.
+export const OOH_RECALL_MS = 15 * 60_000
+export function recallDue(lastCallAt: Date | null, now: Date): boolean {
+  return !lastCallAt || now.getTime() - lastCallAt.getTime() >= OOH_RECALL_MS
+}
+
+const parseRoles = (value: unknown): Role[] =>
+  Array.isArray(value) ? value.filter((role): role is Role => role === 'primary' || role === 'backup' || role === 'final') : []
+
 export async function readAlertConfig(projectId: string): Promise<AlertConfig | null> {
-  const [row] = await sql()<{ twilio_account_sid: string | null; twilio_api_key_sid: string | null; twilio_api_secret: string | null; twilio_from: string | null; contacts: unknown }[]>`
-    SELECT twilio_account_sid, twilio_api_key_sid, twilio_api_secret, twilio_from, contacts FROM alert_config WHERE project_id = ${projectId}
+  const [row] = await sql()<{ twilio_account_sid: string | null; twilio_api_key_sid: string | null; twilio_api_secret: string | null; twilio_from: string | null; contacts: unknown; rotation: unknown; rotation_start: Date | null }[]>`
+    SELECT twilio_account_sid, twilio_api_key_sid, twilio_api_secret, twilio_from, contacts, rotation, rotation_start FROM alert_config WHERE project_id = ${projectId}
   `
   if (!row) return null
   const automation = await automationOf(projectId)
   return {
     twilio: { accountSid: row.twilio_account_sid, apiKeySid: row.twilio_api_key_sid, apiSecret: row.twilio_api_secret, from: row.twilio_from },
     contacts: parseContacts(row.contacts),
+    rotation: parseRoles(row.rotation),
+    rotationStart: row.rotation_start,
     webhook: automation?.slack_webhook ?? null,
   }
 }
@@ -167,12 +204,13 @@ async function notify(escalationId: string, config: AlertConfig, input: {
 
 // Called right after a BF ticket is filed with urgent/critical severity. Creates the single escalation
 // record for the ticket URL (an overflow ticket shared by several problems still gets exactly one), then
-// sends the first notice: Slack to the primary, and for critical a call too. Idempotent: if the row already
-// exists (the overflow ticket's later problems), nothing is sent again.
+// sends the first notice: Slack and, for critical, a call too. During working hours the first contact is the
+// fixed primary; outside working hours a critical ticket instead rings the week's on-call person. Idempotent:
+// if the row already exists (the overflow ticket's later problems), nothing is sent again.
 export async function startEscalation(input: {
   projectId: string; projectName: string; url: string; issueId: string | null; platform: 'plane' | 'linear'
   severity: 'urgent' | 'critical'; env: string; problem: string
-}): Promise<void> {
+}, now: Date = new Date()): Promise<void> {
   const [row] = await sql()<{ id: string }[]>`
     INSERT INTO ticket_escalations (project_id, url, issue_id, platform, severity, stage)
     VALUES (${input.projectId}, ${input.url}, ${input.issueId}, ${input.platform}, ${input.severity}, 0)
@@ -182,26 +220,33 @@ export async function startEscalation(input: {
   if (!row) return
   const config = await readAlertConfig(input.projectId)
   if (!config) return
-  const primary = contactFor(config.contacts, 'primary')
-  if (!primary) return
+  const outOfHours = input.severity === 'critical' && !isWorkingTime(now)
+  const contact = outOfHours ? (onCallContact(config, now) ?? contactFor(config.contacts, 'primary')) : contactFor(config.contacts, 'primary')
+  if (!contact) return
   await notify(row.id, config, {
     severity: input.severity, projectName: input.projectName, env: input.env, problem: input.problem,
-    url: input.url, stage: 0, contact: primary, call: input.severity === 'critical',
+    url: input.url, stage: 0, contact, call: input.severity === 'critical',
   })
+  if (outOfHours) await sql()`UPDATE ticket_escalations SET last_call_at = ${now} WHERE id = ${row.id}`
 }
 
 interface EscalationRow {
   id: string; project_id: string; url: string; issue_id: string | null; platform: 'plane' | 'linear'
-  severity: 'urgent' | 'critical'; stage: number; created_at: Date; slug: string; name: string
+  severity: 'urgent' | 'critical'; stage: number; created_at: Date; last_call_at: Date | null; slug: string; name: string
 }
 
 // One pass of the background task: confirm or escalate each open escalation. Returns a short summary for the
 // log line. Reads each project's Linear access once; never files tickets or calls the model.
 export async function runEscalations(now: Date = new Date()): Promise<{ confirmed: number; escalated: number; open: number }> {
+  // An urgent row closes once it has escalated to its backup (stage 1). A critical row stays open until it is
+  // confirmed, so it can keep ringing the on-call person out of hours; a 24-hour cap stops a row that nobody
+  // ever acknowledges from ringing for days.
   const rows = await sql()<EscalationRow[]>`
-    SELECT e.id, e.project_id, e.url, e.issue_id, e.platform, e.severity, e.stage, e.created_at, p.slug, p.name
+    SELECT e.id, e.project_id, e.url, e.issue_id, e.platform, e.severity, e.stage, e.created_at, e.last_call_at, p.slug, p.name
     FROM ticket_escalations e JOIN projects p ON p.id = e.project_id
-    WHERE e.confirmed_at IS NULL AND e.stage < CASE e.severity WHEN 'critical' THEN 2 ELSE 1 END
+    WHERE e.confirmed_at IS NULL
+      AND ( (e.severity = 'urgent' AND e.stage < 1)
+         OR (e.severity = 'critical' AND e.created_at > now() - interval '24 hours') )
     ORDER BY e.created_at
   `
   let confirmed = 0
@@ -240,7 +285,26 @@ export async function runEscalations(now: Date = new Date()): Promise<{ confirme
       }
     }
 
-    // Not confirmed: escalate if the time for the next stage has come.
+    // Not confirmed, outside working hours, critical: ring the week's on-call person, again about every 15
+    // minutes, until they reply. The other people are not woken at night; the stage ladder is left untouched.
+    if (row.severity === 'critical' && !isWorkingTime(now)) {
+      if (recallDue(row.last_call_at, now)) {
+        const contact = onCallContact(cfg, now) ?? contactFor(cfg.contacts, 'primary')
+        if (contact) {
+          await notify(row.id, cfg, {
+            severity: 'critical', projectName: row.name, env: 'prod',
+            problem: 'Critical ticket still unacknowledged (out of hours).', url: row.url, stage: row.stage, contact, call: true,
+          })
+          escalated += 1
+        }
+        await sql()`UPDATE ticket_escalations SET last_call_at = ${now}, checked_at = now() WHERE id = ${row.id}`
+      } else {
+        await sql()`UPDATE ticket_escalations SET checked_at = now() WHERE id = ${row.id}`
+      }
+      continue
+    }
+
+    // Not confirmed: escalate to the next person if the time for the next stage has come (working hours).
     const target = row.severity === 'critical' ? criticalStageDue(row.created_at, now) : (urgentEscalates(row.created_at, now) ? 1 : 0)
     if (target > row.stage) {
       const next = row.stage + 1
