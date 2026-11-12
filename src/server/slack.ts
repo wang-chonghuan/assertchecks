@@ -30,3 +30,8 @@ export async function postToSlack(webhook: string, text: string): Promise<void> 
 
 // Slack mrkdwn treats these three as markup.
 export const escapeSlack = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+// An @mention of a Slack member by id, e.g. "<@U08SA7K8J9X>" (ASSERT-56). A missing id falls back to the
+// plain name so a notice is never silently un-addressed.
+export const slackMention = (memberId: string | null | undefined, name: string) =>
+  memberId && /^[UW][A-Z0-9]{2,}$/.test(memberId) ? `<@${memberId}>` : escapeSlack(name)

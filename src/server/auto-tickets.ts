@@ -3,12 +3,18 @@
 // interpretation, files the ticket on the project's platform, attaches it, and posts it to Slack.
 import { sql } from './db'
 import { automationOf, readProductionErrors } from './production-errors'
-import { createTicket, verify } from './ticket-platforms'
-import { interpret, type ErrorFacts, type Language } from './interpret'
+import { createTicket, verify, type FiledTicket } from './ticket-platforms'
+import { interpret, type ErrorFacts, type Language, type Severity } from './interpret'
 import { postToSlack } from './slack'
 import { overflowText, problemLink, slackText, ticketText } from './ticket-text'
+import { readAlertConfig, startEscalation } from './escalation'
 import { ORIGIN } from '../lib/connect-guide'
 import type { ProblemView } from '../lib/types'
+
+// A short, user-data-free description of a problem for an escalation notice: the error type and where it
+// happened, never the message body.
+const shortProblem = (problem: ProblemView): string =>
+  `${problem.latest?.type ?? problem.key}${problem.place ? ` at ${problem.place}` : ''} (${problem.browser ? 'browser' : problem.role ?? 'server'})`
 
 // Who automatic tickets are attached by, as the page shows it.
 export const AUTOMATIC = 'AssertChecks (automatic)'
@@ -101,9 +107,9 @@ async function recordFailure(problemId: string, error: unknown): Promise<string>
   return message
 }
 
-async function recordFiled(problemIds: string[], url: string, overflow: boolean, note: string | null): Promise<void> {
+async function recordFiled(problemIds: string[], url: string, overflow: boolean, note: string | null, severity: Severity): Promise<void> {
   await sql()`
-    UPDATE auto_tickets SET state = 'created', url = ${url}, overflow = ${overflow}, error = ${note}, filed_at = now(), updated_at = now()
+    UPDATE auto_tickets SET state = 'created', url = ${url}, overflow = ${overflow}, error = ${note}, severity = ${severity}, filed_at = now(), updated_at = now()
     WHERE problem_id IN ${sql()(problemIds)}
   `
 }
@@ -149,6 +155,19 @@ export async function fileAutomaticTickets(projectId: string, options: FileOptio
   const hour = await lastHour(found.id)
   let filedThisHour = hour.filed
   const spill: ProblemView[] = []
+  // BF alert config (ASSERT-56): with it, urgent/critical tickets drive the escalation instead of a plain
+  // Slack post; low tickets and projects without config keep the ordinary post.
+  const alert = await readAlertConfig(found.id)
+  const notifyFiled = async (filed: FiledTicket, problems: ProblemView[], severity: Severity, problem: string, surge: boolean): Promise<string | null> => {
+    if (alert && (severity === 'urgent' || severity === 'critical') && automation.platform) {
+      await startEscalation({
+        projectId: found.id, projectName: found.name, url: filed.url, issueId: filed.id,
+        platform: automation.platform, severity, env: 'prod', problem,
+      })
+      return null
+    }
+    return announceAll(filed.url, problems, surge)
+  }
 
   for (const problem of view.problems.filter((item) => item.kind === 'error' && item.needsTicket)) {
     if (summary.filed.length + summary.failed.length >= limit) break
@@ -161,8 +180,9 @@ export async function fileAutomaticTickets(projectId: string, options: FileOptio
     try {
       if (refused) throw refused
       let reading: string
+      let severity: Severity
       try {
-        reading = await interpret(facts(problem), language)
+        ({ reading, severity } = await interpret(facts(problem), language))
       } catch (error) {
         // Every ticket carries its interpretation: without one, nothing is filed and the next run tries again.
         const message = `Interpretation: ${(error as Error).message}`.slice(0, 500)
@@ -170,11 +190,11 @@ export async function fileAutomaticTickets(projectId: string, options: FileOptio
         summary.failed.push({ problem: problem.key, error: message })
         continue
       }
-      const url = await createTicket(access, at, ticketText({ language, problem, reading, link: problemLink(ORIGIN, found.slug, problem.id) }))
-      await attach(found.id, [problem], url)
-      const slack = await announceAll(url, [problem], false)
-      await recordFiled([problem.id], url, false, slack ? `Slack: ${slack}` : null)
-      summary.filed.push(url)
+      const filed = await createTicket(access, at, ticketText({ language, problem, reading, link: problemLink(ORIGIN, found.slug, problem.id) }))
+      await attach(found.id, [problem], filed.url)
+      const slack = await notifyFiled(filed, [problem], severity, shortProblem(problem), false)
+      await recordFiled([problem.id], filed.url, false, slack ? `Slack: ${slack}` : null, severity)
+      summary.filed.push(filed.url)
       filedThisHour += 1
     } catch (error) {
       summary.failed.push({ problem: problem.key, error: await recordFailure(problem.id, error) })
@@ -185,19 +205,21 @@ export async function fileAutomaticTickets(projectId: string, options: FileOptio
     const ids = spill.map((problem) => problem.id)
     try {
       if (hour.overflow) {
-        // The hour already has its overflow ticket: these problems join it quietly.
+        // The hour already has its overflow ticket: these problems join it quietly (its escalation, if any,
+        // was started when the overflow ticket was first filed).
         await attach(found.id, spill, hour.overflow)
-        await recordFiled(ids, hour.overflow, true, null)
+        await recordFiled(ids, hour.overflow, true, null, 'urgent')
         summary.grouped += spill.length
       } else {
         if (refused) throw refused
-        const url = await createTicket(access, at, overflowText({
+        const filed = await createTicket(access, at, overflowText({
           language, perHour, problems: spill.map((problem) => ({ problem, link: problemLink(ORIGIN, found.slug, problem.id) })),
         }))
-        await attach(found.id, spill, url)
-        const slack = await announceAll(url, spill, true)
-        await recordFiled(ids, url, true, slack ? `Slack: ${slack}` : null)
-        summary.filed.push(url)
+        await attach(found.id, spill, filed.url)
+        // An error surge needs a response: the overflow ticket is treated as urgent.
+        const slack = await notifyFiled(filed, spill, 'urgent', `Production error surge: ${spill.length} problems in an hour`, true)
+        await recordFiled(ids, filed.url, true, slack ? `Slack: ${slack}` : null, 'urgent')
+        summary.filed.push(filed.url)
         summary.grouped += spill.length
       }
     } catch (error) {

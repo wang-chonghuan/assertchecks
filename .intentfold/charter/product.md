@@ -46,7 +46,11 @@ solved; it shows when the problem last occurred.
 - It does not run tests, build projects or host runners; projects own execution.
 - It is not a multi-tenant public SaaS: no self-service sign-up, billing or organizations.
 - It sends no alerts or notifications other than posting the tickets put on production errors to a
-  project's chosen Slack channel.
+  project's chosen Slack channel, and, for a project that configures it, escalating an unacknowledged
+  ticket by its severity — a Slack @mention of the responsible people and, for urgent/critical, a short
+  Twilio phone ring — until someone replies on the ticket (ASSERT-56, BF only). Outside Ireland working
+  hours a critical ticket rings the week's on-call person on a weekly rotation rather than waking everyone.
+  It does not detect a service that fails silently without emitting telemetry.
 - It is not log search, APM or product analytics: traffic, sign-ups and funnels belong to PostHog,
   and deep investigation belongs to each project's own monitoring.
 - It connects to ticket systems (Plane and Linear) only to file the automatic tickets for production
@@ -63,6 +67,9 @@ solved; it shows when the problem last occurred.
    connection strings inside AssertChecks** — forbidden outright. Projects push test results;
    production telemetry is read through AssertChecks's own cloud identity. The one exception, at the
    owner's request on 2026-11-05 (ASSERT-49): the ticket-platform access key and Slack webhook a
-   member gives for automatic tickets, kept in the database and never shown again.
+   member gives for automatic tickets, kept in the database and never shown again. A second exception,
+   at the owner's request (ASSERT-56): the Twilio credentials and the responsible people's phone numbers
+   for BF alert escalation, kept in the database the same way. AssertChecks only ever calls those
+   configured numbers, never an arbitrary one.
 2. **Writing to a project's telemetry, monitoring or other cloud resources** — forbidden outright.
 3. **Editing this file** — not without the human's explicit approval (granted standing on 2026-10-21).

@@ -37,8 +37,10 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   on cases from run results), `ticket-links` (attaching and removing tickets),
   `client-tokens` (the client's sign-in as a person), and for automatic tickets (ASSERT-49)
   `auto-tickets` (claim, interpret, file, attach, announce), `ticket-platforms` (Plane and Linear),
-  `interpret` (Azure OpenAI), `slack` (incoming webhooks), `failure-events` (custom events a project declares as failures, ASSERT-50), `ticket-text` (pure ticket and message
-  words) and `plugins/auto-tickets` (the production timer).
+  `interpret` (Azure OpenAI, also the severity it decides), `slack` (incoming webhooks), `failure-events` (custom events a project declares as failures, ASSERT-50), `ticket-text` (pure ticket and message
+  words) and `plugins/auto-tickets` (the production timer). For BF alert escalation (ASSERT-56): `escalation`
+  (the config, the no-response ladder, confirmation by a reply on the Linear ticket, and the working-hours
+  rules), `twilio` (the short outbound call) and `plugins/escalation` (its production timer).
 - `src/infui/` — every UI token and the Ant theme built from them (charter/ui.md).
 - `src/components/`, `src/lib/` — shared UI, view models (`types`) and the connection guide
   (`connect-guide`) that both the homepage and "Copy for your agent" render.
@@ -73,6 +75,21 @@ repository at the owner's request in ASSERT-12 (2026-10-19).*
   any 60 minutes; the rest of that hour's problems share one overflow ticket (the 11th), and later problems
   of the hour join it silently (`auto_tickets.overflow`, `filed_at`). The interpretation comes from Azure OpenAI
   (`finley-codex`), called as AssertChecks's own Azure identity with no key, and sees only telemetry.
+- BF alert escalation (ASSERT-56): at filing the interpretation also decides a severity — low, urgent
+  (default) or critical (reserved for a service that is unavailable to users). low posts Slack as before;
+  urgent and critical create one `ticket_escalations` row per filed ticket and start a no-response ladder.
+  A second production timer (`plugins/escalation`, its own advisory lock, only in the Container App) runs
+  about once a minute: it treats a reply on the Linear ticket by one of the responsible people as
+  acknowledgement and stops; otherwise it escalates. During Ireland working hours (Mon–Fri 09:00–17:30) a
+  critical ticket climbs the fixed ladder — the backup at +15 min and the final person at +30 min, with a
+  Twilio call at each. Outside working hours a critical ticket instead rings the week's on-call person (a
+  weekly rotation of the three people, handover each Monday 09:00, stored as `alert_config.rotation` and
+  `rotation_start`) and rings them again about every 15 minutes until they reply, so the others are not woken
+  at night; a 24-hour cap stops a ticket nobody ever acknowledges. urgent escalates to the backup once an
+  hour of Ireland working time has passed, with a call, never outside working hours. It never files tickets,
+  re-collects telemetry or re-runs the model. Twilio and the contacts' numbers live in `alert_config`;
+  AssertChecks calls only those configured numbers. A service that fails silently without emitting telemetry
+  is out of scope.
 - The report format is fixed. `public/schemas/*.json` is its single definition: the server validates
   against those files, the site serves them unchanged, and the homepage and client point to them.
 - The homepage and the privacy page are public and show no project data; everything else requires

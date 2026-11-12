@@ -136,6 +136,13 @@ pnpm admin errors:auto <project-slug> [--limit <n>]   # file a project's automat
 pnpm admin source:events <project-slug> [<event>:<property>=<value> ...]   # custom events that count as failures
 pnpm admin group:add <project-slug> <domain>      # let everyone at an email domain view the project (read-only)
 pnpm admin group:remove <project-slug> <domain>   # stop an email domain from viewing the project
+# BF alert escalation (ASSERT-56): Twilio from env vars (never on the command line), contacts from a JSON file.
+TWILIO_ACCOUNT_SID=... TWILIO_API_KEY_SID=... TWILIO_API_SECRET=... TWILIO_FROM=+1... \
+  pnpm admin alerts:set <project-slug> --contacts <file.json> \
+    --rotation final,primary,backup --rotation-start 2026-11-16T09:00:00Z
+  # contacts: [{role:primary|backup|final,name,slack_id,phone,email}]; --rotation is the out-of-hours on-call
+  # order (comma-separated roles), --rotation-start the first handover (a Monday 09:00 Ireland, ISO).
+pnpm admin alerts:show <project-slug>             # show the alert config, secrets masked
 ```
 
 Where a project's tickets go, its platform key and its Slack webhook are set on its Production errors
@@ -231,3 +238,7 @@ without switching accounts; a ticket may add runs, tickets and checks there and 
 11. **Adding an email-domain group to a real project (`nsdk`, `bf`, a customer)** — not without the
    human's explicit approval: it lets everyone at that domain view the project's runs and production
    errors read-only.
+12. **A real outbound test call, and configuring alert escalation to dial real numbers** — not without the
+   human's explicit approval. AssertChecks dials only the numbers configured in `alert_config`, never an
+   arbitrary one, and the escalation link is not claimed as verified until a real test call has been placed
+   with that approval.

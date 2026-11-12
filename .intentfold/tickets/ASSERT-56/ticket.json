@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-56",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-56",
+  "branch": "ASSERT-56-bf-alerts",
+  "base": "e20d808",
+  "ports": { "web": 63056 }
+}

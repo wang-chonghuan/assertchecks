@@ -117,6 +117,17 @@ project records, counts once the project declares it: `pnpm admin source:events 
 like an exception and no noise rule applies to it. `pnpm admin errors:auto
 <project>` runs the same filing once. Keys and webhooks are kept in the database and never shown again.
 
+For Benefits Finder, a filed ticket is also classified by severity (by the same interpretation) and, when
+it needs a response, escalated until someone replies on the Linear ticket. A separate server timer runs
+about once a minute: a `low` ticket just posts to Slack; an `urgent` ticket @mentions the primary person
+and, if unacknowledged after an hour of Ireland working time, @mentions and calls the backup. A `critical`
+ticket (a service unavailable to users) during working hours @mentions and calls the primary at once, the
+backup at 15 minutes and the final person at 30; outside working hours it instead @mentions and calls the
+week's on-call person, a weekly rotation of the three handing over each Monday 09:00, and rings them again
+about every 15 minutes until they reply, so the others are not woken at night. The short call is placed
+through Twilio to one of the configured numbers only. Configure it with `pnpm admin alerts:set` (including
+the on-call `--rotation` and `--rotation-start`); credentials and numbers live in the database.
+
 ## Development
 
 Requires Node 24 and pnpm. Create `.env` (git-ignored) with `DATABASE_URL`, `DATABASE_SCHEMA`, and the

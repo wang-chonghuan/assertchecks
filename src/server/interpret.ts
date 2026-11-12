@@ -31,15 +31,35 @@ export interface ErrorFacts {
 
 let credential: DefaultAzureCredential | undefined
 
+// How urgently a person must respond, decided once at filing (ASSERT-56). critical is reserved for a
+// service that is unavailable to users; urgent is the default; low is a minor error that only needs review.
+export type Severity = 'critical' | 'urgent' | 'low'
+const SEVERITIES: Severity[] = ['critical', 'urgent', 'low']
+
+// Prepended to the reading instructions: the model first prints one strict severity line, then the reading.
+const SEVERITY_RULE = `First output exactly one line "SEVERITY: critical" or "SEVERITY: urgent" or "SEVERITY: low", then the reading.
+Choose critical ONLY when the telemetry indicates the service is unavailable to users — for example a core flow failing broadly, users unable to sign in or load the app, or a core endpoint erroring at scale. When unsure, do NOT choose critical. Use low only for a clearly minor error that just needs review. Otherwise use urgent. Do not treat a high count alone as critical.
+`
+
 const INSTRUCTIONS: Record<Language, string> = {
   en: `You help the developer who has to fix a production error. You see only its telemetry, never the code.
-Write three short parts with these exact headings: "What happens", "Likely cause", "Where to look".
+${SEVERITY_RULE}After that line, write three short parts with these exact headings: "What happens", "Likely cause", "Where to look".
 Base every statement on the telemetry given; when it does not settle something, say so instead of guessing.
 Name files, functions and lines only when the stack shows them. At most 180 words. Plain text, no tables.`,
   zh: `你帮助要修复一个生产报错的开发。你只看得到它的遥测，看不到代码。
-用这三个小标题写三段简短的话：“发生了什么”“可能的原因”“从哪里查起”。
+${SEVERITY_RULE}该行之后，用这三个小标题写三段简短的话：“发生了什么”“可能的原因”“从哪里查起”。
 每句话都以给出的遥测为依据；遥测确定不了的，直接说确定不了，不要猜。
 只有堆栈里出现的文件、函数和行号才可以点名。不超过 300 字。纯文本，不用表格。`,
+}
+
+// Reads the "SEVERITY: x" first line the model is told to print; defaults to urgent when it is missing or
+// unrecognised, and returns the reading with that line removed.
+export function splitSeverity(text: string): { reading: string; severity: Severity } {
+  const lines = text.split('\n')
+  const match = lines[0]?.match(/^\s*SEVERITY:\s*(critical|urgent|low)\s*$/i)
+  if (!match) return { reading: text.trim(), severity: 'urgent' }
+  const severity = SEVERITIES.find((value) => value === match[1].toLowerCase()) ?? 'urgent'
+  return { reading: lines.slice(1).join('\n').trim(), severity }
 }
 
 // The telemetry as the model reads it; long stacks are cut so a request stays small.
@@ -55,7 +75,7 @@ export function factsText(facts: ErrorFacts): string {
   ].filter(Boolean).join('\n')
 }
 
-export async function interpret(facts: ErrorFacts, language: Language): Promise<string> {
+export async function interpret(facts: ErrorFacts, language: Language): Promise<{ reading: string; severity: Severity }> {
   credential ??= new DefaultAzureCredential()
   const token = await credential.getToken(SCOPE)
   const response = await fetch(ENDPOINT, {
@@ -75,5 +95,5 @@ export async function interpret(facts: ErrorFacts, language: Language): Promise<
   if (!response.ok) throw new Error(`Azure OpenAI: HTTP ${response.status} ${reply.error?.message ?? ''}`.trim())
   const text = reply.choices?.[0]?.message?.content?.trim()
   if (!text) throw new Error('Azure OpenAI returned no text')
-  return text
+  return splitSeverity(text)
 }
