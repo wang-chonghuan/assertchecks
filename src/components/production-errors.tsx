@@ -101,7 +101,7 @@ function NotHandlingModal({ problem, onCancel, onSave }: {
 function ProblemDetail({ problem, onRemove }: { problem: ProblemView; onRemove: (link: string) => void }) {
   const { token } = theme.useToken()
   return (
-    <Flex vertical gap={space.stack}>
+    <Flex vertical gap={space.stack} style={{ paddingInlineStart: space.block, paddingBlock: space.stack }}>
       {problem.tickets.length > 0 && (
         <Flex vertical gap={space.stack} align="flex-start" onClick={(event) => event.stopPropagation()}>
           <Typography.Text style={text.label}>Tickets</Typography.Text>
