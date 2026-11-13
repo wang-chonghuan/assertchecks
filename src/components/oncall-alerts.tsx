@@ -76,14 +76,14 @@ export function OnCallAlertsCard({ project }: { project: string }) {
               <Flex gap={space.stack} wrap align="baseline">
                 <Tag color="warning">Urgent</Tag>
                 <Typography.Text style={text.body}>
-                  Slack {who(data.roles.primary, 'the primary')}; if no reply on the ticket within one working hour,
+                  Slack {who(data.roles.primary, 'the primary')}; acknowledge within one working hour, or
                   {' '}{who(data.roles.backup, 'the backup')} is called. Working hours only (Mon–Fri 09:00–17:30 Ireland).
                 </Typography.Text>
               </Flex>
               <Flex gap={space.stack} wrap align="baseline">
                 <Tag color="error">Critical</Tag>
                 <Typography.Text style={text.body}>
-                  A service outage. In hours: {who(data.roles.primary, 'the primary')} at once,
+                  A service outage. Acknowledge within 30 minutes. In hours: {who(data.roles.primary, 'the primary')} at once,
                   {' '}{who(data.roles.backup, 'the backup')} at +15 min, {who(data.roles.final, 'the final person')} at +30 min — each called.
                   Outside hours: the week&rsquo;s on-call person, re-called about every 15 minutes.
                 </Typography.Text>
