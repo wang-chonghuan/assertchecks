@@ -7,6 +7,7 @@ import {
   saveDestination, saveSlack, type AccessInput, type Decision,
 } from './production-errors'
 import { announce } from './auto-tickets'
+import { onCallSummary } from './escalation'
 import { webhookUrl } from './slack'
 import { attachTicket as attach, caseIds, removeTicket as remove, ticketUrl, type Subject } from './ticket-links'
 import { approveLogin, clientLogin, LOGIN_CODE } from './client-tokens'
@@ -88,6 +89,12 @@ export const getBugReport = createServerFn({ method: 'GET' })
 export const getProductionErrors = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
   .handler(async ({ data }) => found(await productionErrors(await requireViewer(), data.project)))
+
+// Read when the Production errors tab is open: the on-call rotation and any unacknowledged escalations
+// (ASSERT-57). Carries no Twilio secrets, phone numbers or emails.
+export const getOnCallAlerts = createServerFn({ method: 'GET' })
+  .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
+  .handler(async ({ data }) => found(await onCallSummary(await requireViewer(), data.project)))
 
 const ID = /^[1-9][0-9]{0,17}$/
 

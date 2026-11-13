@@ -3,6 +3,7 @@ import { Card, Col, Empty, Flex, Row, Tabs } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
+import { OnCallAlertsCard } from '../../../../components/oncall-alerts'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 import { space } from '../../../../infui/tokens'
@@ -60,8 +61,18 @@ function OverviewPage() {
         onChange={(key) => navigate({ to: '/p/$project', params: { project: project.slug }, search: key === 'errors' ? { tab: 'errors' } : {} })}
         items={[
           { key: 'tests', label: 'Tests', children: tests },
-          // Rendered once opened, so the project page reads production telemetry only when asked.
-          { key: 'errors', label: 'Production errors', children: <ProductionErrorsTab key={project.slug} project={project.slug} focus={problem === undefined ? undefined : String(problem)} /> },
+          // Rendered once opened, so the project page reads production telemetry only when asked. The on-call
+          // card sits above it and shows nothing for a project without alert configuration (ASSERT-57).
+          {
+            key: 'errors',
+            label: 'Production errors',
+            children: (
+              <>
+                <OnCallAlertsCard key={`alerts-${project.slug}`} project={project.slug} />
+                <ProductionErrorsTab key={project.slug} project={project.slug} focus={problem === undefined ? undefined : String(problem)} />
+              </>
+            ),
+          },
         ]}
       />
     </Flex>
