@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-59",
+  "mode": "autonomous",
+  "stage": "handoff-ready",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-59",
+  "branch": "codex/ASSERT-59-prod-live-data",
+  "base": "9d07b2ba39a8fa97ff3f595077f1e1c3eea9f976",
+  "ports": { "web": 63059 }
+}
