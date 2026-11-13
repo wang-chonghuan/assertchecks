@@ -5,9 +5,11 @@
 // never re-runs the model, re-collects telemetry or files tickets.
 import { sql } from './db'
 import { automationOf } from './production-errors'
+import { project, type Viewer } from './queries'
 import { issueComments, type Access } from './ticket-platforms'
 import { postToSlack, slackMention } from './slack'
 import { placeCall, twilioReady, type TwilioConfig } from './twilio'
+import type { OnCallAlerts } from '../lib/types'
 
 export type Role = 'primary' | 'backup' | 'final'
 
@@ -163,6 +165,49 @@ export async function readAlertConfig(projectId: string): Promise<AlertConfig | 
     rotationStart: row.rotation_start,
     webhook: automation?.slack_webhook ?? null,
   }
+}
+
+// UI read for the on-call & alerts card (ASSERT-57), BF only. Membership-scoped through queries.project.
+// Returns a secrets-free view: who is on call this week and the next two, and the filed tickets still
+// awaiting a reply. It never returns Twilio credentials, phone numbers or emails. null = the viewer may not
+// see the project (rendered as 404); { configured: false } = visible but no alert configuration (the card
+// then renders nothing).
+export async function onCallSummary(viewer: Viewer, slug: string, now: Date = new Date()): Promise<OnCallAlerts | null> {
+  const found = await project(viewer, slug)
+  if (!found) return null
+  const config = await readAlertConfig(found.id)
+  const noRoles = { primary: null, backup: null, final: null }
+  if (!config) return { configured: false, workingHours: isWorkingTime(now), onCall: [], roles: noRoles, alerts: [] }
+
+  const roles = {
+    primary: contactFor(config.contacts, 'primary')?.name ?? null,
+    backup: contactFor(config.contacts, 'backup')?.name ?? null,
+    final: contactFor(config.contacts, 'final')?.name ?? null,
+  }
+
+  const onCall: OnCallAlerts['onCall'] = []
+  const len = config.rotation.length
+  if (len > 0 && config.rotationStart) {
+    const current = Math.max(0, Math.floor((now.getTime() - config.rotationStart.getTime()) / ROTATION_WEEK_MS))
+    for (let k = 0; k < 3; k += 1) {
+      const idx = current + k
+      const weekStart = new Date(config.rotationStart.getTime() + idx * ROTATION_WEEK_MS)
+      const role = config.rotation[idx % len]
+      onCall.push({ weekOf: weekStart.toISOString(), role, name: contactFor(config.contacts, role)?.name ?? null })
+    }
+  }
+
+  const rows = await sql()<{ url: string; severity: 'urgent' | 'critical'; created_at: Date; stage: number; last_call_at: Date | null }[]>`
+    SELECT url, severity, created_at, stage, last_call_at FROM ticket_escalations
+    WHERE project_id = ${found.id} AND confirmed_at IS NULL
+    ORDER BY created_at DESC
+  `
+  const alerts = rows.map((row) => ({
+    url: row.url, severity: row.severity, openedAt: row.created_at.toISOString(),
+    stage: row.stage, lastCallAt: row.last_call_at?.toISOString() ?? null,
+  }))
+
+  return { configured: true, workingHours: isWorkingTime(now), onCall, roles, alerts }
 }
 
 const allowedNumbers = (config: AlertConfig): string[] => config.contacts.map((contact) => contact.phone).filter((phone): phone is string => Boolean(phone))

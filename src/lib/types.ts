@@ -89,6 +89,8 @@ export interface OutsideCase {
 export interface Overview {
   project: { slug: string; name: string }
   checks: CheckCard[]
+  // Whether the project has alert escalation configured; when true the project page shows an Alerts tab (ASSERT-57).
+  alerts: boolean
 }
 
 export interface LatestRun extends RunRow {
@@ -274,4 +276,34 @@ export interface ClientLogin {
   code: string
   requestedAt: string
   state: 'waiting' | 'approved' | 'expired'
+}
+
+// The on-call & alerts card (ASSERT-57), BF only. Carries no Twilio secrets, phone numbers or emails —
+// only what the card shows: who is on call, and which filed tickets are still unacknowledged.
+export interface OnCallWeek {
+  // Start of the rotation week (ISO), and who covers out-of-hours critical that week.
+  weekOf: string
+  role: 'primary' | 'backup' | 'final' | null
+  name: string | null
+}
+
+export interface AlertItem {
+  // The filed ticket still awaiting a human reply.
+  url: string
+  severity: 'urgent' | 'critical'
+  openedAt: string
+  // 0 = first notice; 1 = backup; 2 = final (in working hours). last call placed out of hours, if any.
+  stage: number
+  lastCallAt: string | null
+}
+
+export interface OnCallAlerts {
+  // false when the project has no alert configuration (the card then renders nothing).
+  configured: boolean
+  // Whether it is Ireland working time now, which decides whether the ladder or the on-call person is used.
+  workingHours: boolean
+  onCall: OnCallWeek[]
+  // The people holding each fixed role, for the policy card (names only, no phone or email).
+  roles: { primary: string | null; backup: string | null; final: string | null }
+  alerts: AlertItem[]
 }

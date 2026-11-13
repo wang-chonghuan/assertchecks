@@ -3,14 +3,16 @@ import { Card, Col, Empty, Flex, Row, Tabs } from 'antd'
 import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
+import { OnCallAlertsCard } from '../../../../components/oncall-alerts'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 import { space } from '../../../../infui/tokens'
 
 export const Route = createFileRoute('/_app/p/$project/')({
-  // ?tab=errors opens Production errors; Tests is the default tab. &problem=<id> opens one problem there.
-  // The router reads ?problem=2277 as a number; kept a number so the address stays as linked.
-  validateSearch: (search: Record<string, unknown>): { tab?: 'errors'; problem?: number } => {
+  // ?tab=errors opens Production errors, ?tab=alerts the Alerts tab; Tests is the default. &problem=<id>
+  // opens one problem on the errors tab. The router reads ?problem=2277 as a number so the address stays linked.
+  validateSearch: (search: Record<string, unknown>): { tab?: 'errors' | 'alerts'; problem?: number } => {
+    if (search.tab === 'alerts') return { tab: 'alerts' }
     if (search.tab !== 'errors') return {}
     const problem = Number(search.problem)
     return Number.isSafeInteger(problem) && problem > 0 ? { tab: 'errors', problem } : { tab: 'errors' }
@@ -21,7 +23,7 @@ export const Route = createFileRoute('/_app/p/$project/')({
 })
 
 function OverviewPage() {
-  const { project, checks } = Route.useLoaderData()
+  const { project, checks, alerts } = Route.useLoaderData()
   const { tab, problem } = Route.useSearch()
   const navigate = useNavigate()
 
@@ -53,16 +55,26 @@ function OverviewPage() {
   )
   const tests = cards
 
+  const items = [
+    { key: 'tests', label: 'Tests', children: tests },
+    // Rendered once opened, so the project page reads production telemetry only when asked.
+    { key: 'errors', label: 'Production errors', children: <ProductionErrorsTab key={project.slug} project={project.slug} focus={problem === undefined ? undefined : String(problem)} /> },
+  ]
+  // The Alerts tab (ASSERT-57) shows only for a project that has alert escalation configured.
+  if (alerts) {
+    items.push({ key: 'alerts', label: 'Alerts', children: <OnCallAlertsCard key={`alerts-${project.slug}`} project={project.slug} /> })
+  }
+
   return (
     <Flex vertical gap={space.group}>
       <Tabs
         activeKey={tab ?? 'tests'}
-        onChange={(key) => navigate({ to: '/p/$project', params: { project: project.slug }, search: key === 'errors' ? { tab: 'errors' } : {} })}
-        items={[
-          { key: 'tests', label: 'Tests', children: tests },
-          // Rendered once opened, so the project page reads production telemetry only when asked.
-          { key: 'errors', label: 'Production errors', children: <ProductionErrorsTab key={project.slug} project={project.slug} focus={problem === undefined ? undefined : String(problem)} /> },
-        ]}
+        onChange={(key) => navigate({
+          to: '/p/$project',
+          params: { project: project.slug },
+          search: key === 'errors' ? { tab: 'errors' } : key === 'alerts' ? { tab: 'alerts' } : {},
+        })}
+        items={items}
       />
     </Flex>
   )
