@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-60",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-60",
   "branch": "codex/ASSERT-60-passed-badge",
