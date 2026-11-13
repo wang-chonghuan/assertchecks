@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-59",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-59",
   "branch": "codex/ASSERT-59-prod-live-data",
