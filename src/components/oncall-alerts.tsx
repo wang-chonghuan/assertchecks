@@ -11,6 +11,9 @@ import { space, text } from '../infui/tokens'
 // has alert configuration.
 const ROLE_LABEL: Record<'primary' | 'backup' | 'final', string> = { primary: 'Primary', backup: 'Backup', final: 'Final' }
 const SEVERITY_LABEL: Record<'urgent' | 'critical', string> = { urgent: 'Urgent', critical: 'Critical' }
+// The contact notified at each escalation stage, and how the notice went out (ASSERT-62).
+const STAGE_ROLE: Record<number, string> = { 0: 'Primary', 1: 'Backup', 2: 'Final' }
+const KIND_LABEL: Record<'slack' | 'call', string> = { slack: 'Slack', call: 'Call' }
 
 export function OnCallAlertsCard({ project }: { project: string }) {
   const [data, setData] = useState<OnCallAlerts | null>(null)
@@ -101,12 +104,27 @@ export function OnCallAlertsCard({ project }: { project: string }) {
         {data.alerts.length === 0 ? (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active alerts" />
         ) : (
-          <Flex vertical gap={space.stack}>
+          <Flex vertical gap={space.group}>
             {data.alerts.map((alert) => (
-              <Flex key={alert.url} align="baseline" gap={space.stack} wrap>
-                <Tag color={alert.severity === 'critical' ? 'error' : 'warning'}>{SEVERITY_LABEL[alert.severity]}</Tag>
-                <Typography.Link href={alert.url} target="_blank" rel="noreferrer" style={text.label}>Ticket</Typography.Link>
-                <Typography.Text style={text.caption}>opened {utc(alert.openedAt)} · unacknowledged</Typography.Text>
+              <Flex key={alert.url} vertical gap={space.stack}>
+                <Flex align="baseline" gap={space.stack} wrap>
+                  <Tag color={alert.severity === 'critical' ? 'error' : 'warning'}>{SEVERITY_LABEL[alert.severity]}</Tag>
+                  <Typography.Link href={alert.url} target="_blank" rel="noreferrer" style={text.label}>Ticket</Typography.Link>
+                  <Typography.Text style={text.caption}>opened {utc(alert.openedAt)} · unacknowledged</Typography.Text>
+                </Flex>
+                {alert.notes.length > 0 && (
+                  <Flex vertical gap={space.stack} style={{ paddingLeft: space.group }}>
+                    {alert.notes.map((note, index) => (
+                      <Flex key={`${alert.url}-${index}`} align="baseline" gap={space.stack} wrap>
+                        <Tag>{STAGE_ROLE[note.stage] ?? `Stage ${note.stage}`}</Tag>
+                        <Typography.Text style={text.caption}>
+                          {KIND_LABEL[note.kind]} {note.ok ? '·' : '· failed ·'} {utc(note.at)}
+                        </Typography.Text>
+                        {note.detail && <Typography.Text code style={text.caption}>{note.detail}</Typography.Text>}
+                      </Flex>
+                    ))}
+                  </Flex>
+                )}
               </Flex>
             ))}
           </Flex>

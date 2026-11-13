@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-62",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-62",
+  "branch": "ASSERT-62-alert-call-details",
+  "base": "1bb4a7ed082052d27bf62886b887141ebf0ac919",
+  "ports": { "web": 63062 }
+}

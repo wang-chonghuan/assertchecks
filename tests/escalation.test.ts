@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { splitSeverity } from '../src/server/interpret'
 import {
   isWorkingTime, workingMsBetween, criticalStageDue, urgentEscalates, confirmationFrom, escalationMessage,
-  onCallIndex, onCallRole, recallDue, type Contact, type Role,
+  onCallIndex, onCallRole, recallDue, parseAlertLog, type Contact, type Role,
 } from '../src/server/escalation'
 
 // November 2026 is winter in Ireland, so Dublin local time equals UTC — the fixtures read cleanly.
@@ -110,4 +110,24 @@ test('escalationMessage names who must respond and carries no error message body
   assert.match(text, /Benefits Finder \(prod\)/)
   assert.match(text, /ENG-1/)
   assert.match(text, /calling now/)
+})
+
+test('parseAlertLog keeps call and slack attempts and drops malformed or unknown entries (ASSERT-62)', () => {
+  const notes = parseAlertLog([
+    { stage: 0, kind: 'slack', ok: true, detail: '@primary', at: '2026-11-13T09:00:00Z' },
+    { stage: 1, kind: 'call', ok: true, detail: 'CA123', at: '2026-11-13T09:15:00Z' },
+    { stage: 2, kind: 'drill', ok: true, detail: 'note', at: '2026-11-13T09:30:00Z' }, // unknown kind: dropped
+    { kind: 'call' }, // missing fields: defaulted, still a call
+    'nonsense',
+  ])
+  assert.equal(notes.length, 3)
+  assert.deepEqual(notes[0], { stage: 0, kind: 'slack', ok: true, detail: '@primary', at: '2026-11-13T09:00:00Z' })
+  assert.equal(notes[1].detail, 'CA123')
+  assert.deepEqual(notes[2], { stage: 0, kind: 'call', ok: false, detail: '', at: '' })
+})
+
+test('parseAlertLog returns [] for non-array input', () => {
+  assert.deepEqual(parseAlertLog(null), [])
+  assert.deepEqual(parseAlertLog(undefined), [])
+  assert.deepEqual(parseAlertLog({}), [])
 })

@@ -9,7 +9,7 @@ import { project, type Viewer } from './queries'
 import { issueComments, type Access } from './ticket-platforms'
 import { postToSlack, slackMention } from './slack'
 import { placeCall, twilioReady, type TwilioConfig } from './twilio'
-import type { OnCallAlerts } from '../lib/types'
+import type { AlertNote, OnCallAlerts } from '../lib/types'
 
 export type Role = 'primary' | 'backup' | 'final'
 
@@ -167,6 +167,24 @@ export async function readAlertConfig(projectId: string): Promise<AlertConfig | 
   }
 }
 
+// Validate the stored escalation log (jsonb) into the secrets-free notes the Alerts tab shows (ASSERT-62).
+// Unknown or malformed entries are dropped; a call detail is a Twilio Call SID, a slack detail is the role.
+export function parseAlertLog(value: unknown): AlertNote[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((raw): AlertNote[] => {
+    const row = raw as Record<string, unknown>
+    const kind = row.kind
+    if (kind !== 'slack' && kind !== 'call') return []
+    return [{
+      at: typeof row.at === 'string' ? row.at : '',
+      stage: typeof row.stage === 'number' ? row.stage : 0,
+      kind,
+      ok: row.ok === true,
+      detail: typeof row.detail === 'string' ? row.detail : '',
+    }]
+  })
+}
+
 // UI read for the on-call & alerts card (ASSERT-57), BF only. Membership-scoped through queries.project.
 // Returns a secrets-free view: who is on call this week and the next two, and the filed tickets still
 // awaiting a reply. It never returns Twilio credentials, phone numbers or emails. null = the viewer may not
@@ -197,14 +215,15 @@ export async function onCallSummary(viewer: Viewer, slug: string, now: Date = ne
     }
   }
 
-  const rows = await sql()<{ url: string; severity: 'urgent' | 'critical'; created_at: Date; stage: number; last_call_at: Date | null }[]>`
-    SELECT url, severity, created_at, stage, last_call_at FROM ticket_escalations
+  const rows = await sql()<{ url: string; severity: 'urgent' | 'critical'; created_at: Date; stage: number; last_call_at: Date | null; log: unknown }[]>`
+    SELECT url, severity, created_at, stage, last_call_at, log FROM ticket_escalations
     WHERE project_id = ${found.id} AND confirmed_at IS NULL
     ORDER BY created_at DESC
   `
   const alerts = rows.map((row) => ({
     url: row.url, severity: row.severity, openedAt: row.created_at.toISOString(),
     stage: row.stage, lastCallAt: row.last_call_at?.toISOString() ?? null,
+    notes: parseAlertLog(row.log),
   }))
 
   return { configured: true, workingHours: isWorkingTime(now), onCall, roles, alerts }

@@ -287,6 +287,20 @@ export interface OnCallWeek {
   name: string | null
 }
 
+// One notification attempt recorded against an escalation (ASSERT-62). Carries no secret: a 'call'
+// detail is the Twilio Call SID (an identifier), a 'slack' detail is the role mentioned; never a phone
+// number or credential.
+export interface AlertNote {
+  at: string
+  // 0 = first notice (primary), 1 = backup, 2 = final.
+  stage: number
+  kind: 'slack' | 'call'
+  // Whether the attempt was placed successfully (not whether the person answered).
+  ok: boolean
+  // For a call, the Twilio Call SID; for Slack, the mentioned role. May be empty.
+  detail: string
+}
+
 export interface AlertItem {
   // The filed ticket still awaiting a human reply.
   url: string
@@ -295,6 +309,8 @@ export interface AlertItem {
   // 0 = first notice; 1 = backup; 2 = final (in working hours). last call placed out of hours, if any.
   stage: number
   lastCallAt: string | null
+  // The escalation's notification/call attempts, oldest first (ASSERT-62).
+  notes: AlertNote[]
 }
 
 export interface OnCallAlerts {
