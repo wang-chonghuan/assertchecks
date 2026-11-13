@@ -13,6 +13,13 @@ local scratch rather than this public repository.
   both current DEV and PROD snapshots, excluding linked tickets and known failure notes.
 - Daily timings vary from observed case durations. No external CI URLs or fabricated deployment
   versions are stored. Synthetic origin is retained in run metadata and the private receipt.
+- The requested timing/commit adjustment sets each start to 19:00 UTC, preserving its original
+  duration. The displayed commit is the most recent successful NSDK PROD publication completed
+  before that start, from the existing deployment notifications. Days without publication reuse
+  the online version; a publication after 19:00 first applies to the following day's presentation.
+  For component-only publications, the commit follows that published component. This is display
+  metadata, not evidence that the test suite executed from that commit. Deployment columns and
+  external CI links remain unset.
 - There is no schedule, schema migration, UI change, runner, new dependency or deployment.
 - BF and all pre-existing environments, runs, shared tickets and users are outside the write scope.
 
@@ -30,6 +37,10 @@ ID, checks its project and fingerprint, and requires the stored runs to match th
 It deletes only that environment; the existing foreign-key cascade removes its runs. It never deletes
 project-level ticket links or users. If the environment or its runs changed, it refuses deletion.
 Once deleted, repeating the command is a no-op. Another environment reusing the slug is never adopted.
+The metadata adjustment retains a private before/after receipt journal, written before the database
+transaction commits. Cleanup accepts only the exact old or new owned fingerprints during recovery,
+then retains the same refusal behavior for unrelated changes. The durable main-checkout utility and
+receipt are refreshed together; the guard can be checked read-only without deleting the environment.
 
 ## Rehearsal
 
