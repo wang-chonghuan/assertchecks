@@ -89,6 +89,8 @@ export interface OutsideCase {
 export interface Overview {
   project: { slug: string; name: string }
   checks: CheckCard[]
+  // Whether the project has alert escalation configured; when true the project page shows an Alerts tab (ASSERT-57).
+  alerts: boolean
 }
 
 export interface LatestRun extends RunRow {
@@ -301,5 +303,7 @@ export interface OnCallAlerts {
   // Whether it is Ireland working time now, which decides whether the ladder or the on-call person is used.
   workingHours: boolean
   onCall: OnCallWeek[]
+  // The people holding each fixed role, for the policy card (names only, no phone or email).
+  roles: { primary: string | null; backup: string | null; final: string | null }
   alerts: AlertItem[]
 }

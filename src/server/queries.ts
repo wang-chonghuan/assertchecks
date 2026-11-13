@@ -377,9 +377,14 @@ export async function overview(viewer: Viewer, projectSlug: string): Promise<Ove
   // Only the cases that did not pass are judged, which keeps the extra read small.
   const ids = [...new Set(cards.flatMap(({ card: item }) => item.notPassed.map((result) => result.case)))]
   const bugs = ids.length ? await caseBugs(found.id, ids) : new Map<string, CaseBug>()
+  // Whether this project has alert escalation configured (ASSERT-57), which decides if the Alerts tab shows.
+  const [alertRow] = await sql()<{ configured: boolean }[]>`
+    SELECT EXISTS (SELECT 1 FROM alert_config WHERE project_id = ${found.id}) AS configured
+  `
   return {
     project: { slug: found.slug, name: found.name },
     checks: cards.map(({ card: item }) => withNeedsTicket(item, bugs)),
+    alerts: alertRow.configured,
   }
 }
 

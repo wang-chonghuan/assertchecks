@@ -176,7 +176,14 @@ export async function onCallSummary(viewer: Viewer, slug: string, now: Date = ne
   const found = await project(viewer, slug)
   if (!found) return null
   const config = await readAlertConfig(found.id)
-  if (!config) return { configured: false, workingHours: isWorkingTime(now), onCall: [], alerts: [] }
+  const noRoles = { primary: null, backup: null, final: null }
+  if (!config) return { configured: false, workingHours: isWorkingTime(now), onCall: [], roles: noRoles, alerts: [] }
+
+  const roles = {
+    primary: contactFor(config.contacts, 'primary')?.name ?? null,
+    backup: contactFor(config.contacts, 'backup')?.name ?? null,
+    final: contactFor(config.contacts, 'final')?.name ?? null,
+  }
 
   const onCall: OnCallAlerts['onCall'] = []
   const len = config.rotation.length
@@ -200,7 +207,7 @@ export async function onCallSummary(viewer: Viewer, slug: string, now: Date = ne
     stage: row.stage, lastCallAt: row.last_call_at?.toISOString() ?? null,
   }))
 
-  return { configured: true, workingHours: isWorkingTime(now), onCall, alerts }
+  return { configured: true, workingHours: isWorkingTime(now), onCall, roles, alerts }
 }
 
 const allowedNumbers = (config: AlertConfig): string[] => config.contacts.map((contact) => contact.phone).filter((phone): phone is string => Boolean(phone))
