@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-58",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-58",
   "branch": "codex/ASSERT-58-error-detail-indent",
