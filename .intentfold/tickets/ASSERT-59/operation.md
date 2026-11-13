@@ -13,10 +13,11 @@ local scratch rather than this public repository.
   both current DEV and PROD snapshots, excluding linked tickets and known failure notes.
 - Daily timings vary from observed case durations. No external CI URLs or fabricated deployment
   versions are stored. Synthetic origin is retained in run metadata and the private receipt.
-- The requested timing/commit adjustment sets each start to 19:00 UTC, preserving its original
+- The requested timing/commit adjustment sets each start near 19:00 UTC, varying its minute and
+  second within 18:45-19:15 UTC and preserving its original
   duration. The displayed commit is the most recent successful NSDK PROD publication completed
   before that start, from the existing deployment notifications. Days without publication reuse
-  the online version; a publication after 19:00 first applies to the following day's presentation.
+  the online version; a publication after that day's start first applies to a later presentation.
   For component-only publications, the commit follows that published component. This is display
   metadata, not evidence that the test suite executed from that commit. Deployment columns and
   external CI links remain unset.
