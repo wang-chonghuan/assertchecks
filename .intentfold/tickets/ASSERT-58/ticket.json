@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-58",
+  "mode": "autonomous",
+  "stage": "handoff-ready",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-58",
+  "branch": "codex/ASSERT-58-error-detail-indent",
+  "base": "15e32448fb865bbdd30b3b05620e7607b634d8e0",
+  "ports": { "web": 63058 }
+}
