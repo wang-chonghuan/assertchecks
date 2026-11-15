@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-63",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-63",
+  "branch": "ASSERT-63-hide-check-card",
+  "base": "d899a3084eb635007c995677b90065cff97c79d4",
+  "ports": { "web": 63063 }
+}

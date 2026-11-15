@@ -369,9 +369,11 @@ export async function overview(viewer: Viewer, projectSlug: string): Promise<Ove
   const found = await project(viewer, projectSlug)
   if (!found) return null
   const now = new Date()
+  // A hidden check (ASSERT-63) is left out of the overview's card grid; its data, detail page and
+  // cross-environment case status are untouched, so hiding is a presentation choice that is fully reversible.
   const checks = await sql()<CheckRow[]>`
     SELECT id, slug, name, environment, period_seconds, grace_seconds, created_at, selection FROM checks
-    WHERE project_id = ${found.id} ORDER BY name
+    WHERE project_id = ${found.id} AND hidden = false ORDER BY name
   `
   const cards = await Promise.all(checks.map((check) => card(check, now)))
   // Only the cases that did not pass are judged, which keeps the extra read small.

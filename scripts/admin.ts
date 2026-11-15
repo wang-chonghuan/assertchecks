@@ -32,6 +32,8 @@ const USAGE = `usage: pnpm admin <command>
   A check without a period has no schedule and is never late. A full run must execute every catalog
   case whose status and run are in the selection (default: status active, run regular).
   check:token <project-slug> <check-slug>  replace a check's ping token
+  check:hide <project-slug> <check-slug>   leave a check off the project overview (keeps its data and detail page)
+  check:show <project-slug> <check-slug>   show a hidden check on the project overview again
   source:set <project-slug> --workspace-id <customer-id> --workspace <resource-id> [--roles <a,b>]
              read the project's production errors from this Log Analytics workspace, optionally only
              these app roles; AssertChecks's identity needs Log Analytics Reader on it
@@ -312,6 +314,18 @@ async function main(): Promise<void> {
       console.log(`replaced token for ${project}/${slug}; the old token no longer works\nping token (shown once): ${token}`)
       return
     }
+    case 'check:hide':
+    case 'check:show': {
+      const [project, slug] = need(2)
+      const hidden = command === 'check:hide'
+      await one(db`
+        UPDATE checks c SET hidden = ${hidden}
+        FROM projects p WHERE c.project_id = p.id AND p.slug = ${project} AND c.slug = ${slug}
+        RETURNING c.id
+      `, 'unknown check')
+      console.log(`${hidden ? 'hid' : 'showing'} check ${project}/${slug} ${hidden ? '(off' : '(on'} the project overview)`)
+      return
+    }
     case 'source:set': {
       const [project] = need(1)
       const workspaceId = values['workspace-id']
@@ -386,7 +400,7 @@ async function main(): Promise<void> {
         WHERE u.email NOT LIKE '%@%' ORDER BY 1, 2
       `)
       console.table(await db`
-        SELECT p.slug AS project, c.slug, c.name, c.environment, c.period_seconds, c.grace_seconds, c.selection::text
+        SELECT p.slug AS project, c.slug, c.name, c.environment, c.hidden, c.period_seconds, c.grace_seconds, c.selection::text
         FROM checks c JOIN projects p ON p.id = c.project_id ORDER BY 1, 2
       `)
       console.table(await db`
