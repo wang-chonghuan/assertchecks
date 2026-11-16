@@ -448,6 +448,20 @@ export async function securityReports(viewer: Viewer, projectSlug: string): Prom
   return { project: { slug: found.slug, name: found.name }, reports: rows.map(toSecurityReport) }
 }
 
+// One security test report by its version, for its own shareable page (ASSERT-68).
+export async function securityReport(
+  viewer: Viewer, projectSlug: string, version: string,
+): Promise<{ project: { slug: string; name: string }; report: SecurityReport } | null> {
+  const found = await project(viewer, projectSlug)
+  if (!found) return null
+  const [row] = await sql()<SecurityRow[]>`
+    SELECT version, version_url, environment, severity, assessed_at, summary, findings, changes, links
+    FROM security_reports WHERE project_id = ${found.id} AND version = ${version}
+  `
+  if (!row) return null
+  return { project: { slug: found.slug, name: found.name }, report: toSecurityReport(row) }
+}
+
 // A card of the latest full run with how many of its cases that did not pass need a ticket.
 function withNeedsTicket(item: CheckCard, bugs: Map<string, CaseBug>): CheckCard {
   return item.notPassed.length ? { ...item, needsTicket: needsTicketCount(item.notPassed, bugs) } : item

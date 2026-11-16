@@ -2,7 +2,7 @@
 // here so there is one source of truth. The Markdown reads like an aggregated CI scan: findings are
 // grouped under the scanner that surfaces them, and every scanner is listed (clean ones included).
 import type { SecurityCounts, SecurityFinding, SecurityReport, SecuritySeverity } from './types'
-import { SECURITY_TOOLS } from './security-tools'
+import { SECURITY_TOOLS, type SecurityTool } from './security-tools'
 
 const LABEL: Record<SecuritySeverity, string> = {
   pass: 'Pass',
@@ -61,10 +61,23 @@ function findingLine(finding: SecurityFinding): string {
 }
 
 // A scanner's result as its nonzero severity counts, e.g. "2 low"; "No findings" when it found nothing.
-function groupResult(findings: SecurityFinding[]): string {
+export function groupResult(findings: SecurityFinding[]): string {
   if (!findings.length) return 'No findings'
   const c = securityCounts(findings)
   return (['critical', 'high', 'medium', 'low'] as const).filter((k) => c[k] > 0).map((k) => `${c[k]} ${k}`).join(', ')
+}
+
+export interface ScannerGroup {
+  tool: SecurityTool
+  findings: SecurityFinding[]
+}
+
+// Every scanner in order with the report's findings that it surfaces (empty when it found nothing), so
+// the page and the Markdown present the same aggregated-scan shape from one place.
+export function groupByScanner(findings: SecurityFinding[]): ScannerGroup[] {
+  const byTool = new Map<string, SecurityFinding[]>()
+  for (const f of findings) byTool.set(toolFor(f), [...(byTool.get(toolFor(f)) ?? []), f])
+  return SECURITY_TOOLS.map((tool) => ({ tool, findings: byTool.get(tool.name) ?? [] }))
 }
 
 // The report as Markdown: a header table, the summary, a per-scanner tools table, the findings grouped
@@ -75,9 +88,7 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
     ? '**Pass** — no open findings'
     : `**${LABEL[report.severity]}** — ${countsLine(counts)}`
   const version = report.versionUrl ? `\`${report.version}\` ([version](${report.versionUrl}))` : `\`${report.version}\``
-  // Group findings under the scanner that surfaces them.
-  const byTool = new Map<string, SecurityFinding[]>()
-  for (const f of report.findings) byTool.set(toolFor(f), [...(byTool.get(toolFor(f)) ?? []), f])
+  const groups = groupByScanner(report.findings)
 
   const lines: string[] = [
     `# Security Test Report — ${project.name} · ${report.version}`,
@@ -99,14 +110,13 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
     '| Scanner | Version | Coverage | Result |',
     '|---|---|---|---|',
   ]
-  for (const tool of SECURITY_TOOLS) {
-    lines.push(`| ${tool.name} | ${tool.version} | ${tool.category} | ${groupResult(byTool.get(tool.name) ?? [])} |`)
+  for (const { tool, findings } of groups) {
+    lines.push(`| ${tool.name} | ${tool.version} | ${tool.category} | ${groupResult(findings)} |`)
   }
   lines.push('', '## Findings by scanner', '')
-  for (const tool of SECURITY_TOOLS) {
-    const group = byTool.get(tool.name) ?? []
+  for (const { tool, findings } of groups) {
     lines.push(`### ${tool.name} ${tool.version} — ${tool.category}`, '')
-    if (group.length) for (const f of group) lines.push(findingLine(f))
+    if (findings.length) for (const f of findings) lines.push(findingLine(f))
     else lines.push('No findings.')
     lines.push('')
   }
