@@ -23,6 +23,7 @@ import { Route as AppPProjectIndexRouteImport } from './routes/_app/p/$project/i
 import { Route as ApiPingTokenCheckRouteImport } from './routes/api/ping/$token/check'
 import { Route as ApiPingTokenReportRouteImport } from './routes/api/ping/$token/report'
 import { Route as ApiPingTokenStartRouteImport } from './routes/api/ping/$token/start'
+import { Route as AppPProjectSecurityIndexRouteImport } from './routes/_app/p/$project/security/index'
 import { Route as AppPProjectChecksCheckIndexRouteImport } from './routes/_app/p/$project/checks/$check/index'
 import { Route as AppPProjectChecksCheckCasesCaseRouteImport } from './routes/_app/p/$project/checks/$check/cases/$case'
 
@@ -95,6 +96,12 @@ const ApiPingTokenStartRoute = ApiPingTokenStartRouteImport.update({
   path: '/api/ping/$token/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppPProjectSecurityIndexRoute =
+  AppPProjectSecurityIndexRouteImport.update({
+    id: '/p/$project/security/',
+    path: '/p/$project/security/',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppPProjectChecksCheckIndexRoute =
   AppPProjectChecksCheckIndexRouteImport.update({
     id: '/p/$project/checks/$check/',
@@ -122,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project/': typeof AppPProjectIndexRoute
+  '/p/$project/security/': typeof AppPProjectSecurityIndexRoute
   '/p/$project/checks/$check/': typeof AppPProjectChecksCheckIndexRoute
   '/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
 }
@@ -139,6 +147,7 @@ export interface FileRoutesByTo {
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/p/$project': typeof AppPProjectIndexRoute
+  '/p/$project/security': typeof AppPProjectSecurityIndexRoute
   '/p/$project/checks/$check': typeof AppPProjectChecksCheckIndexRoute
   '/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
 }
@@ -158,6 +167,7 @@ export interface FileRoutesById {
   '/api/ping/$token/report': typeof ApiPingTokenReportRoute
   '/api/ping/$token/start': typeof ApiPingTokenStartRoute
   '/_app/p/$project/': typeof AppPProjectIndexRoute
+  '/_app/p/$project/security/': typeof AppPProjectSecurityIndexRoute
   '/_app/p/$project/checks/$check/': typeof AppPProjectChecksCheckIndexRoute
   '/_app/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
 }
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project/'
+    | '/p/$project/security/'
     | '/p/$project/checks/$check/'
     | '/p/$project/checks/$check/cases/$case'
   fileRoutesByTo: FileRoutesByTo
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/p/$project'
+    | '/p/$project/security'
     | '/p/$project/checks/$check'
     | '/p/$project/checks/$check/cases/$case'
   id:
@@ -212,6 +224,7 @@ export interface FileRouteTypes {
     | '/api/ping/$token/report'
     | '/api/ping/$token/start'
     | '/_app/p/$project/'
+    | '/_app/p/$project/security/'
     | '/_app/p/$project/checks/$check/'
     | '/_app/p/$project/checks/$check/cases/$case'
   fileRoutesById: FileRoutesById
@@ -330,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPingTokenStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/p/$project/security/': {
+      id: '/_app/p/$project/security/'
+      path: '/p/$project/security'
+      fullPath: '/p/$project/security/'
+      preLoaderRoute: typeof AppPProjectSecurityIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/p/$project/checks/$check/': {
       id: '/_app/p/$project/checks/$check/'
       path: '/p/$project/checks/$check'
@@ -351,6 +371,7 @@ interface AppRouteChildren {
   AppCliCodeRoute: typeof AppCliCodeRoute
   AppPIndexRoute: typeof AppPIndexRoute
   AppPProjectIndexRoute: typeof AppPProjectIndexRoute
+  AppPProjectSecurityIndexRoute: typeof AppPProjectSecurityIndexRoute
   AppPProjectChecksCheckIndexRoute: typeof AppPProjectChecksCheckIndexRoute
   AppPProjectChecksCheckCasesCaseRoute: typeof AppPProjectChecksCheckCasesCaseRoute
 }
@@ -359,6 +380,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCliCodeRoute: AppCliCodeRoute,
   AppPIndexRoute: AppPIndexRoute,
   AppPProjectIndexRoute: AppPProjectIndexRoute,
+  AppPProjectSecurityIndexRoute: AppPProjectSecurityIndexRoute,
   AppPProjectChecksCheckIndexRoute: AppPProjectChecksCheckIndexRoute,
   AppPProjectChecksCheckCasesCaseRoute: AppPProjectChecksCheckCasesCaseRoute,
 }

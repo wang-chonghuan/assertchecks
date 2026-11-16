@@ -4,6 +4,7 @@ import { CheckStatusTag } from '../../../../components/status'
 import { CheckSummary } from '../../../../components/check-summary'
 import { ProductionErrorsTab } from '../../../../components/production-errors'
 import { OnCallAlertsCard } from '../../../../components/oncall-alerts'
+import { SecurityCard } from '../../../../components/security'
 import { getOverview } from '../../../../server/fns'
 import { PRODUCT_NAME } from '../../../../components/brand'
 import { space } from '../../../../infui/tokens'
@@ -23,11 +24,12 @@ export const Route = createFileRoute('/_app/p/$project/')({
 })
 
 function OverviewPage() {
-  const { project, checks, alerts } = Route.useLoaderData()
+  const { project, checks, alerts, security } = Route.useLoaderData()
   const { tab, problem } = Route.useSearch()
   const navigate = useNavigate()
 
-  const cards = checks.length === 0 ? (
+  // The security-live card (ASSERT-66) joins the check cards in the grid when the project has reports.
+  const cards = checks.length === 0 && !security ? (
     <Card><Empty description="No checks in this project yet." /></Card>
   ) : (
     <Row gutter={[space.group, space.group]}>
@@ -51,6 +53,11 @@ function OverviewPage() {
           </Card>
         </Col>
       ))}
+      {security && (
+        <Col key="security-live" xs={24} md={12} xl={8}>
+          <SecurityCard project={project.slug} security={security} />
+        </Col>
+      )}
     </Row>
   )
   const tests = cards

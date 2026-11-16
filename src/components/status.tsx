@@ -1,5 +1,5 @@
 import { Tag, Tooltip, Typography } from 'antd'
-import type { CaseStatus, CheckStatus, Outcome, RunRow, ThenStatus } from '../lib/types'
+import type { CaseStatus, CheckStatus, Outcome, RunRow, SecuritySeverity, ThenStatus } from '../lib/types'
 import { text } from '../infui/tokens'
 
 // All timestamps are shown in UTC so server and client render identical text.
@@ -76,6 +76,20 @@ function thenLabel(status: ThenStatus, caseStatus: CaseStatus): { color: string;
 export function ThenTag({ id, status, caseStatus }: { id: string; status: ThenStatus; caseStatus: CaseStatus }) {
   const { color, label } = thenLabel(status, caseStatus)
   return <Tag color={color}>{id} · {label}</Tag>
+}
+
+// A security test report's risk rating (ASSERT-66): green when clear, grey for low, orange for medium,
+// red for high and critical.
+const SECURITY: Record<SecuritySeverity, { color: string; label: string }> = {
+  pass: { color: 'success', label: 'Pass' },
+  low: { color: 'default', label: 'Low' },
+  medium: { color: 'warning', label: 'Medium' },
+  high: { color: 'error', label: 'High' },
+  critical: { color: 'error', label: 'Critical' },
+}
+
+export function SecuritySeverityTag({ severity }: { severity: SecuritySeverity }) {
+  return <Tag color={SECURITY[severity].color}>{SECURITY[severity].label}</Tag>
 }
 
 // Why a catalog case is not in the automatic run: an orange draft, or a grey on-demand case.

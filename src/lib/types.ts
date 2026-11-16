@@ -91,6 +91,8 @@ export interface Overview {
   checks: CheckCard[]
   // Whether the project has alert escalation configured; when true the project page shows an Alerts tab (ASSERT-57).
   alerts: boolean
+  // The project's security test reports as one card (ASSERT-66); null when it has none.
+  security: SecurityCard | null
 }
 
 export interface LatestRun extends RunRow {
@@ -325,4 +327,72 @@ export interface OnCallAlerts {
   // The people holding each fixed role, for the policy card (names only, no phone or email).
   roles: { primary: string | null; backup: string | null; final: string | null }
   alerts: AlertItem[]
+}
+
+// Per-release security test reports (ASSERT-66). Shown as a `security-live` card on the project
+// overview and listed on /p/<project>/security; each report downloads as Markdown. The report body is
+// held as structured data (summary, findings, links) and the Markdown is generated from it, so there is
+// one source of truth. 'pass' means no open finding above low; otherwise the rating is the highest.
+export type SecuritySeverity = 'pass' | 'low' | 'medium' | 'high' | 'critical'
+
+// A reference link on a finding, or a link in the report's links/changes lists.
+export interface SecurityLink {
+  label: string
+  url: string
+}
+
+export interface SecurityFinding {
+  // A short id within the report, e.g. SEC-01.
+  id: string
+  severity: SecuritySeverity
+  // The control area, e.g. "Response headers", "Transport", "Dependencies".
+  area: string
+  // Where it stands, e.g. "Open — recommended", "Monitor", "Resolved".
+  status: string
+  note: string
+  // An optional standard/reference the finding cites (OWASP, CWE); null when it cites none.
+  ref: SecurityLink | null
+}
+
+export interface SecurityReport {
+  version: string
+  // A link to the assessed version (a commit), or null.
+  versionUrl: string | null
+  environment: string
+  // The overall risk rating: the highest open finding, or 'pass' when there are none.
+  severity: SecuritySeverity
+  assessedAt: string
+  summary: string
+  findings: SecurityFinding[]
+  // Security-relevant changes in this release (real commits/PRs), shown and included in the Markdown.
+  changes: SecurityLink[]
+  // Reference links: version, CI run, check page, standards.
+  links: SecurityLink[]
+}
+
+// How many open findings of each severity a report has, for the card and list badges.
+export interface SecurityCounts {
+  critical: number
+  high: number
+  medium: number
+  low: number
+}
+
+// The project overview's security card: the latest report in brief, and how many reports there are.
+export interface SecurityCard {
+  latest: {
+    version: string
+    versionUrl: string | null
+    severity: SecuritySeverity
+    assessedAt: string
+    summary: string
+    counts: SecurityCounts
+  }
+  count: number
+}
+
+export interface SecurityReports {
+  project: { slug: string; name: string }
+  // Newest first.
+  reports: SecurityReport[]
 }

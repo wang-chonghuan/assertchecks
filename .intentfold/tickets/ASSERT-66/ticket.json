@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-66",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-66",
+  "branch": "ASSERT-66-security-reports",
+  "base": "5fa136b9111ce12264192c8de18f7831206ef340",
+  "ports": { "web": 63066 }
+}

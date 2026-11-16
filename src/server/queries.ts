@@ -9,8 +9,10 @@ import { caseStatus, needsTicketCount, type CaseRun } from './tickets'
 import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type {
   BugReport, CaseBug, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase,
-  Overview, PartialRun, RunHistoryItem, RunRow, TicketLink,
+  Overview, PartialRun, RunHistoryItem, RunRow, SecurityCard, SecurityFinding, SecurityLink, SecurityReport,
+  SecurityReports, SecuritySeverity, TicketLink,
 } from '../lib/types'
+import { securityCounts } from '../lib/security-report'
 
 // How many stored runs the history lists, newest first.
 const HISTORY_RUNS = 50
@@ -387,7 +389,63 @@ export async function overview(viewer: Viewer, projectSlug: string): Promise<Ove
     project: { slug: found.slug, name: found.name },
     checks: cards.map(({ card: item }) => withNeedsTicket(item, bugs)),
     alerts: alertRow.configured,
+    security: await securityCard(found.id),
   }
+}
+
+interface SecurityRow {
+  version: string; version_url: string | null; environment: string; severity: SecuritySeverity
+  assessed_at: Date; summary: string; findings: SecurityFinding[] | null; changes: SecurityLink[] | null; links: SecurityLink[] | null
+}
+
+function toSecurityReport(row: SecurityRow): SecurityReport {
+  return {
+    version: row.version,
+    versionUrl: row.version_url,
+    environment: row.environment,
+    severity: row.severity,
+    assessedAt: row.assessed_at.toISOString(),
+    summary: row.summary,
+    findings: row.findings ?? [],
+    changes: row.changes ?? [],
+    links: row.links ?? [],
+  }
+}
+
+// The overview's security card (ASSERT-66): the project's latest security test report in brief, and how
+// many it has; null when it has none, so the card shows only where reports exist.
+async function securityCard(projectId: string): Promise<SecurityCard | null> {
+  const [row] = await sql()<(SecurityRow & { count: number })[]>`
+    SELECT version, version_url, environment, severity, assessed_at, summary, findings, changes, links,
+      (SELECT count(*)::int FROM security_reports WHERE project_id = ${projectId}) AS count
+    FROM security_reports WHERE project_id = ${projectId}
+    ORDER BY assessed_at DESC, id DESC LIMIT 1
+  `
+  if (!row) return null
+  return {
+    count: row.count,
+    latest: {
+      version: row.version,
+      versionUrl: row.version_url,
+      severity: row.severity,
+      assessedAt: row.assessed_at.toISOString(),
+      summary: row.summary,
+      counts: securityCounts(row.findings ?? []),
+    },
+  }
+}
+
+// Every security test report of the project, newest first (ASSERT-66). The page generates each report's
+// Markdown download from this structured data.
+export async function securityReports(viewer: Viewer, projectSlug: string): Promise<SecurityReports | null> {
+  const found = await project(viewer, projectSlug)
+  if (!found) return null
+  const rows = await sql()<SecurityRow[]>`
+    SELECT version, version_url, environment, severity, assessed_at, summary, findings, changes, links
+    FROM security_reports WHERE project_id = ${found.id}
+    ORDER BY assessed_at DESC, id DESC
+  `
+  return { project: { slug: found.slug, name: found.name }, reports: rows.map(toSecurityReport) }
 }
 
 // A card of the latest full run with how many of its cases that did not pass need a ticket.

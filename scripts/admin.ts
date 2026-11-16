@@ -34,6 +34,9 @@ const USAGE = `usage: pnpm admin <command>
   check:token <project-slug> <check-slug>  replace a check's ping token
   check:hide <project-slug> <check-slug>   leave a check off the project overview (keeps its data and detail page)
   check:show <project-slug> <check-slug>   show a hidden check on the project overview again
+  security:add <project-slug> <file.json>  add/replace security test report(s): one JSON object or an array
+  security:list                            show security test reports
+  security:remove <project-slug> <version> remove one security test report
   source:set <project-slug> --workspace-id <customer-id> --workspace <resource-id> [--roles <a,b>]
              read the project's production errors from this Log Analytics workspace, optionally only
              these app roles; AssertChecks's identity needs Log Analytics Reader on it
@@ -324,6 +327,63 @@ async function main(): Promise<void> {
         RETURNING c.id
       `, 'unknown check')
       console.log(`${hidden ? 'hid' : 'showing'} check ${project}/${slug} ${hidden ? '(off' : '(on'} the project overview)`)
+      return
+    }
+    // Per-release security test reports (ASSERT-66). The report body is structured; the page generates
+    // the Markdown download from it. Upsert by (project, version) so re-adding a version replaces it.
+    case 'security:add': {
+      const [project, file] = need(2)
+      const parsed = JSON.parse(readFileSync(file, 'utf8'))
+      const reports = Array.isArray(parsed) ? parsed : [parsed]
+      const SEV = new Set(['pass', 'low', 'medium', 'high', 'critical'])
+      const arr = (value: unknown, field: string, version: string): unknown[] => {
+        if (value === undefined || value === null) return []
+        if (!Array.isArray(value)) throw new Error(`report ${version}: ${field} must be an array`)
+        return value
+      }
+      let n = 0
+      for (const r of reports as Record<string, unknown>[]) {
+        const version = r.version
+        if (typeof version !== 'string' || !version) throw new Error('each report needs a version')
+        if (typeof r.severity !== 'string' || !SEV.has(r.severity)) throw new Error(`report ${version}: severity must be pass|low|medium|high|critical`)
+        if (typeof r.summary !== 'string' || !r.summary) throw new Error(`report ${version}: summary is required`)
+        const assessed = new Date(r.assessed_at as string)
+        if (Number.isNaN(assessed.getTime())) throw new Error(`report ${version}: assessed_at must be an ISO timestamp`)
+        const findings = arr(r.findings, 'findings', version)
+        const changes = arr(r.changes, 'changes', version)
+        const links = arr(r.links, 'links', version)
+        await one(db`
+          INSERT INTO security_reports (project_id, version, version_url, environment, severity, assessed_at, summary, findings, changes, links)
+          SELECT p.id, ${version}, ${(r.version_url as string | null) ?? null}, ${(r.environment as string | undefined) ?? 'prod'}, ${r.severity}, ${assessed}, ${r.summary},
+            ${db.json(findings as never)}, ${db.json(changes as never)}, ${db.json(links as never)}
+          FROM projects p WHERE p.slug = ${project}
+          ON CONFLICT (project_id, version) DO UPDATE SET
+            version_url = EXCLUDED.version_url, environment = EXCLUDED.environment, severity = EXCLUDED.severity,
+            assessed_at = EXCLUDED.assessed_at, summary = EXCLUDED.summary, findings = EXCLUDED.findings,
+            changes = EXCLUDED.changes, links = EXCLUDED.links
+          RETURNING id
+        `, 'unknown project')
+        n += 1
+      }
+      console.log(`added/updated ${n} security report(s) for ${project}`)
+      return
+    }
+    case 'security:list': {
+      need(0)
+      console.table(await db`
+        SELECT p.slug AS project, s.version, s.environment, s.severity, s.assessed_at,
+          jsonb_array_length(s.findings) AS findings
+        FROM security_reports s JOIN projects p ON p.id = s.project_id ORDER BY p.slug, s.assessed_at DESC
+      `)
+      return
+    }
+    case 'security:remove': {
+      const [project, version] = need(2)
+      await one(db`
+        DELETE FROM security_reports s USING projects p
+        WHERE s.project_id = p.id AND p.slug = ${project} AND s.version = ${version} RETURNING s.id
+      `, 'no such report')
+      console.log(`removed security report ${project}/${version}`)
       return
     }
     case 'source:set': {
