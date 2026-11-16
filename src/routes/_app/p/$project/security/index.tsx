@@ -1,9 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Button, Card, Empty, Flex, Table, Tag, Typography, theme } from 'antd'
+import { Button, Card, Empty, Flex, Table, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { DownloadOutlined } from '@ant-design/icons'
 import { SecuritySeverityTag, utc } from '../../../../../components/status'
-import { SecurityReportDetail, SecurityToolset, downloadReport } from '../../../../../components/security'
+import { SecurityToolset, downloadReport } from '../../../../../components/security'
 import { getSecurityReports } from '../../../../../server/fns'
 import type { SecurityReport } from '../../../../../lib/types'
 import { countsLine, securityCounts } from '../../../../../lib/security-report'
@@ -18,15 +18,16 @@ export const Route = createFileRoute('/_app/p/$project/security/')({
 
 function SecurityPage() {
   const { project, reports } = Route.useLoaderData()
-  const { token } = theme.useToken()
 
   const columns: TableColumnsType<SecurityReport> = [
     {
       title: 'Version',
       dataIndex: 'version',
       render: (version: string, report) => (
-        <Flex vertical gap={space.inline}>
-          <Typography.Text style={text.code}>{version.slice(0, 12)}</Typography.Text>
+        <Flex align="center" gap={space.stack} wrap>
+          {report.versionUrl
+            ? <Typography.Link href={report.versionUrl} target="_blank" rel="noreferrer" style={text.code}>{version.slice(0, 12)}</Typography.Link>
+            : <Typography.Text style={text.code}>{version.slice(0, 12)}</Typography.Text>}
           <Tag>{report.environment}</Tag>
         </Flex>
       ),
@@ -42,20 +43,12 @@ function SecurityPage() {
         </Flex>
       ),
     },
-    { title: 'Summary', dataIndex: 'summary', render: (summary: string) => <Typography.Text style={text.body}>{summary}</Typography.Text> },
     {
       title: '',
       key: 'download',
       align: 'right',
       render: (_, report) => (
-        <Button
-          size="small"
-          icon={<DownloadOutlined />}
-          // Downloading must not toggle the row's expansion.
-          onClick={(event) => { event.stopPropagation(); downloadReport(project, report) }}
-        >
-          .md
-        </Button>
+        <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadReport(project, report)}>.md</Button>
       ),
     },
   ]
@@ -69,8 +62,8 @@ function SecurityPage() {
         <SecurityToolset />
       </Flex>
       <Typography.Text style={text.body}>
-        One security test report per assessed release, newest first. Open a row for the full report, or
-        download it as Markdown.
+        One security test report per assessed release, newest first. Download any report as Markdown for
+        its full findings and links.
       </Typography.Text>
       <Card>
         <Table
@@ -81,15 +74,6 @@ function SecurityPage() {
           columns={columns}
           dataSource={reports}
           locale={{ emptyText: <Empty description="No security test reports yet." /> }}
-          expandable={{
-            expandRowByClick: true,
-            expandedRowRender: (report) => (
-              <div style={{ paddingInline: space.stack }}>
-                <SecurityReportDetail report={report} />
-              </div>
-            ),
-          }}
-          onRow={() => ({ style: { cursor: 'pointer', background: token.colorBgContainer } })}
         />
       </Card>
     </Flex>

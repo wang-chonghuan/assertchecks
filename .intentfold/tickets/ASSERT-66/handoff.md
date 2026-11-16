@@ -18,14 +18,15 @@ downloadable as Markdown.
   returns all reports newest-first.
 - `src/server/fns.ts` — `getSecurityReports`.
 - `src/components/status.tsx` — `SecuritySeverityTag` (pass=green, low=grey, medium=orange, high/critical=red).
-- `src/components/security.tsx` — `SecurityCard` (overview), `SecurityReportDetail` (expanded report),
-  `downloadReport` (client-side Markdown Blob), and `SecurityToolset`, a button beside the Security page
-  title that opens a dialog listing the open-source tools used to security-test each release.
+- `src/components/security.tsx` — `SecurityCard` (overview), `downloadReport` (client-side Markdown Blob),
+  and `SecurityToolset`, a button beside the Security page title that opens a dialog listing the
+  open-source tools used to security-test each release.
 - `src/lib/security-tools.ts` — the toolset shown in that popup (pnpm audit, Semgrep, Gitleaks, Trivy,
   OWASP ZAP), each with its category and a link. Wiring these into CI per release is a separate ticket.
 - `src/routes/_app/p/$project/index.tsx` — the `security-live` card joins the Tests grid when reports exist.
-- `src/routes/_app/p/$project/security/index.tsx` — the Security page: a table of reports, each row
-  expands to the full report and has a "download .md" button.
+- `src/routes/_app/p/$project/security/index.tsx` — the Security page: a flat table of reports (version
+  with its commit link, assessed date, result rating + counts, and a "download .md" button). No
+  expandable rows and no summary column; the full findings and links are in the downloaded Markdown.
 - `scripts/admin.ts` — `security:add <project> <file.json>` (one object or an array, upsert by version),
   `security:list`, `security:remove <project> <version>`.
 
