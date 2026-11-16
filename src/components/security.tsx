@@ -27,6 +27,7 @@ export function SecurityToolset() {
                 <Typography.Link href={tool.url} target="_blank" rel="noreferrer" style={text.label}>
                   {tool.name} <ExportOutlined />
                 </Typography.Link>
+                <Typography.Text style={text.caption}>v{tool.version}</Typography.Text>
                 <Tag>{tool.category}</Tag>
               </Flex>
               <Typography.Text style={text.body}>{tool.checks}</Typography.Text>
