@@ -14,5 +14,5 @@ export const SECURITY_TOOLS: SecurityTool[] = [
   { name: 'Semgrep', category: 'Static analysis', checks: 'Insecure code patterns: injection, auth, unsafe APIs', url: 'https://semgrep.dev' },
   { name: 'Gitleaks', category: 'Secrets', checks: 'Leaked keys and tokens in code and history', url: 'https://github.com/gitleaks/gitleaks' },
   { name: 'Trivy', category: 'Dependencies & containers', checks: 'Dependency, container image and IaC vulnerabilities', url: 'https://trivy.dev' },
-  { name: 'OWASP ZAP (Baseline)', category: 'Dynamic', checks: 'Passive scan of the deployed URL', url: 'https://www.zaproxy.org' },
+  { name: 'Nuclei', category: 'Dynamic', checks: 'Template-based scan of the deployed URL', url: 'https://github.com/projectdiscovery/nuclei' },
 ]
