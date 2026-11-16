@@ -1,11 +1,45 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Card, Descriptions, Flex, Table, Typography, theme } from 'antd'
+import { useState } from 'react'
+import { Card, Descriptions, Flex, Modal, Table, Tag, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
-import { ExportOutlined } from '@ant-design/icons'
+import { ExportOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
 import { SecuritySeverityTag, utc } from './status'
 import type { SecurityCard as SecurityCardData, SecurityFinding, SecurityLink, SecurityReport } from '../lib/types'
 import { countsLine, reportFileName, reportMarkdown, securityCounts } from '../lib/security-report'
+import { SECURITY_TOOLS } from '../lib/security-tools'
 import { ASSERTCHECKS_STYLE, space, text } from '../infui/tokens'
+
+// The toolset popup on the security-live card (ASSERT-66): what we use to security-test each release.
+// A link because the card itself navigates; clicking it opens the dialog instead of the Security page.
+function SecurityToolset() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Typography.Link onClick={(event) => { event.stopPropagation(); setOpen(true) }} style={text.caption}>
+        <SafetyCertificateOutlined /> Security toolset
+      </Typography.Link>
+      <Modal title="Security testing toolset" open={open} footer={null} onCancel={() => setOpen(false)}>
+        <Flex vertical gap={space.group}>
+          <Typography.Text style={text.body}>
+            The open-source checks used to security-test each release — across dependencies, code, secrets
+            and the running app.
+          </Typography.Text>
+          {SECURITY_TOOLS.map((tool) => (
+            <Flex key={tool.name} vertical gap={space.inline}>
+              <Flex align="center" gap={space.stack} wrap>
+                <Typography.Link href={tool.url} target="_blank" rel="noreferrer" style={text.label}>
+                  {tool.name} <ExportOutlined />
+                </Typography.Link>
+                <Tag>{tool.category}</Tag>
+              </Flex>
+              <Typography.Text style={text.body}>{tool.checks}</Typography.Text>
+            </Flex>
+          ))}
+        </Flex>
+      </Modal>
+    </>
+  )
+}
 
 // Download one report as a Markdown file, generated from its structured data (one source of truth).
 export function downloadReport(project: { name: string; slug: string }, report: SecurityReport): void {
@@ -62,12 +96,15 @@ export function SecurityCard({ project, security }: { project: string; security:
         <Typography.Text style={text.body}>{latest.summary}</Typography.Text>
         <Flex
           align="center"
-          gap={space.inline}
+          justify="space-between"
+          gap={space.stack}
+          wrap
           style={{ paddingTop: space.group, borderTop: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}` }}
         >
           <Typography.Text style={text.caption}>
             Assessed {utc(latest.assessedAt)} · {count} {count === 1 ? 'report' : 'reports'}
           </Typography.Text>
+          <SecurityToolset />
         </Flex>
       </Flex>
     </Card>
