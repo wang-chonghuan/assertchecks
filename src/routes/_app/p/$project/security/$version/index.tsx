@@ -44,7 +44,7 @@ function SecurityReportPage() {
         </Flex>
       </Flex>
       <Card>
-        <SecurityReportBody report={report} />
+        <SecurityReportBody project={project} report={report} />
       </Card>
     </Flex>
   )

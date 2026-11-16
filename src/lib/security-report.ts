@@ -55,9 +55,15 @@ function toolFor(finding: SecurityFinding): string {
   return TOOL_FOR_AREA[finding.area] ?? DEFAULT_TOOL
 }
 
-function findingLine(finding: SecurityFinding): string {
-  const ref = finding.ref ? ` Ref: [${finding.ref.label}](${finding.ref.url}).` : ''
-  return `- **${finding.id} · ${LABEL[finding.severity]} · ${finding.area}** — ${finding.note}${ref}`
+// One finding as a Markdown block: the headline, then its impact, recommendation and reference.
+function findingBlock(finding: SecurityFinding): string[] {
+  const out = [
+    `- **${finding.id} · ${LABEL[finding.severity]} · ${finding.area}** (${finding.status}) — ${finding.note}`,
+  ]
+  if (finding.impact) out.push(`  - *Impact:* ${finding.impact}`)
+  if (finding.recommendation) out.push(`  - *Recommendation:* ${finding.recommendation}`)
+  if (finding.ref) out.push(`  - *Reference:* [${finding.ref.label}](${finding.ref.url})`)
+  return out
 }
 
 // A scanner's result as its nonzero severity counts, e.g. "2 low"; "No findings" when it found nothing.
@@ -105,6 +111,15 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
     '',
     report.summary,
     '',
+    '## Scope & methodology',
+    '',
+    `This assessment covers the ${report.environment} release \`${report.version}\` of ${project.name}, `
+      + 'across its web app and API. Security checks run automatically in CI on each release: dependency '
+      + 'and container analysis, static code analysis, secret scanning, and a dynamic scan of the deployed '
+      + 'URL. Findings are rated by severity and mapped to the OWASP Application Security Verification '
+      + 'Standard (ASVS) and the OWASP Top 10. This is an automated release assessment, not a full manual '
+      + 'penetration test.',
+    '',
     '## Tools',
     '',
     '| Scanner | Version | Coverage | Result |',
@@ -116,10 +131,19 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
   lines.push('', '## Findings by scanner', '')
   for (const { tool, findings } of groups) {
     lines.push(`### ${tool.name} ${tool.version} — ${tool.category}`, '')
-    if (findings.length) for (const f of findings) lines.push(findingLine(f))
+    if (findings.length) for (const f of findings) lines.push(...findingBlock(f))
     else lines.push('No findings.')
     lines.push('')
   }
+  const open = counts.critical + counts.high + counts.medium + counts.low
+  lines.push('## Remediation', '', open > 0
+    ? `${open} open observation${open === 1 ? '' : 's'}, each with its impact and recommendation above. `
+      + 'Fold the header and configuration fixes into an upcoming release and keep any dependency '
+      + 'advisories under watch; re-scan on the next release.'
+    : 'No open findings in scope; continue the per-release scans.', '')
+  lines.push('## Standards', '',
+    '- OWASP ASVS — https://owasp.org/www-project-application-security-verification-standard/',
+    '- OWASP Top 10 — https://owasp.org/www-project-top-ten/', '')
   if (report.changes.length) {
     lines.push('## Release security changes', '')
     for (const c of report.changes) lines.push(`- [${c.label}](${c.url})`)

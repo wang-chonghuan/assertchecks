@@ -1,0 +1,8 @@
+{
+  "ticket": "ASSERT-69",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "branch": "ASSERT-69-enrich-reports",
+  "base": "c055a0c0dfdffbdc320e564e1606146346de304d"
+}
