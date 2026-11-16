@@ -302,10 +302,13 @@ export interface AlertNote {
 }
 
 export interface AlertItem {
-  // The filed ticket still awaiting a human reply.
+  // The filed ticket this escalation is for.
   url: string
   severity: 'urgent' | 'critical'
   openedAt: string
+  // When a human reply acknowledged it (ISO), or null while it is still active/unacknowledged (ASSERT-64).
+  // Only the time is carried, never who acknowledged, so the DTO stays free of emails.
+  confirmedAt: string | null
   // 0 = first notice; 1 = backup; 2 = final (in working hours). last call placed out of hours, if any.
   stage: number
   lastCallAt: string | null
