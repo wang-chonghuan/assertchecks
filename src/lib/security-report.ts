@@ -96,16 +96,16 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
     '',
     '## Tools',
     '',
-    '| Scanner | Coverage | Result |',
-    '|---|---|---|',
+    '| Scanner | Version | Coverage | Result |',
+    '|---|---|---|---|',
   ]
   for (const tool of SECURITY_TOOLS) {
-    lines.push(`| ${tool.name} | ${tool.category} | ${groupResult(byTool.get(tool.name) ?? [])} |`)
+    lines.push(`| ${tool.name} | ${tool.version} | ${tool.category} | ${groupResult(byTool.get(tool.name) ?? [])} |`)
   }
   lines.push('', '## Findings by scanner', '')
   for (const tool of SECURITY_TOOLS) {
     const group = byTool.get(tool.name) ?? []
-    lines.push(`### ${tool.name} — ${tool.category}`, '')
+    lines.push(`### ${tool.name} ${tool.version} — ${tool.category}`, '')
     if (group.length) for (const f of group) lines.push(findingLine(f))
     else lines.push('No findings.')
     lines.push('')
