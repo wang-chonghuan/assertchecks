@@ -1,0 +1,8 @@
+{
+  "ticket": "ASSERT-68",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "branch": "ASSERT-68-security-report-page",
+  "base": "e55880016f21795f472a7cd61db12b321becc77e"
+}

@@ -25,9 +25,7 @@ function SecurityPage() {
       dataIndex: 'version',
       render: (version: string, report) => (
         <Flex align="center" gap={space.stack} wrap>
-          {report.versionUrl
-            ? <Typography.Link href={report.versionUrl} target="_blank" rel="noreferrer" style={text.code}>{version.slice(0, 12)}</Typography.Link>
-            : <Typography.Text style={text.code}>{version.slice(0, 12)}</Typography.Text>}
+          <Link to="/p/$project/security/$version" params={{ project: project.slug, version }} style={text.code}>{version}</Link>
           <Tag>{report.environment}</Tag>
         </Flex>
       ),
@@ -62,8 +60,8 @@ function SecurityPage() {
         <SecurityToolset />
       </Flex>
       <Typography.Text style={text.body}>
-        One security test report per assessed release, newest first. Download any report as Markdown for
-        its full findings and links.
+        One security test report per assessed release, newest first. Open a version for its own shareable
+        page, or download the report as Markdown.
       </Typography.Text>
       <Card>
         <Table

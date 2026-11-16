@@ -25,6 +25,7 @@ import { Route as ApiPingTokenReportRouteImport } from './routes/api/ping/$token
 import { Route as ApiPingTokenStartRouteImport } from './routes/api/ping/$token/start'
 import { Route as AppPProjectSecurityIndexRouteImport } from './routes/_app/p/$project/security/index'
 import { Route as AppPProjectChecksCheckIndexRouteImport } from './routes/_app/p/$project/checks/$check/index'
+import { Route as AppPProjectSecurityVersionIndexRouteImport } from './routes/_app/p/$project/security/$version/index'
 import { Route as AppPProjectChecksCheckCasesCaseRouteImport } from './routes/_app/p/$project/checks/$check/cases/$case'
 
 const IndexRoute = IndexRouteImport.update({
@@ -108,6 +109,12 @@ const AppPProjectChecksCheckIndexRoute =
     path: '/p/$project/checks/$check/',
     getParentRoute: () => AppRoute,
   } as any)
+const AppPProjectSecurityVersionIndexRoute =
+  AppPProjectSecurityVersionIndexRouteImport.update({
+    id: '/p/$project/security/$version/',
+    path: '/p/$project/security/$version/',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppPProjectChecksCheckCasesCaseRoute =
   AppPProjectChecksCheckCasesCaseRouteImport.update({
     id: '/p/$project/checks/$check/cases/$case',
@@ -131,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/p/$project/': typeof AppPProjectIndexRoute
   '/p/$project/security/': typeof AppPProjectSecurityIndexRoute
   '/p/$project/checks/$check/': typeof AppPProjectChecksCheckIndexRoute
+  '/p/$project/security/$version/': typeof AppPProjectSecurityVersionIndexRoute
   '/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
 }
 export interface FileRoutesByTo {
@@ -149,6 +157,7 @@ export interface FileRoutesByTo {
   '/p/$project': typeof AppPProjectIndexRoute
   '/p/$project/security': typeof AppPProjectSecurityIndexRoute
   '/p/$project/checks/$check': typeof AppPProjectChecksCheckIndexRoute
+  '/p/$project/security/$version': typeof AppPProjectSecurityVersionIndexRoute
   '/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
 }
 export interface FileRoutesById {
@@ -169,6 +178,7 @@ export interface FileRoutesById {
   '/_app/p/$project/': typeof AppPProjectIndexRoute
   '/_app/p/$project/security/': typeof AppPProjectSecurityIndexRoute
   '/_app/p/$project/checks/$check/': typeof AppPProjectChecksCheckIndexRoute
+  '/_app/p/$project/security/$version/': typeof AppPProjectSecurityVersionIndexRoute
   '/_app/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
 }
 export interface FileRouteTypes {
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/p/$project/'
     | '/p/$project/security/'
     | '/p/$project/checks/$check/'
+    | '/p/$project/security/$version/'
     | '/p/$project/checks/$check/cases/$case'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/p/$project'
     | '/p/$project/security'
     | '/p/$project/checks/$check'
+    | '/p/$project/security/$version'
     | '/p/$project/checks/$check/cases/$case'
   id:
     | '__root__'
@@ -226,6 +238,7 @@ export interface FileRouteTypes {
     | '/_app/p/$project/'
     | '/_app/p/$project/security/'
     | '/_app/p/$project/checks/$check/'
+    | '/_app/p/$project/security/$version/'
     | '/_app/p/$project/checks/$check/cases/$case'
   fileRoutesById: FileRoutesById
 }
@@ -357,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPProjectChecksCheckIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/p/$project/security/$version/': {
+      id: '/_app/p/$project/security/$version/'
+      path: '/p/$project/security/$version'
+      fullPath: '/p/$project/security/$version/'
+      preLoaderRoute: typeof AppPProjectSecurityVersionIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/p/$project/checks/$check/cases/$case': {
       id: '/_app/p/$project/checks/$check/cases/$case'
       path: '/p/$project/checks/$check/cases/$case'
@@ -373,6 +393,7 @@ interface AppRouteChildren {
   AppPProjectIndexRoute: typeof AppPProjectIndexRoute
   AppPProjectSecurityIndexRoute: typeof AppPProjectSecurityIndexRoute
   AppPProjectChecksCheckIndexRoute: typeof AppPProjectChecksCheckIndexRoute
+  AppPProjectSecurityVersionIndexRoute: typeof AppPProjectSecurityVersionIndexRoute
   AppPProjectChecksCheckCasesCaseRoute: typeof AppPProjectChecksCheckCasesCaseRoute
 }
 
@@ -382,6 +403,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPProjectIndexRoute: AppPProjectIndexRoute,
   AppPProjectSecurityIndexRoute: AppPProjectSecurityIndexRoute,
   AppPProjectChecksCheckIndexRoute: AppPProjectChecksCheckIndexRoute,
+  AppPProjectSecurityVersionIndexRoute: AppPProjectSecurityVersionIndexRoute,
   AppPProjectChecksCheckCasesCaseRoute: AppPProjectChecksCheckCasesCaseRoute,
 }
 

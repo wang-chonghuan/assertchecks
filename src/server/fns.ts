@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
-import { bugReport, caseDetail, checkDetail, me, overview, securityReports } from './queries'
+import { bugReport, caseDetail, checkDetail, me, overview, securityReport, securityReports } from './queries'
 import {
   decideProblem as decide, platformPeople, platformTargets, productionErrors, readProductionErrors, removeDestination,
   saveDestination, saveSlack, type AccessInput, type Decision,
@@ -100,6 +100,14 @@ export const getOnCallAlerts = createServerFn({ method: 'GET' })
 export const getSecurityReports = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
   .handler(async ({ data }) => remembered(await securityReports(await requireViewer(), data.project)))
+
+// One security test report by version, for its shareable page (ASSERT-68).
+export const getSecurityReport = createServerFn({ method: 'GET' })
+  .validator((data: { project: unknown; version: unknown }) => ({
+    project: text(data.project, 'project'),
+    version: text(data.version, 'version'),
+  }))
+  .handler(async ({ data }) => remembered(await securityReport(await requireViewer(), data.project, data.version)))
 
 const ID = /^[1-9][0-9]{0,17}$/
 
