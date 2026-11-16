@@ -215,13 +215,17 @@ export async function onCallSummary(viewer: Viewer, slug: string, now: Date = ne
     }
   }
 
-  const rows = await sql()<{ url: string; severity: 'urgent' | 'critical'; created_at: Date; stage: number; last_call_at: Date | null; log: unknown }[]>`
-    SELECT url, severity, created_at, stage, last_call_at, log FROM ticket_escalations
-    WHERE project_id = ${found.id} AND confirmed_at IS NULL
+  // Alerts history (ASSERT-64): both still-active (confirmed_at IS NULL) and already-acknowledged
+  // escalations, newest first, bounded to the most recent 50 so the card stays light as history grows.
+  const rows = await sql()<{ url: string; severity: 'urgent' | 'critical'; created_at: Date; confirmed_at: Date | null; stage: number; last_call_at: Date | null; log: unknown }[]>`
+    SELECT url, severity, created_at, confirmed_at, stage, last_call_at, log FROM ticket_escalations
+    WHERE project_id = ${found.id}
     ORDER BY created_at DESC
+    LIMIT 50
   `
   const alerts = rows.map((row) => ({
     url: row.url, severity: row.severity, openedAt: row.created_at.toISOString(),
+    confirmedAt: row.confirmed_at?.toISOString() ?? null,
     stage: row.stage, lastCallAt: row.last_call_at?.toISOString() ?? null,
     notes: parseAlertLog(row.log),
   }))

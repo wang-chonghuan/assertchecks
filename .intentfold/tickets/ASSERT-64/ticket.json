@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-64",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-64",
+  "branch": "ASSERT-64-alerts-history",
+  "base": "6d2bb390f21501ddb84d68da4b65d6591450af27",
+  "ports": { "web": 63064 }
+}
