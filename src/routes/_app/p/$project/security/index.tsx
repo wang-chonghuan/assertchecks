@@ -3,7 +3,7 @@ import { Button, Card, Empty, Flex, Table, Tag, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { DownloadOutlined } from '@ant-design/icons'
 import { SecuritySeverityTag, utc } from '../../../../../components/status'
-import { SecurityReportDetail, downloadReport } from '../../../../../components/security'
+import { SecurityReportDetail, SecurityToolset, downloadReport } from '../../../../../components/security'
 import { getSecurityReports } from '../../../../../server/fns'
 import type { SecurityReport } from '../../../../../lib/types'
 import { countsLine, securityCounts } from '../../../../../lib/security-report'
@@ -62,9 +62,12 @@ function SecurityPage() {
 
   return (
     <Flex vertical gap={space.group}>
-      <Typography.Title level={2} style={{ ...text.heading2, margin: 0 }}>
-        <Link to="/p/$project" params={{ project: project.slug }}>{project.name}</Link> / Security
-      </Typography.Title>
+      <Flex align="center" justify="space-between" gap={space.stack} wrap>
+        <Typography.Title level={2} style={{ ...text.heading2, margin: 0 }}>
+          <Link to="/p/$project" params={{ project: project.slug }}>{project.name}</Link> / Security
+        </Typography.Title>
+        <SecurityToolset />
+      </Flex>
       <Typography.Text style={text.body}>
         One security test report per assessed release, newest first. Open a row for the full report, or
         download it as Markdown.

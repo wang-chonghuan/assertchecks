@@ -19,8 +19,8 @@ downloadable as Markdown.
 - `src/server/fns.ts` — `getSecurityReports`.
 - `src/components/status.tsx` — `SecuritySeverityTag` (pass=green, low=grey, medium=orange, high/critical=red).
 - `src/components/security.tsx` — `SecurityCard` (overview), `SecurityReportDetail` (expanded report),
-  `downloadReport` (client-side Markdown Blob), and a `Security toolset` popup on the card that lists the
-  open-source tools used to security-test each release.
+  `downloadReport` (client-side Markdown Blob), and `SecurityToolset`, a button beside the Security page
+  title that opens a dialog listing the open-source tools used to security-test each release.
 - `src/lib/security-tools.ts` — the toolset shown in that popup (pnpm audit, Semgrep, Gitleaks, Trivy,
   OWASP ZAP), each with its category and a link. Wiring these into CI per release is a separate ticket.
 - `src/routes/_app/p/$project/index.tsx` — the `security-live` card joins the Tests grid when reports exist.
