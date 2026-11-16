@@ -70,7 +70,7 @@ function SecurityPage() {
           rowKey="version"
           size="small"
           scroll={{ x: 'max-content' }}
-          pagination={reports.length > 10 ? { pageSize: 10, size: 'small' } : false}
+          pagination={reports.length > 20 ? { pageSize: 20, size: 'small' } : false}
           columns={columns}
           dataSource={reports}
           locale={{ emptyText: <Empty description="No security test reports yet." /> }}
