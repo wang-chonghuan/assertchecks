@@ -160,13 +160,19 @@ export function SecurityReportBody({ project, report }: { project: { name: strin
         size="small"
         column={1}
         items={[
-          {
-            key: 'version',
-            label: 'Version',
-            children: report.versionUrl
-              ? <Typography.Link href={report.versionUrl} target="_blank" rel="noreferrer" style={text.code}>{report.version} <ExportOutlined /></Typography.Link>
-              : <Typography.Text style={text.code}>{report.version}</Typography.Text>,
-          },
+          { key: 'version', label: 'Version', children: <Typography.Text style={text.code}>{report.version}</Typography.Text> },
+          ...(report.branch
+            ? [{ key: 'branch', label: 'Branch', children: <Typography.Text style={text.code}>{report.branch}</Typography.Text> }]
+            : []),
+          ...(report.commitSha
+            ? [{
+                key: 'commit',
+                label: 'Commit',
+                children: report.versionUrl
+                  ? <Typography.Link href={report.versionUrl} target="_blank" rel="noreferrer" style={text.code}>{report.commitSha.slice(0, 12)} <ExportOutlined /></Typography.Link>
+                  : <Typography.Text style={text.code}>{report.commitSha.slice(0, 12)}</Typography.Text>,
+              }]
+            : []),
           { key: 'env', label: 'Environment', children: <Typography.Text style={text.body}>{report.environment}</Typography.Text> },
           { key: 'assessed', label: 'Assessed', children: <Typography.Text style={text.body}>{utc(report.assessedAt)}</Typography.Text> },
           {

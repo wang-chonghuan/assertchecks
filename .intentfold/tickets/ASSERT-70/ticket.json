@@ -1,0 +1,8 @@
+{
+  "ticket": "ASSERT-70",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-deploy",
+  "branch": "ASSERT-70-report-branch-sha",
+  "base": "1bad7bb31d2d3184067fa6b38e1a50b6a526df86"
+}

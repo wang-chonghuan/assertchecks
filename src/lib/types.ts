@@ -361,6 +361,10 @@ export interface SecurityReport {
   version: string
   // A link to the assessed version (a commit), or null.
   versionUrl: string | null
+  // The release branch the version was cut from (e.g. 'release/1.9.1'), or 'main'; null when unknown.
+  branch: string | null
+  // The full commit SHA the release was assessed at, or null. Shown as text and linked via versionUrl.
+  commitSha: string | null
   environment: string
   // The overall risk rating: the highest open finding, or 'pass' when there are none.
   severity: SecuritySeverity

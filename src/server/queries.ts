@@ -394,7 +394,8 @@ export async function overview(viewer: Viewer, projectSlug: string): Promise<Ove
 }
 
 interface SecurityRow {
-  version: string; version_url: string | null; environment: string; severity: SecuritySeverity
+  version: string; version_url: string | null; branch: string | null; commit_sha: string | null
+  environment: string; severity: SecuritySeverity
   assessed_at: Date; summary: string; findings: SecurityFinding[] | null; changes: SecurityLink[] | null; links: SecurityLink[] | null
 }
 
@@ -402,6 +403,8 @@ function toSecurityReport(row: SecurityRow): SecurityReport {
   return {
     version: row.version,
     versionUrl: row.version_url,
+    branch: row.branch,
+    commitSha: row.commit_sha,
     environment: row.environment,
     severity: row.severity,
     assessedAt: row.assessed_at.toISOString(),
@@ -416,7 +419,7 @@ function toSecurityReport(row: SecurityRow): SecurityReport {
 // many it has; null when it has none, so the card shows only where reports exist.
 async function securityCard(projectId: string): Promise<SecurityCard | null> {
   const [row] = await sql()<(SecurityRow & { count: number })[]>`
-    SELECT version, version_url, environment, severity, assessed_at, summary, findings, changes, links,
+    SELECT version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links,
       (SELECT count(*)::int FROM security_reports WHERE project_id = ${projectId}) AS count
     FROM security_reports WHERE project_id = ${projectId}
     ORDER BY assessed_at DESC, id DESC LIMIT 1
@@ -441,7 +444,7 @@ export async function securityReports(viewer: Viewer, projectSlug: string): Prom
   const found = await project(viewer, projectSlug)
   if (!found) return null
   const rows = await sql()<SecurityRow[]>`
-    SELECT version, version_url, environment, severity, assessed_at, summary, findings, changes, links
+    SELECT version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links
     FROM security_reports WHERE project_id = ${found.id}
     ORDER BY assessed_at DESC, id DESC
   `
@@ -455,7 +458,7 @@ export async function securityReport(
   const found = await project(viewer, projectSlug)
   if (!found) return null
   const [row] = await sql()<SecurityRow[]>`
-    SELECT version, version_url, environment, severity, assessed_at, summary, findings, changes, links
+    SELECT version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links
     FROM security_reports WHERE project_id = ${found.id} AND version = ${version}
   `
   if (!row) return null
