@@ -107,6 +107,15 @@ export function SecurityCard({ project, security }: { project: string; security:
   )
 }
 
+function Labelled({ label, children }: { label: string; children: string }) {
+  return (
+    <Flex gap={space.inline} wrap>
+      <Typography.Text style={text.label}>{label}</Typography.Text>
+      <Typography.Text style={text.body}>{children}</Typography.Text>
+    </Flex>
+  )
+}
+
 function Finding({ finding }: { finding: SecurityFinding }) {
   return (
     <Flex vertical gap={space.inline}>
@@ -117,6 +126,8 @@ function Finding({ finding }: { finding: SecurityFinding }) {
         <Typography.Text style={text.caption}>· {finding.status}</Typography.Text>
       </Flex>
       <Typography.Text style={text.body}>{finding.note}</Typography.Text>
+      {finding.impact && <Labelled label="Impact:">{finding.impact}</Labelled>}
+      {finding.recommendation && <Labelled label="Recommendation:">{finding.recommendation}</Labelled>}
       {finding.ref && (
         <Typography.Link href={finding.ref.url} target="_blank" rel="noreferrer" style={text.caption}>
           {finding.ref.label} <ExportOutlined />
@@ -130,8 +141,10 @@ interface ToolRow { key: string; name: string; version: string; coverage: string
 
 // One report in full for its own page (ASSERT-68): the metadata, a per-scanner tools table and the
 // findings grouped by scanner — the same content as the Markdown download, rendered natively.
-export function SecurityReportBody({ report }: { report: SecurityReport }) {
+export function SecurityReportBody({ project, report }: { project: { name: string; slug: string }; report: SecurityReport }) {
   const groups = groupByScanner(report.findings)
+  const counts = securityCounts(report.findings)
+  const open = counts.critical + counts.high + counts.medium + counts.low
   const toolRows: ToolRow[] = groups.map(({ tool, findings }) => ({
     key: tool.name, name: tool.name, version: tool.version, coverage: tool.category, result: groupResult(findings),
   }))
@@ -173,6 +186,16 @@ export function SecurityReportBody({ report }: { report: SecurityReport }) {
         <Typography.Text style={text.body}>{report.summary}</Typography.Text>
       </Flex>
       <Flex vertical gap={space.stack}>
+        <Typography.Text style={text.label}>Scope &amp; methodology</Typography.Text>
+        <Typography.Text style={text.body}>
+          This assessment covers the {report.environment} release {report.version} of {project.name}, across
+          its web app and API. Security checks run automatically in CI on each release: dependency and
+          container analysis, static code analysis, secret scanning, and a dynamic scan of the deployed URL.
+          Findings are rated by severity and mapped to OWASP ASVS and the OWASP Top 10. This is an automated
+          release assessment, not a full manual penetration test.
+        </Typography.Text>
+      </Flex>
+      <Flex vertical gap={space.stack}>
         <Typography.Text style={text.label}>Tools</Typography.Text>
         <Table rowKey="key" size="small" pagination={false} scroll={{ x: 'max-content' }} columns={toolColumns} dataSource={toolRows} />
       </Flex>
@@ -186,6 +209,23 @@ export function SecurityReportBody({ report }: { report: SecurityReport }) {
               : <Typography.Text style={text.caption}>No findings.</Typography.Text>}
           </Flex>
         ))}
+      </Flex>
+      <Flex vertical gap={space.stack}>
+        <Typography.Text style={text.label}>Remediation</Typography.Text>
+        <Typography.Text style={text.body}>
+          {open > 0
+            ? `${open} open observation${open === 1 ? '' : 's'}, each with its impact and recommendation above. Fold the header and configuration fixes into an upcoming release and keep any dependency advisories under watch; re-scan on the next release.`
+            : 'No open findings in scope; continue the per-release scans.'}
+        </Typography.Text>
+      </Flex>
+      <Flex vertical gap={space.stack}>
+        <Typography.Text style={text.label}>Standards</Typography.Text>
+        <Typography.Link href="https://owasp.org/www-project-application-security-verification-standard/" target="_blank" rel="noreferrer">
+          OWASP ASVS <ExportOutlined />
+        </Typography.Link>
+        <Typography.Link href="https://owasp.org/www-project-top-ten/" target="_blank" rel="noreferrer">
+          OWASP Top 10 <ExportOutlined />
+        </Typography.Link>
       </Flex>
       {report.links.length > 0 && (
         <Flex vertical gap={space.stack}>

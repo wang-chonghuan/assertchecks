@@ -350,6 +350,9 @@ export interface SecurityFinding {
   // Where it stands, e.g. "Open — recommended", "Monitor", "Resolved".
   status: string
   note: string
+  // What the issue could enable, and how to fix it; null when not provided.
+  impact: string | null
+  recommendation: string | null
   // An optional standard/reference the finding cites (OWASP, CWE); null when it cites none.
   ref: SecurityLink | null
 }
