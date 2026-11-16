@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { notFound, redirect } from '@tanstack/react-router'
 import { currentUser, lastProject, rememberProject } from './session'
-import { bugReport, caseDetail, checkDetail, me, overview } from './queries'
+import { bugReport, caseDetail, checkDetail, me, overview, securityReports } from './queries'
 import {
   decideProblem as decide, platformPeople, platformTargets, productionErrors, readProductionErrors, removeDestination,
   saveDestination, saveSlack, type AccessInput, type Decision,
@@ -95,6 +95,11 @@ export const getProductionErrors = createServerFn({ method: 'GET' })
 export const getOnCallAlerts = createServerFn({ method: 'GET' })
   .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
   .handler(async ({ data }) => found(await onCallSummary(await requireViewer(), data.project)))
+
+// The project's security test reports (ASSERT-66), read when the Security page is opened.
+export const getSecurityReports = createServerFn({ method: 'GET' })
+  .validator((data: { project: unknown }) => ({ project: text(data.project, 'project') }))
+  .handler(async ({ data }) => remembered(await securityReports(await requireViewer(), data.project)))
 
 const ID = /^[1-9][0-9]{0,17}$/
 
