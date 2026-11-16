@@ -93,7 +93,9 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
   const result = report.severity === 'pass'
     ? '**Pass** — no open findings'
     : `**${LABEL[report.severity]}** — ${countsLine(counts)}`
-  const version = report.versionUrl ? `\`${report.version}\` ([version](${report.versionUrl}))` : `\`${report.version}\``
+  const commit = report.commitSha
+    ? (report.versionUrl ? `[\`${report.commitSha.slice(0, 12)}\`](${report.versionUrl})` : `\`${report.commitSha.slice(0, 12)}\``)
+    : (report.versionUrl ? `[link](${report.versionUrl})` : '—')
   const groups = groupByScanner(report.findings)
 
   const lines: string[] = [
@@ -102,7 +104,9 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
     '| Field | Value |',
     '|---|---|',
     `| Product | ${project.name} (\`${project.slug}\`) |`,
-    `| Version | ${version} |`,
+    `| Version | \`${report.version}\` |`,
+    `| Branch | \`${report.branch ?? 'main'}\` |`,
+    `| Commit | ${commit} |`,
     `| Environment | ${report.environment} |`,
     `| Assessed | ${report.assessedAt.slice(0, 10)} |`,
     `| Result | ${result} |`,

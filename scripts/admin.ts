@@ -353,12 +353,13 @@ async function main(): Promise<void> {
         const changes = arr(r.changes, 'changes', version)
         const links = arr(r.links, 'links', version)
         await one(db`
-          INSERT INTO security_reports (project_id, version, version_url, environment, severity, assessed_at, summary, findings, changes, links)
-          SELECT p.id, ${version}, ${(r.version_url as string | null) ?? null}, ${(r.environment as string | undefined) ?? 'prod'}, ${r.severity}, ${assessed}, ${r.summary},
+          INSERT INTO security_reports (project_id, version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links)
+          SELECT p.id, ${version}, ${(r.version_url as string | null) ?? null}, ${(r.branch as string | null) ?? null}, ${(r.commit_sha as string | null) ?? null}, ${(r.environment as string | undefined) ?? 'prod'}, ${r.severity}, ${assessed}, ${r.summary},
             ${db.json(findings as never)}, ${db.json(changes as never)}, ${db.json(links as never)}
           FROM projects p WHERE p.slug = ${project}
           ON CONFLICT (project_id, version) DO UPDATE SET
-            version_url = EXCLUDED.version_url, environment = EXCLUDED.environment, severity = EXCLUDED.severity,
+            version_url = EXCLUDED.version_url, branch = EXCLUDED.branch, commit_sha = EXCLUDED.commit_sha,
+            environment = EXCLUDED.environment, severity = EXCLUDED.severity,
             assessed_at = EXCLUDED.assessed_at, summary = EXCLUDED.summary, findings = EXCLUDED.findings,
             changes = EXCLUDED.changes, links = EXCLUDED.links
           RETURNING id
