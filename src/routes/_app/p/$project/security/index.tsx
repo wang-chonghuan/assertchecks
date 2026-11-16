@@ -37,7 +37,7 @@ function SecurityPage() {
       title: 'Result',
       key: 'result',
       render: (_, report) => (
-        <Flex vertical gap={space.inline} align="flex-start">
+        <Flex align="center" gap={space.stack} wrap>
           <SecuritySeverityTag severity={report.severity} />
           <Typography.Text style={text.caption}>{countsLine(securityCounts(report.findings))}</Typography.Text>
         </Flex>
