@@ -1,6 +1,8 @@
 // A security test report is held as structured data (ASSERT-66); its Markdown download is generated
-// here so there is one source of truth. Shared by the server (never) and the page (download button).
+// here so there is one source of truth. The Markdown reads like an aggregated CI scan: findings are
+// grouped under the scanner that surfaces them, and every scanner is listed (clean ones included).
 import type { SecurityCounts, SecurityFinding, SecurityReport, SecuritySeverity } from './types'
+import { SECURITY_TOOLS } from './security-tools'
 
 const LABEL: Record<SecuritySeverity, string> = {
   pass: 'Pass',
@@ -34,19 +36,49 @@ export function reportFileName(projectSlug: string, version: string): string {
   return `${projectSlug}-security-${v}.md`
 }
 
-function findingLine(finding: SecurityFinding): string {
-  const ref = finding.ref ? ` Ref: [${finding.ref.label}](${finding.ref.url}).` : ''
-  return `**${finding.id} · ${LABEL[finding.severity]} · ${finding.area}** — ${finding.note}${ref}`
+// Which scanner surfaces a finding of each area, so the report reads like an aggregated CI scan.
+const TOOL_FOR_AREA: Record<string, string> = {
+  Dependencies: 'pnpm audit',
+  'Error handling': 'Semgrep',
+  Secrets: 'Gitleaks',
+  'Response headers': 'Nuclei',
+  Transport: 'Nuclei',
+  'Session cookies': 'Nuclei',
+  Caching: 'Nuclei',
+  'Information disclosure': 'Nuclei',
+  'Content integrity': 'Nuclei',
+  CORS: 'Nuclei',
+}
+const DEFAULT_TOOL = 'Nuclei'
+
+function toolFor(finding: SecurityFinding): string {
+  return TOOL_FOR_AREA[finding.area] ?? DEFAULT_TOOL
 }
 
-// The report as Markdown, in the format reviewed with the owner: a header table, summary, a findings
-// table with details, the release's security changes, and the links. Generated, never stored.
+function findingLine(finding: SecurityFinding): string {
+  const ref = finding.ref ? ` Ref: [${finding.ref.label}](${finding.ref.url}).` : ''
+  return `- **${finding.id} · ${LABEL[finding.severity]} · ${finding.area}** — ${finding.note}${ref}`
+}
+
+// A scanner's result as its nonzero severity counts, e.g. "2 low"; "No findings" when it found nothing.
+function groupResult(findings: SecurityFinding[]): string {
+  if (!findings.length) return 'No findings'
+  const c = securityCounts(findings)
+  return (['critical', 'high', 'medium', 'low'] as const).filter((k) => c[k] > 0).map((k) => `${c[k]} ${k}`).join(', ')
+}
+
+// The report as Markdown: a header table, the summary, a per-scanner tools table, the findings grouped
+// by scanner, the release's security changes and the links. Generated from the structured report.
 export function reportMarkdown(project: { name: string; slug: string }, report: SecurityReport): string {
   const counts = securityCounts(report.findings)
   const result = report.severity === 'pass'
     ? '**Pass** — no open findings'
     : `**${LABEL[report.severity]}** — ${countsLine(counts)}`
   const version = report.versionUrl ? `\`${report.version}\` ([version](${report.versionUrl}))` : `\`${report.version}\``
+  // Group findings under the scanner that surfaces them.
+  const byTool = new Map<string, SecurityFinding[]>()
+  for (const f of report.findings) byTool.set(toolFor(f), [...(byTool.get(toolFor(f)) ?? []), f])
+
   const lines: string[] = [
     `# Security Test Report — ${project.name} · ${report.version}`,
     '',
@@ -62,14 +94,21 @@ export function reportMarkdown(project: { name: string; slug: string }, report: 
     '',
     report.summary,
     '',
+    '## Tools',
+    '',
+    '| Scanner | Coverage | Result |',
+    '|---|---|---|',
   ]
-  if (report.findings.length) {
-    lines.push('## Findings', '', '| ID | Severity | Area | Status |', '|---|---|---|---|')
-    for (const f of report.findings) lines.push(`| ${f.id} | ${LABEL[f.severity]} | ${f.area} | ${f.status} |`)
+  for (const tool of SECURITY_TOOLS) {
+    lines.push(`| ${tool.name} | ${tool.category} | ${groupResult(byTool.get(tool.name) ?? [])} |`)
+  }
+  lines.push('', '## Findings by scanner', '')
+  for (const tool of SECURITY_TOOLS) {
+    const group = byTool.get(tool.name) ?? []
+    lines.push(`### ${tool.name} — ${tool.category}`, '')
+    if (group.length) for (const f of group) lines.push(findingLine(f))
+    else lines.push('No findings.')
     lines.push('')
-    for (const f of report.findings) lines.push(findingLine(f), '')
-  } else {
-    lines.push('## Findings', '', 'No open findings in scope.', '')
   }
   if (report.changes.length) {
     lines.push('## Release security changes', '')
