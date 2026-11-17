@@ -27,6 +27,7 @@ import { Route as AppPProjectSecurityIndexRouteImport } from './routes/_app/p/$p
 import { Route as AppPProjectChecksCheckIndexRouteImport } from './routes/_app/p/$project/checks/$check/index'
 import { Route as AppPProjectSecurityVersionIndexRouteImport } from './routes/_app/p/$project/security/$version/index'
 import { Route as AppPProjectChecksCheckCasesCaseRouteImport } from './routes/_app/p/$project/checks/$check/cases/$case'
+import { Route as ApiPProjectSecurityVersionFileFileIdRouteImport } from './routes/api/p/$project/security/$version/file/$fileId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -121,6 +122,12 @@ const AppPProjectChecksCheckCasesCaseRoute =
     path: '/p/$project/checks/$check/cases/$case',
     getParentRoute: () => AppRoute,
   } as any)
+const ApiPProjectSecurityVersionFileFileIdRoute =
+  ApiPProjectSecurityVersionFileFileIdRouteImport.update({
+    id: '/api/p/$project/security/$version/file/$fileId',
+    path: '/api/p/$project/security/$version/file/$fileId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/p/$project/checks/$check/': typeof AppPProjectChecksCheckIndexRoute
   '/p/$project/security/$version/': typeof AppPProjectSecurityVersionIndexRoute
   '/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
+  '/api/p/$project/security/$version/file/$fileId': typeof ApiPProjectSecurityVersionFileFileIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -159,6 +167,7 @@ export interface FileRoutesByTo {
   '/p/$project/checks/$check': typeof AppPProjectChecksCheckIndexRoute
   '/p/$project/security/$version': typeof AppPProjectSecurityVersionIndexRoute
   '/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
+  '/api/p/$project/security/$version/file/$fileId': typeof ApiPProjectSecurityVersionFileFileIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -180,6 +189,7 @@ export interface FileRoutesById {
   '/_app/p/$project/checks/$check/': typeof AppPProjectChecksCheckIndexRoute
   '/_app/p/$project/security/$version/': typeof AppPProjectSecurityVersionIndexRoute
   '/_app/p/$project/checks/$check/cases/$case': typeof AppPProjectChecksCheckCasesCaseRoute
+  '/api/p/$project/security/$version/file/$fileId': typeof ApiPProjectSecurityVersionFileFileIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/p/$project/checks/$check/'
     | '/p/$project/security/$version/'
     | '/p/$project/checks/$check/cases/$case'
+    | '/api/p/$project/security/$version/file/$fileId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/p/$project/checks/$check'
     | '/p/$project/security/$version'
     | '/p/$project/checks/$check/cases/$case'
+    | '/api/p/$project/security/$version/file/$fileId'
   id:
     | '__root__'
     | '/'
@@ -240,6 +252,7 @@ export interface FileRouteTypes {
     | '/_app/p/$project/checks/$check/'
     | '/_app/p/$project/security/$version/'
     | '/_app/p/$project/checks/$check/cases/$case'
+    | '/api/p/$project/security/$version/file/$fileId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -254,6 +267,7 @@ export interface RootRouteChildren {
   ApiPingTokenCheckRoute: typeof ApiPingTokenCheckRoute
   ApiPingTokenReportRoute: typeof ApiPingTokenReportRoute
   ApiPingTokenStartRoute: typeof ApiPingTokenStartRoute
+  ApiPProjectSecurityVersionFileFileIdRoute: typeof ApiPProjectSecurityVersionFileFileIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -384,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPProjectChecksCheckCasesCaseRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/p/$project/security/$version/file/$fileId': {
+      id: '/api/p/$project/security/$version/file/$fileId'
+      path: '/api/p/$project/security/$version/file/$fileId'
+      fullPath: '/api/p/$project/security/$version/file/$fileId'
+      preLoaderRoute: typeof ApiPProjectSecurityVersionFileFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -421,6 +442,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPingTokenCheckRoute: ApiPingTokenCheckRoute,
   ApiPingTokenReportRoute: ApiPingTokenReportRoute,
   ApiPingTokenStartRoute: ApiPingTokenStartRoute,
+  ApiPProjectSecurityVersionFileFileIdRoute:
+    ApiPProjectSecurityVersionFileFileIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -34,20 +34,32 @@ function SecurityPage() {
     {
       title: 'Result',
       key: 'result',
-      render: (_, report) => (
-        <Flex align="center" gap={space.stack} wrap>
-          <SecuritySeverityTag severity={report.severity} />
-          <Typography.Text style={text.caption}>{countsLine(securityCounts(report.findings))}</Typography.Text>
-        </Flex>
-      ),
+      render: (_, report) => (report.files.length > 0
+        ? <Tag>Report</Tag>
+        : (
+          <Flex align="center" gap={space.stack} wrap>
+            <SecuritySeverityTag severity={report.severity} />
+            <Typography.Text style={text.caption}>{countsLine(securityCounts(report.findings))}</Typography.Text>
+          </Flex>
+        )),
     },
     {
       title: '',
       key: 'download',
       align: 'right',
-      render: (_, report) => (
-        <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadReport(project, report)}>.md</Button>
-      ),
+      render: (_, report) => {
+        if (report.files.length === 1) {
+          return <Button size="small" icon={<DownloadOutlined />} href={report.files[0].href} download={report.files[0].filename}>Report</Button>
+        }
+        if (report.files.length > 1) {
+          return (
+            <Link to="/p/$project/security/$version" params={{ project: project.slug, version: report.version }}>
+              {report.files.length} reports
+            </Link>
+          )
+        }
+        return <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadReport(project, report)}>.md</Button>
+      },
     },
   ]
 

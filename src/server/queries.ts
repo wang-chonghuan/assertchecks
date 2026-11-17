@@ -10,7 +10,7 @@ import type { CaseResult, Outcome, Selection, Trigger, Versions } from './judge'
 import type {
   BugReport, CaseBug, CaseCounts, CaseDetail, CaseHistoryItem, CaseSpec, CheckCard, CheckDetail, LatestRun, Me, OutsideCase,
   Overview, PartialRun, RunHistoryItem, RunRow, SecurityCard, SecurityFinding, SecurityLink, SecurityReport,
-  SecurityReports, SecuritySeverity, TicketLink,
+  SecurityReportFile, SecurityReports, SecuritySeverity, TicketLink,
 } from '../lib/types'
 import { securityCounts } from '../lib/security-report'
 
@@ -394,12 +394,45 @@ export async function overview(viewer: Viewer, projectSlug: string): Promise<Ove
 }
 
 interface SecurityRow {
+  id: string
   version: string; version_url: string | null; branch: string | null; commit_sha: string | null
   environment: string; severity: SecuritySeverity
   assessed_at: Date; summary: string; findings: SecurityFinding[] | null; changes: SecurityLink[] | null; links: SecurityLink[] | null
 }
 
-function toSecurityReport(row: SecurityRow): SecurityReport {
+interface FileRow {
+  id: string; report_id: string; version: string; label: string; environment: string | null
+  provider: string | null; assessed_on: Date | null; filename: string; content_type: string
+}
+
+// The real report files (ASSERT-71) of the given reports, grouped by report id. Each file's href is the
+// login-gated download route for its (project, version, id).
+async function filesByReport(projectSlug: string, reportIds: string[]): Promise<Map<string, SecurityReportFile[]>> {
+  const byReport = new Map<string, SecurityReportFile[]>()
+  if (!reportIds.length) return byReport
+  const rows = await sql()<FileRow[]>`
+    SELECT f.id, f.report_id, s.version, f.label, f.environment, f.provider, f.assessed_on, f.filename, f.content_type
+    FROM security_report_files f JOIN security_reports s ON s.id = f.report_id
+    WHERE f.report_id = ANY(${reportIds})
+    ORDER BY f.position, f.id
+  `
+  for (const r of rows) {
+    const file: SecurityReportFile = {
+      id: r.id,
+      label: r.label,
+      environment: r.environment,
+      provider: r.provider,
+      assessedOn: r.assessed_on ? r.assessed_on.toISOString().slice(0, 10) : null,
+      filename: r.filename,
+      contentType: r.content_type,
+      href: `/api/p/${encodeURIComponent(projectSlug)}/security/${encodeURIComponent(r.version)}/file/${r.id}`,
+    }
+    byReport.set(r.report_id, [...(byReport.get(r.report_id) ?? []), file])
+  }
+  return byReport
+}
+
+function toSecurityReport(row: SecurityRow, files: SecurityReportFile[]): SecurityReport {
   return {
     version: row.version,
     versionUrl: row.version_url,
@@ -412,15 +445,17 @@ function toSecurityReport(row: SecurityRow): SecurityReport {
     findings: row.findings ?? [],
     changes: row.changes ?? [],
     links: row.links ?? [],
+    files,
   }
 }
 
 // The overview's security card (ASSERT-66): the project's latest security test report in brief, and how
 // many it has; null when it has none, so the card shows only where reports exist.
 async function securityCard(projectId: string): Promise<SecurityCard | null> {
-  const [row] = await sql()<(SecurityRow & { count: number })[]>`
-    SELECT version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links,
-      (SELECT count(*)::int FROM security_reports WHERE project_id = ${projectId}) AS count
+  const [row] = await sql()<(SecurityRow & { count: number; has_report: boolean })[]>`
+    SELECT id, version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links,
+      (SELECT count(*)::int FROM security_reports WHERE project_id = ${projectId}) AS count,
+      EXISTS(SELECT 1 FROM security_report_files f WHERE f.report_id = security_reports.id) AS has_report
     FROM security_reports WHERE project_id = ${projectId}
     ORDER BY assessed_at DESC, id DESC LIMIT 1
   `
@@ -434,21 +469,25 @@ async function securityCard(projectId: string): Promise<SecurityCard | null> {
       assessedAt: row.assessed_at.toISOString(),
       summary: row.summary,
       counts: securityCounts(row.findings ?? []),
+      hasReport: row.has_report,
     },
   }
 }
 
-// Every security test report of the project, newest first (ASSERT-66). The page generates each report's
-// Markdown download from this structured data.
+// Every security test report of the project, newest first (ASSERT-66), each with its real report files.
 export async function securityReports(viewer: Viewer, projectSlug: string): Promise<SecurityReports | null> {
   const found = await project(viewer, projectSlug)
   if (!found) return null
   const rows = await sql()<SecurityRow[]>`
-    SELECT version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links
+    SELECT id, version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links
     FROM security_reports WHERE project_id = ${found.id}
     ORDER BY assessed_at DESC, id DESC
   `
-  return { project: { slug: found.slug, name: found.name }, reports: rows.map(toSecurityReport) }
+  const files = await filesByReport(found.slug, rows.map((r) => r.id))
+  return {
+    project: { slug: found.slug, name: found.name },
+    reports: rows.map((row) => toSecurityReport(row, files.get(row.id) ?? [])),
+  }
 }
 
 // One security test report by its version, for its own shareable page (ASSERT-68).
@@ -458,11 +497,28 @@ export async function securityReport(
   const found = await project(viewer, projectSlug)
   if (!found) return null
   const [row] = await sql()<SecurityRow[]>`
-    SELECT version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links
+    SELECT id, version, version_url, branch, commit_sha, environment, severity, assessed_at, summary, findings, changes, links
     FROM security_reports WHERE project_id = ${found.id} AND version = ${version}
   `
   if (!row) return null
-  return { project: { slug: found.slug, name: found.name }, report: toSecurityReport(row) }
+  const files = await filesByReport(found.slug, [row.id])
+  return { project: { slug: found.slug, name: found.name }, report: toSecurityReport(row, files.get(row.id) ?? []) }
+}
+
+// The bytes of one real report file, for the login-gated download route (ASSERT-71). Access is the same
+// project gate as the pages; null when the viewer cannot see the project or the file does not exist.
+export async function securityReportFile(
+  viewer: Viewer, projectSlug: string, version: string, fileId: string,
+): Promise<{ filename: string; contentType: string; bytes: Buffer } | null> {
+  const found = await project(viewer, projectSlug)
+  if (!found) return null
+  const [row] = await sql()<{ filename: string; content_type: string; bytes: Buffer }[]>`
+    SELECT f.filename, f.content_type, f.bytes
+    FROM security_report_files f JOIN security_reports s ON s.id = f.report_id
+    WHERE f.id = ${fileId} AND s.project_id = ${found.id} AND s.version = ${version}
+  `
+  if (!row) return null
+  return { filename: row.filename, contentType: row.content_type, bytes: row.bytes }
 }
 
 // A card of the latest full run with how many of its cases that did not pass need a ticket.
