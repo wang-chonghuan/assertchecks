@@ -4,6 +4,7 @@
 // Generated ping tokens are printed once and stored only as hashes.
 import { parseArgs } from 'node:util'
 import { readFileSync } from 'node:fs'
+import { basename, extname } from 'node:path'
 import { sql } from '../src/server/db'
 import { hashToken, randomToken } from '../src/server/crypto'
 import { fileAutomaticTickets, withRunLock } from '../src/server/auto-tickets'
@@ -37,6 +38,10 @@ const USAGE = `usage: pnpm admin <command>
   security:add <project-slug> <file.json>  add/replace security test report(s): one JSON object or an array
   security:list                            show security test reports
   security:remove <project-slug> <version> remove one security test report
+  security:attach <project-slug> <version> <file> [--label <t>] [--env <prod|dev>] [--provider <name>] [--date <YYYY-MM-DD>] [--name <filename>] [--position <n>]
+                                           attach a real report file (pentest/scan) to a release; served only behind sign-in
+  security:files                           show attached report files
+  security:detach <id>                     remove one attached report file
   source:set <project-slug> --workspace-id <customer-id> --workspace <resource-id> [--roles <a,b>]
              read the project's production errors from this Log Analytics workspace, optionally only
              these app roles; AssertChecks's identity needs Log Analytics Reader on it
@@ -68,6 +73,10 @@ const { positionals, values } = parseArgs({
     contacts: { type: 'string' },
     rotation: { type: 'string' },
     'rotation-start': { type: 'string' },
+    label: { type: 'string' },
+    provider: { type: 'string' },
+    date: { type: 'string' },
+    position: { type: 'string' },
   },
 })
 const [command, ...args] = positionals
@@ -385,6 +394,56 @@ async function main(): Promise<void> {
         WHERE s.project_id = p.id AND p.slug = ${project} AND s.version = ${version} RETURNING s.id
       `, 'no such report')
       console.log(`removed security report ${project}/${version}`)
+      return
+    }
+    // Attach a real external test report file (ASSERT-71) to a release. Stored in the DB and served only
+    // through the login-gated download route. Upsert by (report, filename) so re-attaching replaces it.
+    case 'security:attach': {
+      const [project, version, file] = need(3)
+      const bytes = readFileSync(file)
+      const filename = (values.name ?? basename(file))
+      const ext = extname(filename).toLowerCase()
+      const contentType = ext === '.pdf' ? 'application/pdf'
+        : ext === '.html' || ext === '.htm' ? 'text/html'
+        : ext === '.json' ? 'application/json'
+        : 'application/octet-stream'
+      const label = values.label ?? filename
+      const environment = values.env ?? null
+      const provider = values.provider ?? null
+      const assessedOn = values.date ?? null
+      if (assessedOn !== null && !/^\d{4}-\d{2}-\d{2}$/.test(assessedOn)) throw new Error('--date must be YYYY-MM-DD')
+      const position = values.position !== undefined ? Number(values.position) : 0
+      if (!Number.isInteger(position) || position < 0) throw new Error('--position must be a non-negative integer')
+      await one(db`
+        INSERT INTO security_report_files (report_id, label, environment, provider, assessed_on, filename, content_type, bytes, position)
+        SELECT s.id, ${label}, ${environment}, ${provider}, ${assessedOn}, ${filename}, ${contentType}, ${bytes}, ${position}
+        FROM security_reports s JOIN projects p ON p.id = s.project_id
+        WHERE p.slug = ${project} AND s.version = ${version}
+        ON CONFLICT (report_id, filename) DO UPDATE SET
+          label = EXCLUDED.label, environment = EXCLUDED.environment, provider = EXCLUDED.provider,
+          assessed_on = EXCLUDED.assessed_on, content_type = EXCLUDED.content_type, bytes = EXCLUDED.bytes,
+          position = EXCLUDED.position
+        RETURNING id
+      `, 'no such report (add the version first)')
+      console.log(`attached ${filename} (${bytes.length} bytes) to ${project}/${version}`)
+      return
+    }
+    case 'security:files': {
+      need(0)
+      console.table(await db`
+        SELECT f.id, p.slug AS project, s.version, f.label, f.environment, f.provider, f.assessed_on,
+          f.filename, f.content_type, octet_length(f.bytes) AS bytes
+        FROM security_report_files f
+        JOIN security_reports s ON s.id = f.report_id
+        JOIN projects p ON p.id = s.project_id
+        ORDER BY p.slug, s.assessed_at DESC, f.position, f.id
+      `)
+      return
+    }
+    case 'security:detach': {
+      const [id] = need(1)
+      await one(db`DELETE FROM security_report_files WHERE id = ${id} RETURNING id`, 'no such file')
+      console.log(`detached security report file ${id}`)
       return
     }
     case 'source:set': {

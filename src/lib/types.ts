@@ -357,6 +357,22 @@ export interface SecurityFinding {
   ref: SecurityLink | null
 }
 
+// A real, external test report attached to a release (ASSERT-71): a pentest or active scan, stored in
+// the DB and downloaded through a login-gated route. When a report has any of these, the page shows the
+// download link(s) and hides the generated body and counts.
+export interface SecurityReportFile {
+  id: string
+  label: string
+  // An optional environment badge ('prod'/'dev'), the testing provider, and the date on the report.
+  environment: string | null
+  provider: string | null
+  assessedOn: string | null
+  filename: string
+  contentType: string
+  // The login-gated download URL for this file.
+  href: string
+}
+
 export interface SecurityReport {
   version: string
   // A link to the assessed version (a commit), or null.
@@ -375,6 +391,8 @@ export interface SecurityReport {
   changes: SecurityLink[]
   // Reference links: version, CI run, check page, standards.
   links: SecurityLink[]
+  // Real external report files; when non-empty, they replace the generated body and counts.
+  files: SecurityReportFile[]
 }
 
 // How many open findings of each severity a report has, for the card and list badges.
@@ -394,6 +412,8 @@ export interface SecurityCard {
     assessedAt: string
     summary: string
     counts: SecurityCounts
+    // When the latest report has a real attached report, the card hides counts and says so.
+    hasReport: boolean
   }
   count: number
 }

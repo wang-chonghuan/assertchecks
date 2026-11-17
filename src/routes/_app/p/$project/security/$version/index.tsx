@@ -40,7 +40,9 @@ function SecurityReportPage() {
         </Typography.Title>
         <Flex align="center" gap={space.stack} wrap>
           <Button size="small" icon={<CopyOutlined />} onClick={copyLink}>Copy link</Button>
-          <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadReport(project, report)}>Download .md</Button>
+          {report.files.length === 0 && (
+            <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadReport(project, report)}>Download .md</Button>
+          )}
         </Flex>
       </Flex>
       <Card>

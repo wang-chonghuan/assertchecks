@@ -2,9 +2,9 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Button, Card, Descriptions, Flex, Modal, Table, Tag, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
-import { ExportOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
+import { DownloadOutlined, ExportOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
 import { SecuritySeverityTag, utc } from './status'
-import type { SecurityCard as SecurityCardData, SecurityFinding, SecurityReport } from '../lib/types'
+import type { SecurityCard as SecurityCardData, SecurityFinding, SecurityReport, SecurityReportFile } from '../lib/types'
 import { countsLine, groupByScanner, groupResult, reportFileName, reportMarkdown, securityCounts } from '../lib/security-report'
 import { SECURITY_TOOLS } from '../lib/security-tools'
 import { ASSERTCHECKS_STYLE, space, text } from '../infui/tokens'
@@ -74,25 +74,29 @@ export function SecurityCard({ project, security }: { project: string; security:
       style={{ height: '100%', cursor: 'pointer' }}
       styles={{ body: { paddingTop: space.inline } }}
       title={<Link to="/p/$project/security" params={{ project }}>security-live</Link>}
-      extra={<SecuritySeverityTag severity={latest.severity} />}
+      extra={latest.hasReport ? <Tag>Report</Tag> : <SecuritySeverityTag severity={latest.severity} />}
     >
       <Flex vertical gap={space.group}>
-        <Flex align="baseline" gap={space.stack} wrap>
-          <span style={{ ...text.heading1, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: open > 0 ? headlineColor : token.colorSuccess }}>
-            {open}
-          </span>
-          <Typography.Text style={text.lead}>{open === 1 ? 'open finding' : 'open findings'}</Typography.Text>
-          {open > 0 && (
-            <Typography.Text style={{ ...text.lead, color: text.caption.color }}>
-              · {countsLine(latest.counts)}
-            </Typography.Text>
-          )}
-        </Flex>
+        {latest.hasReport ? (
+          <Typography.Text style={text.lead}>Security test report available</Typography.Text>
+        ) : (
+          <Flex align="baseline" gap={space.stack} wrap>
+            <span style={{ ...text.heading1, lineHeight: ASSERTCHECKS_STYLE.lineHeightSingle, color: open > 0 ? headlineColor : token.colorSuccess }}>
+              {open}
+            </span>
+            <Typography.Text style={text.lead}>{open === 1 ? 'open finding' : 'open findings'}</Typography.Text>
+            {open > 0 && (
+              <Typography.Text style={{ ...text.lead, color: text.caption.color }}>
+                · {countsLine(latest.counts)}
+              </Typography.Text>
+            )}
+          </Flex>
+        )}
         <Flex align="center" gap={space.stack} wrap>
           <Typography.Text style={text.caption}>Latest</Typography.Text>
           <Typography.Text style={text.code}>{latest.version.slice(0, 12)}</Typography.Text>
         </Flex>
-        <Typography.Text style={text.body}>{latest.summary}</Typography.Text>
+        {!latest.hasReport && <Typography.Text style={text.body}>{latest.summary}</Typography.Text>}
         <Flex
           align="center"
           gap={space.inline}
@@ -141,7 +145,33 @@ interface ToolRow { key: string; name: string; version: string; coverage: string
 
 // One report in full for its own page (ASSERT-68): the metadata, a per-scanner tools table and the
 // findings grouped by scanner — the same content as the Markdown download, rendered natively.
+// The real report files (ASSERT-71): each a login-gated download with its label, provider, environment
+// and date. Shown in place of the generated body when a report has attached files.
+function ReportDownloads({ files }: { files: SecurityReportFile[] }) {
+  return (
+    <Flex vertical gap={space.group}>
+      <Typography.Text style={text.label}>Reports</Typography.Text>
+      {files.map((file) => (
+        <Flex key={file.id} vertical gap={space.inline}>
+          <Flex align="center" gap={space.stack} wrap>
+            <Button size="small" icon={<DownloadOutlined />} href={file.href} download={file.filename}>
+              {file.label}
+            </Button>
+            {file.environment && <Tag>{file.environment}</Tag>}
+          </Flex>
+          {(file.provider || file.assessedOn) && (
+            <Typography.Text style={text.caption}>
+              {[file.provider, file.assessedOn].filter(Boolean).join(' · ')}
+            </Typography.Text>
+          )}
+        </Flex>
+      ))}
+    </Flex>
+  )
+}
+
 export function SecurityReportBody({ project, report }: { project: { name: string; slug: string }; report: SecurityReport }) {
+  const hasReport = report.files.length > 0
   const groups = groupByScanner(report.findings)
   const counts = securityCounts(report.findings)
   const open = counts.critical + counts.high + counts.medium + counts.low
@@ -175,64 +205,71 @@ export function SecurityReportBody({ project, report }: { project: { name: strin
             : []),
           { key: 'env', label: 'Environment', children: <Typography.Text style={text.body}>{report.environment}</Typography.Text> },
           { key: 'assessed', label: 'Assessed', children: <Typography.Text style={text.body}>{utc(report.assessedAt)}</Typography.Text> },
-          {
-            key: 'result',
-            label: 'Result',
-            children: (
-              <Flex align="center" gap={space.stack} wrap>
-                <SecuritySeverityTag severity={report.severity} />
-                <Typography.Text style={text.caption}>{countsLine(securityCounts(report.findings))}</Typography.Text>
-              </Flex>
-            ),
-          },
+          ...(hasReport
+            ? []
+            : [{
+                key: 'result',
+                label: 'Result',
+                children: (
+                  <Flex align="center" gap={space.stack} wrap>
+                    <SecuritySeverityTag severity={report.severity} />
+                    <Typography.Text style={text.caption}>{countsLine(securityCounts(report.findings))}</Typography.Text>
+                  </Flex>
+                ),
+              }]),
         ]}
       />
-      <Flex vertical gap={space.stack}>
-        <Typography.Text style={text.label}>Summary</Typography.Text>
-        <Typography.Text style={text.body}>{report.summary}</Typography.Text>
-      </Flex>
-      <Flex vertical gap={space.stack}>
-        <Typography.Text style={text.label}>Scope &amp; methodology</Typography.Text>
-        <Typography.Text style={text.body}>
-          This assessment covers the {report.environment} release {report.version} of {project.name}, across
-          its web app and API. Security checks run automatically in CI on each release: dependency and
-          container analysis, static code analysis, secret scanning, and a dynamic scan of the deployed URL.
-          Findings are rated by severity and mapped to OWASP ASVS and the OWASP Top 10. This is an automated
-          release assessment, not a full manual penetration test.
-        </Typography.Text>
-      </Flex>
-      <Flex vertical gap={space.stack}>
-        <Typography.Text style={text.label}>Tools</Typography.Text>
-        <Table rowKey="key" size="small" pagination={false} scroll={{ x: 'max-content' }} columns={toolColumns} dataSource={toolRows} />
-      </Flex>
-      <Flex vertical gap={space.block}>
-        <Typography.Text style={text.label}>Findings by scanner</Typography.Text>
-        {groups.map(({ tool, findings }) => (
-          <Flex key={tool.name} vertical gap={space.stack}>
-            <Typography.Text style={text.body}>{tool.name} {tool.version} — {tool.category}</Typography.Text>
-            {findings.length
-              ? findings.map((f) => <Finding key={f.id} finding={f} />)
-              : <Typography.Text style={text.caption}>No findings.</Typography.Text>}
+      {hasReport && <ReportDownloads files={report.files} />}
+      {!hasReport && (
+        <>
+          <Flex vertical gap={space.stack}>
+            <Typography.Text style={text.label}>Summary</Typography.Text>
+            <Typography.Text style={text.body}>{report.summary}</Typography.Text>
           </Flex>
-        ))}
-      </Flex>
-      <Flex vertical gap={space.stack}>
-        <Typography.Text style={text.label}>Remediation</Typography.Text>
-        <Typography.Text style={text.body}>
-          {open > 0
-            ? `${open} open observation${open === 1 ? '' : 's'}, each with its impact and recommendation above. Fold the header and configuration fixes into an upcoming release and keep any dependency advisories under watch; re-scan on the next release.`
-            : 'No open findings in scope; continue the per-release scans.'}
-        </Typography.Text>
-      </Flex>
-      <Flex vertical gap={space.stack}>
-        <Typography.Text style={text.label}>Standards</Typography.Text>
-        <Typography.Link href="https://owasp.org/www-project-application-security-verification-standard/" target="_blank" rel="noreferrer">
-          OWASP ASVS <ExportOutlined />
-        </Typography.Link>
-        <Typography.Link href="https://owasp.org/www-project-top-ten/" target="_blank" rel="noreferrer">
-          OWASP Top 10 <ExportOutlined />
-        </Typography.Link>
-      </Flex>
+          <Flex vertical gap={space.stack}>
+            <Typography.Text style={text.label}>Scope &amp; methodology</Typography.Text>
+            <Typography.Text style={text.body}>
+              This assessment covers the {report.environment} release {report.version} of {project.name}, across
+              its web app and API. Security checks run automatically in CI on each release: dependency and
+              container analysis, static code analysis, secret scanning, and a dynamic scan of the deployed URL.
+              Findings are rated by severity and mapped to OWASP ASVS and the OWASP Top 10. This is an automated
+              release assessment, not a full manual penetration test.
+            </Typography.Text>
+          </Flex>
+          <Flex vertical gap={space.stack}>
+            <Typography.Text style={text.label}>Tools</Typography.Text>
+            <Table rowKey="key" size="small" pagination={false} scroll={{ x: 'max-content' }} columns={toolColumns} dataSource={toolRows} />
+          </Flex>
+          <Flex vertical gap={space.block}>
+            <Typography.Text style={text.label}>Findings by scanner</Typography.Text>
+            {groups.map(({ tool, findings }) => (
+              <Flex key={tool.name} vertical gap={space.stack}>
+                <Typography.Text style={text.body}>{tool.name} {tool.version} — {tool.category}</Typography.Text>
+                {findings.length
+                  ? findings.map((f) => <Finding key={f.id} finding={f} />)
+                  : <Typography.Text style={text.caption}>No findings.</Typography.Text>}
+              </Flex>
+            ))}
+          </Flex>
+          <Flex vertical gap={space.stack}>
+            <Typography.Text style={text.label}>Remediation</Typography.Text>
+            <Typography.Text style={text.body}>
+              {open > 0
+                ? `${open} open observation${open === 1 ? '' : 's'}, each with its impact and recommendation above. Fold the header and configuration fixes into an upcoming release and keep any dependency advisories under watch; re-scan on the next release.`
+                : 'No open findings in scope; continue the per-release scans.'}
+            </Typography.Text>
+          </Flex>
+          <Flex vertical gap={space.stack}>
+            <Typography.Text style={text.label}>Standards</Typography.Text>
+            <Typography.Link href="https://owasp.org/www-project-application-security-verification-standard/" target="_blank" rel="noreferrer">
+              OWASP ASVS <ExportOutlined />
+            </Typography.Link>
+            <Typography.Link href="https://owasp.org/www-project-top-ten/" target="_blank" rel="noreferrer">
+              OWASP Top 10 <ExportOutlined />
+            </Typography.Link>
+          </Flex>
+        </>
+      )}
       {report.links.length > 0 && (
         <Flex vertical gap={space.stack}>
           <Typography.Text style={text.label}>Links</Typography.Text>
