@@ -1,0 +1,10 @@
+{
+  "ticket": "ASSERT-74",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "auto-merge",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-74",
+  "branch": "ASSERT-74-show-prod-cards",
+  "base": "a2461a44fc6ddfbda600ac7b81b8d22e9f4f88a0",
+  "ports": {}
+}
