@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-72",
   "mode": "autonomous",
-  "stage": "handoff-ready",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-72",
   "branch": "ASSERT-72-ticket-case-upkeep",
