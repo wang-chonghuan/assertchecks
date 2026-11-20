@@ -1,7 +1,7 @@
 {
   "ticket": "ASSERT-73",
   "mode": "autonomous",
-  "stage": "developing",
+  "stage": "handed-off",
   "finish": "review",
   "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-73",
   "branch": "ASSERT-73-rerun-changed-cases",
