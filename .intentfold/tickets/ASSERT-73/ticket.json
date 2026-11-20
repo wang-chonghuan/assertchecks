@@ -1,0 +1,13 @@
+{
+  "ticket": "ASSERT-73",
+  "mode": "autonomous",
+  "stage": "handed-off",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-73",
+  "branch": "ASSERT-73-rerun-changed-cases",
+  "base": "2418ac9344efc3fbf341b3fe92b1130b2475be66",
+  "skill_worktree": "/Users/yong/.skillhost/user_repos/narrative-skills--ASSERT-73",
+  "skill_branch": "ASSERT-73-rerun-changed-cases",
+  "skill_base": "bd1a13a635d8eceaad5a734c9e333e40dd904b25",
+  "ports": {}
+}
