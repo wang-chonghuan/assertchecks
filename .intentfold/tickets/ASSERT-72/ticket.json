@@ -1,0 +1,13 @@
+{
+  "ticket": "ASSERT-72",
+  "mode": "autonomous",
+  "stage": "handoff-ready",
+  "finish": "review",
+  "worktree": "/Users/yong/work/assertchecks-ws/assertchecks--ASSERT-72",
+  "branch": "ASSERT-72-ticket-case-upkeep",
+  "base": "fa0ca362aa630d46af80c1cb8be5060de26b2c70",
+  "skill_worktree": "/Users/yong/.skillhost/user_repos/narrative-skills--ASSERT-72",
+  "skill_branch": "ASSERT-72-ticket-case-upkeep",
+  "skill_base": "e6ed01f98aeaca00e57c75b22f08f7b362948876",
+  "ports": {}
+}
